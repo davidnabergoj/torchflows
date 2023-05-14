@@ -8,6 +8,6 @@ class Affine(Transformer):
         super().__init__()
 
     def forward(self, x: torch.Tensor, h: torch.Tensor):
-        alpha = h[..., 0]
+        alpha = torch.exp(h[..., 0])
         beta = h[..., 1]
         return alpha * x + beta

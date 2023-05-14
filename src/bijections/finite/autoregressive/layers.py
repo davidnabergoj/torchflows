@@ -11,10 +11,13 @@ from src.bijections.finite.base import Bijection
 class AffineCoupling(Bijection):
     def __init__(self, n_dim, constant_dims, conditioner_transform: nn.Module):
         super().__init__()
+        default_log_scale = 0.0
+        default_shift = 0.0
+
         self.transformer = Affine()
         self.conditioner = Coupling(
             transform=conditioner_transform,
-            constants=torch.tensor([1.0, 0.0]),
+            constants=torch.tensor([default_log_scale, default_shift]),
             constant_dims=constant_dims,
             n_dim=n_dim
         )
@@ -23,7 +26,7 @@ class AffineCoupling(Bijection):
         h = self.conditioner(x)
         z = self.transformer(x, h)
 
-        log_scale = torch.log(h[:, 0])
+        log_scale = h[..., 0]
         log_det = torch.sum(log_scale, dim=-1)
         return z, log_det
 
@@ -31,7 +34,7 @@ class AffineCoupling(Bijection):
         h = self.conditioner(z)
         x = self.transformer(z, h)
 
-        log_scale = torch.log(h[:, 0])
+        log_scale = h[..., 0]
         log_det = -torch.sum(log_scale, dim=-1)
         return x, log_det
 
