@@ -32,11 +32,35 @@ class AffineCoupling(Bijection):
 
     def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
         h = self.conditioner(z)
-        x = self.transformer(z, h)
+        x = self.transformer.inverse(z, h)
 
         log_scale = h[..., 0]
         log_det = -torch.sum(log_scale, dim=-1)
         return x, log_det
+
+
+class LinearAffineCoupling(AffineCoupling):
+    def __init__(self, n_dim: int):
+        assert n_dim >= 2
+
+        n_transformer_parameters = 2
+
+        # Set up the input and output dimensions
+        constant_dims = torch.arange(n_dim // 2)
+        n_constant_dims = len(constant_dims)
+        n_transformed_dims = n_dim - n_constant_dims
+
+        # Create the linear conditioner
+        lin_cond = nn.Sequential(
+            nn.Linear(n_constant_dims, n_transformed_dims * n_transformer_parameters),
+            nn.Unflatten(dim=1, unflattened_size=(n_transformed_dims, n_transformer_parameters))
+        )
+
+        super().__init__(
+            n_dim=n_dim,
+            constant_dims=constant_dims,
+            conditioner_transform=lin_cond
+        )
 
 
 class FeedForwardAffineCoupling(AffineCoupling):

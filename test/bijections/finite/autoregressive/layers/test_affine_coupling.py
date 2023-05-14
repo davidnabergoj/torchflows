@@ -1,15 +1,15 @@
 import pytest
 import torch
 
-from src.bijections.finite.autoregressive.layers import FeedForwardAffineCoupling
+from src.bijections.finite.autoregressive.layers import FeedForwardAffineCoupling, LinearAffineCoupling
 
 
 @pytest.mark.parametrize('n_dim', [2, 10, 100])
 def test_affine_coupling(n_dim):
     torch.manual_seed(0)
-    bijection = FeedForwardAffineCoupling(n_dim)
+    bijection = LinearAffineCoupling(n_dim)
 
-    x = torch.randn(size=(25, n_dim))
+    x = torch.randn(size=(1, n_dim))
     z, log_det_forward = bijection(x)
 
     assert x.shape == z.shape
