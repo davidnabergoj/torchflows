@@ -4,12 +4,21 @@ import torch
 from src.bijections.finite.autoregressive.layers import FeedForwardAffineCoupling, LinearAffineCoupling
 
 
-@pytest.mark.parametrize('n_dim', [2, 10, 100])
-def test_affine_coupling(n_dim):
+@pytest.mark.parametrize('layer_class', [FeedForwardAffineCoupling, LinearAffineCoupling])
+def test_affine_coupling_too_few_dimensions(layer_class):
     torch.manual_seed(0)
-    bijection = LinearAffineCoupling(n_dim)
+    n_dim = 1
+    with pytest.raises(AssertionError):
+        bijection = layer_class(n_dim)
 
-    x = torch.randn(size=(1, n_dim))
+
+@pytest.mark.parametrize('n_dim', [2, 10, 100, 1000])
+@pytest.mark.parametrize('layer_class', [FeedForwardAffineCoupling, LinearAffineCoupling])
+def test_affine_coupling(n_dim, layer_class):
+    torch.manual_seed(0)
+    bijection = layer_class(n_dim)
+
+    x = torch.randn(size=(25, n_dim))
     z, log_det_forward = bijection(x)
 
     assert x.shape == z.shape
