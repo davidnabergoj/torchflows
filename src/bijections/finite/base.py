@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 
@@ -31,3 +31,25 @@ class Bijection(nn.Module):
         :return:
         """
         raise NotImplementedError
+
+
+class BijectiveComposition(Bijection):
+    def __init__(self, layers: List[Bijection]):
+        super().__init__()
+        self.layers = nn.ModuleList(layers)
+
+    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
+        log_det = torch.zeros(x.shape[0], )
+        for layer in self.layers:
+            x, log_det_layer = layer(x)
+            log_det += log_det_layer
+        z = x
+        return z, log_det
+
+    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
+        log_det = torch.zeros(z.shape[0], )
+        for layer in self.layers[::-1]:
+            z, log_det_layer = layer.inverse(z)
+            log_det += log_det_layer
+        x = z
+        return x, log_det

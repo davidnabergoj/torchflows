@@ -34,7 +34,7 @@ class AffineCoupling(Bijection):
 
 
 class LinearAffineCoupling(AffineCoupling):
-    def __init__(self, n_dim: int):
+    def __init__(self, n_dim: int, **kwargs):
         assert n_dim >= 2
 
         n_transformer_parameters = 2
@@ -53,12 +53,13 @@ class LinearAffineCoupling(AffineCoupling):
         super().__init__(
             n_dim=n_dim,
             constant_dims=constant_dims,
-            conditioner_transform=lin_cond
+            conditioner_transform=lin_cond,
+            **kwargs
         )
 
 
 class FeedForwardAffineCoupling(AffineCoupling):
-    def __init__(self, n_dim: int, n_hidden: int = 100, n_layers: int = 4):
+    def __init__(self, n_dim: int, n_hidden: int = 100, n_layers: int = 4, **kwargs):
         assert n_dim >= 2
 
         n_transformer_parameters = 2
@@ -79,5 +80,6 @@ class FeedForwardAffineCoupling(AffineCoupling):
         super().__init__(
             n_dim=n_dim,
             constant_dims=constant_dims,
-            conditioner_transform=network
+            conditioner_transform=network,
+            **kwargs
         )
