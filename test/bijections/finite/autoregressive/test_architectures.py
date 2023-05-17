@@ -1,13 +1,14 @@
 import pytest
 import torch
 
-from src.bijections.finite.autoregressive.architectures import RealNVP
+from src.bijections.finite.autoregressive.architectures import RealNVP, MAF
 
 
 @pytest.mark.parametrize('n_dim', [2, 10, 100, 1000])
-def test_real_nvp(n_dim):
+@pytest.mark.parametrize('architecture_class', [RealNVP, MAF])
+def test_architecture(n_dim, architecture_class):
     torch.manual_seed(0)
-    bijection = RealNVP(n_dim)
+    bijection = architecture_class(n_dim)
 
     x = torch.randn(size=(125, n_dim))
     z, log_det_forward = bijection(x)

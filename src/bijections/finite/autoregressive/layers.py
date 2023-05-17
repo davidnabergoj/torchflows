@@ -91,8 +91,23 @@ class AffineMaskedAutoregressive(Bijection):
         self.transformer = Affine(scale_transform=scale_transform)
         self.conditioner = MaskedAutoregressive(transform=conditioner_transform, n_dim=n_dim)
 
+    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.conditioner(x)
+        z, log_det = self.transformer(x, h)
+        return z, log_det
+
+    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.conditioner(z)
+        x, log_det = self.transformer.inverse(z, h)
+        return x, log_det
+
 
 class MADEAffineMaskedAutoregressive(AffineMaskedAutoregressive):
     def __init__(self, n_dim: int, **kwargs):
-        conditioner_transform = MADE(**kwargs)
+        n_transformer_parameters = 2
+        conditioner_transform = MADE(
+            n_input_dims=n_dim,
+            n_output_dims=n_dim,
+            n_output_parameters=n_transformer_parameters,
+            **kwargs)
         super().__init__(n_dim, conditioner_transform)
