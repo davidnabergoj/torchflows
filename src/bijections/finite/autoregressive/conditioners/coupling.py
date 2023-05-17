@@ -1,5 +1,3 @@
-from typing import Dict
-
 import torch
 import torch.nn as nn
 
