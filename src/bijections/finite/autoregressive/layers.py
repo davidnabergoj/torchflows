@@ -3,7 +3,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 
-from src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward, Linear
+from src.bijections.finite.autoregressive.conditioner_transforms import DeepMADE, FeedForward, Linear
 from src.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from src.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from src.bijections.finite.autoregressive.transformers.affine import Affine
@@ -97,15 +97,19 @@ class AffineMaskedAutoregressive(Bijection):
         return z, log_det
 
     def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(z)
-        x, log_det = self.transformer.inverse(z, h)
+        x = torch.zeros_like(z)
+        log_det = torch.zeros(size=(x.shape[0],))
+        for i in self.conditioner.transform.input_degrees:
+            h = self.conditioner(z)
+            tmp, log_det = self.transformer.inverse(z, h)
+            z[:, i] = tmp[:, i]
         return x, log_det
 
 
 class MADEAffineMaskedAutoregressive(AffineMaskedAutoregressive):
     def __init__(self, n_dim: int, **kwargs):
         n_transformer_parameters = 2
-        conditioner_transform = MADE(
+        conditioner_transform = DeepMADE(
             n_input_dims=n_dim,
             n_output_dims=n_dim,
             n_output_parameters=n_transformer_parameters,
