@@ -97,12 +97,12 @@ class AffineMaskedAutoregressive(Bijection):
         return z, log_det
 
     def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
-        x = torch.zeros_like(z)
-        log_det = torch.zeros(size=(x.shape[0],))
-        for i in self.conditioner.transform.input_degrees:
+        log_det = torch.zeros(size=(z.shape[0],))
+        for i in torch.arange(z.shape[-1]):
             h = self.conditioner(z)
             tmp, log_det = self.transformer.inverse(z, h)
             z[:, i] = tmp[:, i]
+        x = z
         return x, log_det
 
 

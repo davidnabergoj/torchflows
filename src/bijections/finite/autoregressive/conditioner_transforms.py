@@ -18,9 +18,9 @@ class DeepMADE(nn.Sequential):
                      n_hidden: int,
                      n_layers: int):
         ms = [
-            torch.randint(low=1, high=n_dim, size=(n_inputs,)),
-            *[torch.randint(low=1, high=n_dim, size=(n_hidden,)) for _ in range(n_layers - 1)],
-            torch.randint(low=1, high=n_dim, size=(n_outputs,)),
+            torch.arange(n_inputs) + 1,
+            *[(torch.arange(n_hidden) % (n_dim - 1)) + 1 for _ in range(n_layers - 1)],
+            torch.arange(n_outputs) + 1
         ]
 
         masks = []
@@ -30,7 +30,7 @@ class DeepMADE(nn.Sequential):
             xx, yy = torch.meshgrid(m_current, m_previous)
             masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
 
-        return masks, ms[0]
+        return masks
 
     def __init__(self,
                  n_input_dims: int,
@@ -38,7 +38,7 @@ class DeepMADE(nn.Sequential):
                  n_output_parameters: int,
                  n_hidden: int = 100,
                  n_layers: int = 4):
-        masks, self.input_degrees = self.create_masks(
+        masks = self.create_masks(
             n_inputs=n_input_dims,
             n_hidden=n_hidden,
             n_layers=n_layers,
