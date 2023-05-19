@@ -7,6 +7,7 @@ from src.bijections.finite.autoregressive.conditioner_transforms import DeepMADE
 from src.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from src.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from src.bijections.finite.autoregressive.transformers.affine import Affine
+from src.bijections.finite.autoregressive.transformers.base import Transformer
 from src.bijections.finite.base import Bijection
 
 
@@ -85,10 +86,10 @@ class FeedForwardAffineCoupling(AffineCoupling):
         )
 
 
-class AffineMaskedAutoregressive(Bijection):
-    def __init__(self, n_dim: int, conditioner_transform: nn.Module, scale_transform: callable = torch.exp):
+class ForwardMaskedAutoregressive(Bijection):
+    def __init__(self, n_dim: int, conditioner_transform: nn.Module, transformer: Transformer):
         super().__init__()
-        self.transformer = Affine(scale_transform=scale_transform)
+        self.transformer = transformer
         self.conditioner = MaskedAutoregressive(transform=conditioner_transform, n_dim=n_dim)
 
     def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -106,12 +107,12 @@ class AffineMaskedAutoregressive(Bijection):
         return x, log_det
 
 
-class MADEAffineMaskedAutoregressive(AffineMaskedAutoregressive):
-    def __init__(self, n_dim: int, **kwargs):
-        n_transformer_parameters = 2
+class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):
+    def __init__(self, n_dim: int, scale_transform: callable = torch.exp, **kwargs):
+        transformer = Affine(scale_transform=scale_transform)
         conditioner_transform = DeepMADE(
             n_input_dims=n_dim,
             n_output_dims=n_dim,
-            n_output_parameters=n_transformer_parameters,
+            n_output_parameters=2,
             **kwargs)
-        super().__init__(n_dim, conditioner_transform)
+        super().__init__(n_dim, conditioner_transform, transformer)
