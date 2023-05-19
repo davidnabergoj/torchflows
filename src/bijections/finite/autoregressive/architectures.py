@@ -1,10 +1,19 @@
 from src.bijections.finite.autoregressive.layers import (
+    FeedForwardShiftCoupling,
     FeedForwardAffineCoupling,
     AffineForwardMaskedAutoregressive,
     AffineInverseMaskedAutoregressive
 )
 from src.bijections.finite.base import BijectiveComposition
 from src.bijections.finite.linear.permutation import Permutation
+
+
+class NICE(BijectiveComposition):
+    def __init__(self, n_dim: int, n_layers: int = 10):
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([Permutation(n_dim), FeedForwardShiftCoupling(n_dim)])
+        super().__init__(bijections)
 
 
 class RealNVP(BijectiveComposition):
