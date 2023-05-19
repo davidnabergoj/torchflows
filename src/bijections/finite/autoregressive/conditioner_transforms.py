@@ -11,40 +11,31 @@ class MADE(nn.Sequential):
         def forward(self, x):
             return nn.functional.linear(x, self.weight * self.mask, self.bias)
 
-    @staticmethod
-    def create_masks(n_inputs: int,
-                     n_outputs: int,
-                     n_dim: int,
-                     n_hidden: int,
-                     n_layers: int):
-        ms = [
-            torch.arange(n_inputs) + 1,
-            *[(torch.arange(n_hidden) % (n_dim - 1)) + 1 for _ in range(n_layers - 1)],
-            torch.arange(n_outputs) + 1
-        ]
-
-        masks = []
-        for i in range(1, n_layers + 1):
-            m_current = ms[i]
-            m_previous = ms[i - 1]
-            xx, yy = torch.meshgrid(m_current, m_previous)
-            masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
-
-        return masks
-
     def __init__(self,
                  n_input_dims: int,
                  n_output_dims: int,
                  n_output_parameters: int,
                  n_hidden: int = 100,
                  n_layers: int = 4):
-        masks = self.create_masks(
-            n_inputs=n_input_dims,
-            n_hidden=n_hidden,
-            n_layers=n_layers,
-            n_outputs=n_output_dims,
-            n_dim=n_input_dims
-        )
+
+        # Set conditional dimension values
+        ms = [
+            torch.arange(n_input_dims) + 1,
+            *[(torch.arange(n_hidden) % (n_input_dims - 1)) + 1 for _ in range(n_layers - 1)],
+            torch.arange(n_output_dims) + 1
+        ]
+
+        # Create autoencoder masks
+        masks = []
+        for i in range(1, n_layers + 1):
+            m_current = ms[i]
+            m_previous = ms[i - 1]
+            xx, yy = torch.meshgrid(m_current, m_previous)
+            if i == n_layers:
+                masks.append(torch.as_tensor(xx > yy, dtype=torch.float))
+            else:
+                masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
+
         layers = [self.MaskedLinear(n_input_dims, n_hidden, masks[0]), nn.Sigmoid()]
         for i in range(1, n_layers - 1):
             layers.extend([self.MaskedLinear(n_hidden, n_hidden, masks[i]), nn.Sigmoid()])

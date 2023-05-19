@@ -5,7 +5,7 @@ from src.bijections.finite.autoregressive.architectures import NICE, RealNVP, MA
 
 
 @pytest.mark.parametrize('architecture_class', [NICE, RealNVP, MAF, IAF])
-@pytest.mark.parametrize('n_dim', [2, 10, 100])
+@pytest.mark.parametrize('n_dim', [2, 3, 10, 100])
 def test_architecture(architecture_class, n_dim):
     # MAF reconstruction errors are larger with fewer input dimensions
     torch.manual_seed(0)
