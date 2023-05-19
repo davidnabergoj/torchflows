@@ -39,7 +39,7 @@ class MADE(nn.Sequential):
         layers = []
         for mask in masks[:-1]:
             n_layer_outputs, n_layer_inputs = mask.shape
-            layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Sigmoid()])
+            layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.ReLU()])
 
         # Final linear layer
         layers.extend([
