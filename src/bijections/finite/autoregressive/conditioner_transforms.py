@@ -42,15 +42,20 @@ class MADE(nn.Sequential):
             layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Sigmoid()])
 
         # Final linear layer
-        layers.append(
+        layers.extend([
             self.MaskedLinear(
-                n_hidden,
-                n_output_dims * n_output_parameters,
+                masks[-1].shape[1],
+                masks[-1].shape[0] * n_output_parameters,
                 masks[-1].repeat(n_output_parameters, 1)
-            )
-        )
-        layers.append(nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters)))
+            ),
+            nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
+        ])
         super().__init__(*layers)
+
+
+class LinearMADE(MADE):
+    def __init__(self, n_input_dims: int, n_output_dims: int, n_output_parameters: int, **kwargs):
+        super().__init__(n_input_dims, n_output_dims, n_output_parameters, n_layers=1, **kwargs)
 
 
 class FeedForward(nn.Sequential):
