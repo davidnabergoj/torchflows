@@ -8,6 +8,7 @@ from src.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from src.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from src.bijections.finite.autoregressive.transformers.affine import Affine, Shift
 from src.bijections.finite.autoregressive.transformers.base import Transformer
+from src.bijections.finite.autoregressive.transformers.spline import RationalQuadraticSpline
 from src.bijections.finite.base import Bijection
 
 
@@ -58,6 +59,31 @@ class ShiftCoupling(CouplingBijection):
         )
 
 
+class RationalQuadraticSplineCoupling(CouplingBijection):
+    def __init__(self,
+                 n_dim,
+                 n_bins: int,
+                 constant_dims,
+                 conditioner_transform: nn.Module,
+                 **kwargs):
+        assert n_bins >= 2
+        default_unconstrained_widths = torch.zeros(n_bins)
+        default_unconstrained_heights = torch.zeros(n_bins)
+        default_unconstrained_derivatives = torch.zeros(n_bins - 1) - 5.0
+        constants = torch.cat([
+            default_unconstrained_widths,
+            default_unconstrained_heights,
+            default_unconstrained_derivatives
+        ])
+        super().__init__(
+            n_dim=n_dim,
+            constant_dims=constant_dims,
+            constants=constants,
+            conditioner_transform=conditioner_transform,
+            transformer=RationalQuadraticSpline(n_bins=n_bins, **kwargs)
+        )
+
+
 class LinearAffineCoupling(AffineCoupling):
     def __init__(self, n_dim: int, **kwargs):
         assert n_dim >= 2
@@ -77,6 +103,29 @@ class LinearAffineCoupling(AffineCoupling):
 
         super().__init__(
             n_dim=n_dim,
+            constant_dims=constant_dims,
+            conditioner_transform=lin_cond,
+            **kwargs
+        )
+
+
+class LinearRationalQuadraticSplineCoupling(RationalQuadraticSplineCoupling):
+    def __init__(self, n_dim, n_bins: int = 8, **kwargs):
+        # Set up the input and output dimensions
+        n_transformer_parameters = 3 * n_bins - 1
+        constant_dims = torch.arange(n_dim // 2)
+        n_constant_dims = len(constant_dims)
+        n_transformed_dims = n_dim - n_constant_dims
+
+        # Create the linear conditioner transform
+        lin_cond = Linear(
+            n_input_dims=n_constant_dims,
+            n_output_dims=n_transformed_dims,
+            n_output_parameters=n_transformer_parameters
+        )
+        super().__init__(
+            n_dim=n_dim,
+            n_bins=n_bins,
             constant_dims=constant_dims,
             conditioner_transform=lin_cond,
             **kwargs
@@ -128,6 +177,31 @@ class FeedForwardAffineCoupling(AffineCoupling):
 
         super().__init__(
             n_dim=n_dim,
+            constant_dims=constant_dims,
+            conditioner_transform=network,
+            **kwargs
+        )
+
+
+class FeedForwardRationalQuadraticSplineCoupling(RationalQuadraticSplineCoupling):
+    def __init__(self, n_dim, n_bins: int = 8, **kwargs):
+        # Set up the input and output dimensions
+        n_transformer_parameters = 3 * n_bins - 1
+        constant_dims = torch.arange(n_dim // 2)
+        n_constant_dims = len(constant_dims)
+        n_transformed_dims = n_dim - n_constant_dims
+
+        # Create the linear conditioner transform
+        network = FeedForward(
+            n_input_dims=n_constant_dims,
+            n_output_dims=n_transformed_dims,
+            n_output_parameters=n_transformer_parameters,
+            **kwargs
+        )
+
+        super().__init__(
+            n_dim=n_dim,
+            n_bins=n_bins,
             constant_dims=constant_dims,
             conditioner_transform=network,
             **kwargs
