@@ -36,13 +36,18 @@ class MADE(nn.Sequential):
             else:
                 masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
 
-        layers = [self.MaskedLinear(n_input_dims, n_hidden, masks[0]), nn.Sigmoid()]
-        for i in range(1, n_layers - 1):
-            layers.extend([self.MaskedLinear(n_hidden, n_hidden, masks[i]), nn.Sigmoid()])
-        layers.append(self.MaskedLinear(
-            n_hidden,
-            n_output_dims * n_output_parameters,
-            masks[-1].repeat(n_output_parameters, 1))
+        layers = []
+        for mask in masks[:-1]:
+            n_layer_outputs, n_layer_inputs = mask.shape
+            layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Sigmoid()])
+
+        # Final linear layer
+        layers.append(
+            self.MaskedLinear(
+                n_hidden,
+                n_output_dims * n_output_parameters,
+                masks[-1].repeat(n_output_parameters, 1)
+            )
         )
         layers.append(nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters)))
         super().__init__(*layers)
