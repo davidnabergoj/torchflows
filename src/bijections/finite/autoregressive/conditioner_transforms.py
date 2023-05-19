@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class DeepMADE(nn.Sequential):
+class MADE(nn.Sequential):
     class MaskedLinear(nn.Linear):
         def __init__(self, in_features: int, out_features: int, mask: torch.Tensor):
             super().__init__(in_features=in_features, out_features=out_features)
@@ -45,10 +45,10 @@ class DeepMADE(nn.Sequential):
             n_outputs=n_output_dims,
             n_dim=n_input_dims
         )
-        layers = [DeepMADE.MaskedLinear(n_input_dims, n_hidden, masks[0]), nn.Sigmoid()]
+        layers = [self.MaskedLinear(n_input_dims, n_hidden, masks[0]), nn.Sigmoid()]
         for i in range(1, n_layers - 1):
-            layers.extend([DeepMADE.MaskedLinear(n_hidden, n_hidden, masks[i]), nn.Sigmoid()])
-        layers.append(DeepMADE.MaskedLinear(
+            layers.extend([self.MaskedLinear(n_hidden, n_hidden, masks[i]), nn.Sigmoid()])
+        layers.append(self.MaskedLinear(
             n_hidden,
             n_output_dims * n_output_parameters,
             masks[-1].repeat(n_output_parameters, 1))
