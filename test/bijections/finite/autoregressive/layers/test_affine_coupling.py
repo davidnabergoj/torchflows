@@ -18,7 +18,7 @@ def test_affine_coupling(n_dim, layer_class):
     torch.manual_seed(0)
     bijection = layer_class(n_dim)
 
-    x = torch.randn(size=(25, n_dim))
+    x = torch.randn(size=(125, n_dim))
     z, log_det_forward = bijection(x)
 
     assert x.shape == z.shape
@@ -30,4 +30,4 @@ def test_affine_coupling(n_dim, layer_class):
     assert log_det_inverse.shape == (x.shape[0],)
 
     assert torch.allclose(log_det_forward, -log_det_inverse)
-    assert torch.allclose(x, x_reconstructed, atol=1e-2)
+    assert torch.allclose(x, x_reconstructed, atol=1e-5)
