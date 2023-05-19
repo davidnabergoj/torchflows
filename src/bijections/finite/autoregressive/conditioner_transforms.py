@@ -46,7 +46,7 @@ class MADE(nn.Sequential):
             self.MaskedLinear(
                 masks[-1].shape[1],
                 masks[-1].shape[0] * n_output_parameters,
-                masks[-1].repeat(n_output_parameters, 1)
+                torch.repeat_interleave(masks[-1], n_output_parameters, dim=0)
             ),
             nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
         ])
