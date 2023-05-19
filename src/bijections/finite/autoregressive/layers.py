@@ -107,7 +107,30 @@ class ForwardMaskedAutoregressive(Bijection):
         return x, log_det
 
 
+class InverseMaskedAutoregressive(Bijection):
+    def __init__(self, n_dim: int, conditioner_transform: nn.Module, transformer: Transformer):
+        super().__init__()
+        self.forward_masked_autoregressive = ForwardMaskedAutoregressive(n_dim, conditioner_transform, transformer)
+
+    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.forward_masked_autoregressive.inverse(x)
+
+    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.forward_masked_autoregressive.forward(z)
+
+
 class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):
+    def __init__(self, n_dim: int, scale_transform: callable = torch.exp, **kwargs):
+        transformer = Affine(scale_transform=scale_transform)
+        conditioner_transform = DeepMADE(
+            n_input_dims=n_dim,
+            n_output_dims=n_dim,
+            n_output_parameters=2,
+            **kwargs)
+        super().__init__(n_dim, conditioner_transform, transformer)
+
+
+class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressive):
     def __init__(self, n_dim: int, scale_transform: callable = torch.exp, **kwargs):
         transformer = Affine(scale_transform=scale_transform)
         conditioner_transform = DeepMADE(

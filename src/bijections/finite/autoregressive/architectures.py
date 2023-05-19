@@ -1,4 +1,8 @@
-from src.bijections.finite.autoregressive.layers import FeedForwardAffineCoupling, AffineForwardMaskedAutoregressive
+from src.bijections.finite.autoregressive.layers import (
+    FeedForwardAffineCoupling,
+    AffineForwardMaskedAutoregressive,
+    AffineInverseMaskedAutoregressive
+)
 from src.bijections.finite.base import BijectiveComposition
 from src.bijections.finite.linear.permutation import Permutation
 
@@ -16,4 +20,12 @@ class MAF(BijectiveComposition):
         bijections = []
         for _ in range(n_layers):
             bijections.extend([Permutation(n_dim), AffineForwardMaskedAutoregressive(n_dim)])
+        super().__init__(bijections)
+
+
+class IAF(BijectiveComposition):
+    def __init__(self, n_dim, n_layers: int = 10):
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([Permutation(n_dim), AffineInverseMaskedAutoregressive(n_dim)])
         super().__init__(bijections)
