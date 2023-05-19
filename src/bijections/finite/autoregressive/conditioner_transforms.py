@@ -45,9 +45,9 @@ class DeepMADE(nn.Sequential):
             n_outputs=n_output_dims,
             n_dim=n_input_dims
         )
-        layers = [DeepMADE.MaskedLinear(n_input_dims, n_hidden, masks[0]), nn.ReLU()]
+        layers = [DeepMADE.MaskedLinear(n_input_dims, n_hidden, masks[0]), nn.Sigmoid()]
         for i in range(1, n_layers - 1):
-            layers.extend([DeepMADE.MaskedLinear(n_hidden, n_hidden, masks[i]), nn.ReLU()])
+            layers.extend([DeepMADE.MaskedLinear(n_hidden, n_hidden, masks[i]), nn.Sigmoid()])
         layers.append(DeepMADE.MaskedLinear(
             n_hidden,
             n_output_dims * n_output_parameters,
