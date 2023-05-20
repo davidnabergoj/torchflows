@@ -7,6 +7,10 @@ import torch.nn.functional as F
 
 
 class RationalQuadraticSpline(Transformer):
+    min_bin_width = 1e-3
+    min_bin_height = 1e-3
+    min_delta = 1e-3
+
     def __init__(self, n_bins: int, boundary: float = 10.0):
         # Neural Spline Flows - Durkan et al. 2019
         super().__init__()
@@ -24,14 +28,27 @@ class RationalQuadraticSpline(Transformer):
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
-        log_numerator = 2 * torch.log(s_k) + torch.log(
-            deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2
+        log_numerator = torch.add(
+            2 * torch.log(s_k),
+            torch.log(deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2)
         )
         log_denominator = 2 * torch.log(s_k + term1 * xi_1m_xi)
         log_determinant = log_numerator - log_denominator
         return log_determinant
 
+    def compute_cumulative_bins(self, u, interval_left, interval_right, min_bin_size):
+        bins = min_bin_size + (1 - min_bin_size * self.n_bins) * torch.softmax(u, dim=-1)
+        cumulative_bins = F.pad(torch.cumsum(bins, dim=-1), pad=(1, 0), mode='constant', value=0.0)
+        cumulative_bins = interval_left + (interval_right - interval_left) * cumulative_bins
+        cumulative_bins[..., 0] = interval_left
+        cumulative_bins[..., -1] = interval_right
+        bins = cumulative_bins[..., 1:] - cumulative_bins[..., :-1]
+        return bins, cumulative_bins
+
     def rqs(self, inputs: torch.Tensor, h: torch.Tensor, inverse: bool) -> Tuple[torch.Tensor, torch.Tensor]:
+        left = bottom = -self.boundary
+        right = top = self.boundary
+
         # Unconstrained spline parameters
         u_widths = h[..., :self.n_bins]
         u_heights = h[..., self.n_bins:2 * self.n_bins]
@@ -45,13 +62,14 @@ class RationalQuadraticSpline(Transformer):
         assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)
         # n_data, n_dim, n_transformer_parameters = widths.shape
 
-        # Constrained spline parameters
-        widths = torch.softmax(u_widths, dim=-1) * 2 * self.boundary
-        heights = torch.softmax(u_heights, dim=-1) * 2 * self.boundary
-        deltas = F.softplus(u_deltas)  # Derivatives
+        widths, cumulative_widths = self.compute_cumulative_bins(
+            u_widths, left, right, self.min_bin_width
+        )
+        heights, cumulative_heights = self.compute_cumulative_bins(
+            u_heights, bottom, top, self.min_bin_height
+        )
 
-        cumulative_widths = F.pad(torch.cumsum(widths, dim=-1), pad=(1, 0), mode='constant', value=0.0)
-        cumulative_heights = F.pad(torch.cumsum(heights, dim=-1), pad=(1, 0), mode='constant', value=0.0)
+        deltas = F.softplus(u_deltas)  # Derivatives
 
         # Find the correct bin for each input value
         if inverse:
