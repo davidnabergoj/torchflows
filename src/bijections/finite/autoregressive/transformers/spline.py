@@ -11,12 +11,12 @@ class RationalQuadraticSpline(Transformer):
     min_bin_height = 1e-3
     min_delta = 1e-3
 
-    def __init__(self, n_bins: int, boundary: float = 10.0):
+    def __init__(self, n_bins: int, boundary: float = 1.0):
         # Neural Spline Flows - Durkan et al. 2019
         super().__init__()
         self.n_bins = n_bins
         self.boundary = boundary
-        self.boundary_unconstrained_derivative = math.log(math.expm1(1))
+        self.boundary_unconstrained_derivative = math.log(math.expm1(1 - self.min_delta))
 
     @staticmethod
     def forward_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, eps=1e-10):
@@ -48,12 +48,17 @@ class RationalQuadraticSpline(Transformer):
     def rqs(self, inputs: torch.Tensor, h: torch.Tensor, inverse: bool) -> Tuple[torch.Tensor, torch.Tensor]:
         left = bottom = -self.boundary
         right = top = self.boundary
+        if torch.min(inputs) < -self.boundary:
+            raise ValueError
+        if torch.max(inputs) > self.boundary:
+            raise ValueError
 
         # Unconstrained spline parameters
         u_widths = h[..., :self.n_bins]
         u_heights = h[..., self.n_bins:2 * self.n_bins]
         u_deltas = h[..., 2 * self.n_bins:]
 
+        u_deltas = F.softplus(u_deltas)
         u_deltas = torch.nn.functional.pad(u_deltas, pad=(1, 1))
         u_deltas[..., 0] = self.boundary_unconstrained_derivative
         u_deltas[..., -1] = self.boundary_unconstrained_derivative
@@ -63,10 +68,16 @@ class RationalQuadraticSpline(Transformer):
         # n_data, n_dim, n_transformer_parameters = widths.shape
 
         widths, cumulative_widths = self.compute_cumulative_bins(
-            u_widths, left, right, self.min_bin_width
+            F.softmax(u_widths, dim=-1) * 2 * self.boundary,
+            left,
+            right,
+            self.min_bin_width
         )
         heights, cumulative_heights = self.compute_cumulative_bins(
-            u_heights, bottom, top, self.min_bin_height
+            F.softmax(u_heights, dim=-1) * 2 * self.boundary,
+            bottom,
+            top,
+            self.min_bin_height
         )
 
         deltas = F.softplus(u_deltas)  # Derivatives
