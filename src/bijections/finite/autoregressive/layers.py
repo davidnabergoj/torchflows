@@ -1,3 +1,4 @@
+import math
 from typing import Tuple
 
 import torch
@@ -69,7 +70,7 @@ class RationalQuadraticSplineCoupling(CouplingBijection):
         assert n_bins >= 2
         default_unconstrained_widths = torch.zeros(n_bins)
         default_unconstrained_heights = torch.zeros(n_bins)
-        default_unconstrained_derivatives = torch.zeros(n_bins - 1) - 5.0
+        default_unconstrained_derivatives = torch.full(size=(n_bins - 1,), fill_value=math.log(math.expm1(1)))
         constants = torch.cat([
             default_unconstrained_widths,
             default_unconstrained_heights,
