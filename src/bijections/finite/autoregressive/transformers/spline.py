@@ -45,7 +45,12 @@ class RationalQuadraticSpline(Transformer):
         bins = cumulative_bins[..., 1:] - cumulative_bins[..., :-1]
         return bins, cumulative_bins
 
-    def rqs(self, inputs: torch.Tensor, h: torch.Tensor, inverse: bool) -> Tuple[torch.Tensor, torch.Tensor]:
+    def rqs(self,
+            inputs: torch.Tensor,
+            u_widths: torch.Tensor,
+            u_heights: torch.Tensor,
+            u_deltas: torch.Tensor,
+            inverse: bool) -> Tuple[torch.Tensor, torch.Tensor]:
         left = bottom = -self.boundary
         right = top = self.boundary
         if torch.min(inputs) < -self.boundary:
@@ -53,40 +58,20 @@ class RationalQuadraticSpline(Transformer):
         if torch.max(inputs) > self.boundary:
             raise ValueError
 
-        # Unconstrained spline parameters
-        u_widths = h[..., :self.n_bins]
-        u_heights = h[..., self.n_bins:2 * self.n_bins]
-        u_deltas = h[..., 2 * self.n_bins:]
-
-        u_deltas = F.softplus(u_deltas)
-        u_deltas = torch.nn.functional.pad(u_deltas, pad=(1, 1))
-        u_deltas[..., 0] = self.boundary_unconstrained_derivative
-        u_deltas[..., -1] = self.boundary_unconstrained_derivative
-
         assert len(u_widths.shape) == len(u_heights.shape) == len(u_deltas.shape) == 2
         assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)
         # n_data, n_dim, n_transformer_parameters = widths.shape
 
-        widths, cumulative_widths = self.compute_cumulative_bins(
-            F.softmax(u_widths, dim=-1) * 2 * self.boundary,
-            left,
-            right,
-            self.min_bin_width
-        )
-        heights, cumulative_heights = self.compute_cumulative_bins(
-            F.softmax(u_heights, dim=-1) * 2 * self.boundary,
-            bottom,
-            top,
-            self.min_bin_height
-        )
+        widths, cumulative_widths = self.compute_cumulative_bins(u_widths, left, right, self.min_bin_width)
+        heights, cumulative_heights = self.compute_cumulative_bins(u_heights, bottom, top, self.min_bin_height)
 
-        deltas = F.softplus(u_deltas)  # Derivatives
+        deltas = self.min_delta + F.softplus(u_deltas)  # Derivatives
 
         # Find the correct bin for each input value
         if inverse:
-            k = torch.searchsorted(cumulative_heights, inputs[..., None])
+            k = torch.searchsorted(cumulative_heights, inputs[..., None]) - 1
         else:
-            k = torch.searchsorted(cumulative_widths, inputs[..., None])
+            k = torch.searchsorted(cumulative_widths, inputs[..., None]) - 1
 
         # Index the tensors
         cumulative_heights_k = torch.gather(cumulative_heights, -1, k)
@@ -134,9 +119,24 @@ class RationalQuadraticSpline(Transformer):
         outputs = torch.clone(inputs)
         log_determinant = torch.zeros_like(outputs)
 
+        # Unconstrained spline parameters
+        u_widths = F.softmax(h[..., :self.n_bins], dim=-1) * 2 * self.boundary
+        u_heights = F.softmax(h[..., self.n_bins:2 * self.n_bins], dim=-1) * 2 * self.boundary
+        u_deltas = F.softplus(h[..., 2 * self.n_bins:])
+
+        u_deltas = F.pad(u_deltas, pad=(1, 1))
+        u_deltas[..., 0] = self.boundary_unconstrained_derivative
+        u_deltas[..., -1] = self.boundary_unconstrained_derivative
+
         # Set in-bound values according to the RQ spline transformation
         mask = (inputs > -self.boundary) & (inputs < self.boundary)
-        outputs[mask], log_determinant[mask] = self.rqs(inputs=inputs[mask], h=h[mask], inverse=inverse)
+        outputs[mask], log_determinant[mask] = self.rqs(
+            inputs=inputs[mask],
+            u_widths=u_widths[mask],
+            u_heights=u_heights[mask],
+            u_deltas=u_deltas[mask],
+            inverse=inverse
+        )
 
         return outputs, log_determinant.sum(dim=-1)
 
