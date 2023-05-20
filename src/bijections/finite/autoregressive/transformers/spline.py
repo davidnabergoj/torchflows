@@ -53,11 +53,11 @@ class RationalQuadraticSpline(Transformer):
             inverse: bool) -> Tuple[torch.Tensor, torch.Tensor]:
         left = bottom = -self.boundary
         right = top = self.boundary
-        if torch.min(inputs) < -self.boundary:
-            raise ValueError
-        if torch.max(inputs) > self.boundary:
-            raise ValueError
 
+        assert (
+                (inverse and torch.all((inputs >= bottom) & (inputs <= top))) or
+                (not inverse and torch.all((inputs >= left) & (inputs <= right)))
+        )
         assert len(u_widths.shape) == len(u_heights.shape) == len(u_deltas.shape) == 2
         assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)
         # n_data, n_dim, n_transformer_parameters = widths.shape
