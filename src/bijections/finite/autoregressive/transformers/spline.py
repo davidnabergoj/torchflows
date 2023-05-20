@@ -16,7 +16,7 @@ class RationalQuadraticSpline(Transformer):
         super().__init__()
         self.n_bins = n_bins
         self.boundary = boundary
-        self.boundary_unconstrained_derivative = math.log(math.expm1(1 - self.min_delta))
+        self.boundary_u_delta = math.log(math.expm1(1 - self.min_delta))
 
     @staticmethod
     def forward_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, eps=1e-10):
@@ -64,7 +64,6 @@ class RationalQuadraticSpline(Transformer):
 
         widths, cumulative_widths = self.compute_cumulative_bins(u_widths, left, right, self.min_bin_width)
         heights, cumulative_heights = self.compute_cumulative_bins(u_heights, bottom, top, self.min_bin_height)
-
         deltas = self.min_delta + F.softplus(u_deltas)  # Derivatives
 
         # Find the correct bin for each input value
@@ -120,13 +119,9 @@ class RationalQuadraticSpline(Transformer):
         log_determinant = torch.zeros_like(outputs)
 
         # Unconstrained spline parameters
-        u_widths = F.softmax(h[..., :self.n_bins], dim=-1) * 2 * self.boundary
-        u_heights = F.softmax(h[..., self.n_bins:2 * self.n_bins], dim=-1) * 2 * self.boundary
-        u_deltas = F.softplus(h[..., 2 * self.n_bins:])
-
-        u_deltas = F.pad(u_deltas, pad=(1, 1))
-        u_deltas[..., 0] = self.boundary_unconstrained_derivative
-        u_deltas[..., -1] = self.boundary_unconstrained_derivative
+        u_widths = h[..., :self.n_bins]
+        u_heights = h[..., self.n_bins:2 * self.n_bins]
+        u_deltas = F.pad(h[..., 2 * self.n_bins:], pad=(1, 1), mode='constant', value=self.boundary_u_delta)
 
         # Set in-bound values according to the RQ spline transformation
         mask = (inputs > -self.boundary) & (inputs < self.boundary)
