@@ -29,5 +29,6 @@ def test_affine_coupling(n_dim, layer_class):
     assert x_reconstructed.shape == x.shape
     assert log_det_inverse.shape == (x.shape[0],)
 
-    assert torch.allclose(log_det_forward, -log_det_inverse)
+    assert torch.allclose(log_det_forward, -log_det_inverse), \
+        f"{float((log_det_forward+log_det_inverse).abs().max()) = }"
     assert torch.allclose(x, x_reconstructed, atol=1e-5)
