@@ -30,7 +30,7 @@ class MADE(nn.Sequential):
         for i in range(1, n_layers + 1):
             m_current = ms[i]
             m_previous = ms[i - 1]
-            xx, yy = torch.meshgrid(m_current, m_previous)
+            xx, yy = torch.meshgrid(m_current, m_previous, indexing='ij')
             if i == n_layers:
                 masks.append(torch.as_tensor(xx > yy, dtype=torch.float))
             else:

@@ -4,15 +4,15 @@ from src import Flow, RealNVP, NICE, MAF, IAF
 import matplotlib.pyplot as plt
 
 
-def visual_test_basic():
+def visual_test_basic(bijection_class):
     n_dim = 2
     n_samples = 1000
     scale = torch.tensor([1.0, 10.0])
-    n_epochs = 1500
+    n_epochs = 100
     device = torch.device('cpu')
 
     torch.manual_seed(0)
-    bijection = RealNVP(n_dim=n_dim, n_layers=3)
+    bijection = bijection_class(n_dim=n_dim, n_layers=3)
     flow = Flow(n_dim=n_dim, bijection=bijection, device=device)
     x = torch.randn(n_samples, n_dim) * scale.view(1, -1)
     x = x.to(device)
@@ -28,7 +28,7 @@ def visual_test_basic():
         loss = -flow.log_prob(x).mean()
         loss.backward()
         optimizer.step()
-        print(f'[{i}] Loss: {float(loss):.4f}')
+        # print(f'[{i}] Loss: {float(loss):.4f}')
 
     with torch.no_grad():
         plt.figure()
@@ -42,4 +42,6 @@ def visual_test_basic():
 
 
 if __name__ == '__main__':
-    visual_test_basic()
+    for bijection_class in [NICE, RealNVP, MAF, IAF]:
+        print(bijection_class)
+        visual_test_basic(bijection_class)
