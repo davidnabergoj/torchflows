@@ -28,7 +28,7 @@ class Coupling(Conditioner):
         self.transformed_dims = torch.arange(n_dim)[~torch.isin(torch.arange(n_dim), constant_dims)]
         self.n_dim = n_dim
 
-        self.constants = torch.stack([constants for _ in range(len(constant_dims))])
+        self.register_buffer('constants', torch.stack([constants for _ in range(len(constant_dims))]))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Predict transformer parameters for output dimensions
@@ -37,7 +37,7 @@ class Coupling(Conditioner):
         n_parameters = tmp.shape[-1]
 
         # Create full parameter tensor
-        h = torch.empty(size=(n_data, self.n_dim, n_parameters), dtype=x.dtype)
+        h = torch.empty(size=(n_data, self.n_dim, n_parameters), dtype=x.dtype, device=x.device)
 
         # Fill the parameter tensor with predicted values
         h[:, self.transformed_dims] = tmp

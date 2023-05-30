@@ -37,10 +37,10 @@ class Shift(Transformer):
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         beta = h[..., 0]
-        log_det = torch.zeros((x.shape[0],))
+        log_det = torch.zeros((x.shape[0],), device=x.device)
         return x + beta, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         beta = h[..., 0]
-        log_det = torch.zeros((z.shape[0],))
+        log_det = torch.zeros((z.shape[0],), device=z.device)
         return z - beta, log_det
