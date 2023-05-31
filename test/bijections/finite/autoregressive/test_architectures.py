@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from src import Flow
 from src.bijections.finite.autoregressive.architectures import NICE, RealNVP, MAF, IAF
 
 
@@ -47,3 +48,14 @@ def test_architecture(architecture_class, n_dim):
             torch.zeros(1),
             atol=atol):
         raise ValueError(f'{float(log_det_error) = }')
+
+
+@pytest.mark.parametrize('architecture_class', [NICE, RealNVP, MAF, IAF])
+@pytest.mark.parametrize('n_dim', [2, 3, 10, 100])
+def test_backward(architecture_class, n_dim):
+    torch.manual_seed(0)
+    bijection = architecture_class(n_dim)
+    flow = Flow(n_dim=n_dim, bijection=bijection)
+    x = torch.randn(size=(125, n_dim)) * 5
+    loss = -flow.log_prob(x).mean()
+    loss.backward()

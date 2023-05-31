@@ -8,7 +8,7 @@ class Flow(nn.Module):
     def __init__(self,
                  n_dim: int,
                  bijection: Bijection,
-                 device: torch.device):
+                 device: torch.device = torch.device('cpu')):
         super().__init__()
         self.base = torch.distributions.MultivariateNormal(
             loc=torch.zeros(n_dim, device=device),
