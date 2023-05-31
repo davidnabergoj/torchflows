@@ -2,7 +2,8 @@ from src.bijections.finite.autoregressive.layers import (
     FeedForwardShiftCoupling,
     FeedForwardAffineCoupling,
     AffineForwardMaskedAutoregressive,
-    AffineInverseMaskedAutoregressive
+    AffineInverseMaskedAutoregressive, FeedForwardRationalQuadraticSplineCoupling, SplineForwardMaskedAutoregressive,
+    SplineInverseMaskedAutoregressive
 )
 from src.bijections.finite.base import BijectiveComposition
 from src.bijections.finite.linear.permutation import Permutation
@@ -37,4 +38,28 @@ class IAF(BijectiveComposition):
         bijections = []
         for _ in range(n_layers):
             bijections.extend([Permutation(n_dim), AffineInverseMaskedAutoregressive(n_dim)])
+        super().__init__(bijections)
+
+
+class CouplingRQNSF(BijectiveComposition):
+    def __init__(self, n_dim: int, n_layers: int = 10):
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([Permutation(n_dim), FeedForwardRationalQuadraticSplineCoupling(n_dim)])
+        super().__init__(bijections)
+
+
+class MaskedAutoregressiveRQNSF(BijectiveComposition):
+    def __init__(self, n_dim: int, n_layers: int = 10):
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([Permutation(n_dim), SplineForwardMaskedAutoregressive(n_dim)])
+        super().__init__(bijections)
+
+
+class InverseAutoregressiveRQNSF(BijectiveComposition):
+    def __init__(self, n_dim: int, n_layers: int = 10):
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([Permutation(n_dim), SplineInverseMaskedAutoregressive(n_dim)])
         super().__init__(bijections)

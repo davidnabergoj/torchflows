@@ -12,7 +12,7 @@ class RationalQuadraticSpline(Transformer):
     min_bin_height = 1e-6
     min_delta = 1e-6
 
-    def __init__(self, n_bins: int, boundary: float = 1.0):
+    def __init__(self, n_bins: int = 8, boundary: float = 1.0):
         # Neural Spline Flows - Durkan et al. 2019
         super().__init__()
         self.n_bins = n_bins

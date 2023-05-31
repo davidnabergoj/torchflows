@@ -279,6 +279,18 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):
         super().__init__(n_dim, conditioner_transform, transformer)
 
 
+class SplineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):
+    def __init__(self, n_dim: int, n_bins: int = 8, **kwargs):
+        assert n_bins >= 2
+        transformer = RationalQuadraticSpline(n_bins=n_bins, **kwargs)
+        conditioner_transform = MADE(
+            n_input_dims=n_dim,
+            n_output_dims=n_dim,
+            n_output_parameters=3 * n_bins - 1,
+            **kwargs)
+        super().__init__(n_dim, conditioner_transform, transformer)
+
+
 class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressive):
     def __init__(self, n_dim: int, scale_transform: callable = torch.exp, **kwargs):
         transformer = Affine(scale_transform=scale_transform)
@@ -286,5 +298,17 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressive):
             n_input_dims=n_dim,
             n_output_dims=n_dim,
             n_output_parameters=2,
+            **kwargs)
+        super().__init__(n_dim, conditioner_transform, transformer)
+
+
+class SplineInverseMaskedAutoregressive(InverseMaskedAutoregressive):
+    def __init__(self, n_dim: int, n_bins: int = 8, **kwargs):
+        assert n_bins >= 2
+        transformer = RationalQuadraticSpline(n_bins=n_bins, **kwargs)
+        conditioner_transform = MADE(
+            n_input_dims=n_dim,
+            n_output_dims=n_dim,
+            n_output_parameters=3 * n_bins - 1,
             **kwargs)
         super().__init__(n_dim, conditioner_transform, transformer)

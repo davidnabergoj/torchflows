@@ -2,10 +2,26 @@ import pytest
 import torch
 
 from src import Flow
-from src.bijections.finite.autoregressive.architectures import NICE, RealNVP, MAF, IAF
+from src.bijections.finite.autoregressive.architectures import (
+    NICE,
+    RealNVP,
+    MAF,
+    IAF,
+    CouplingRQNSF,
+    MaskedAutoregressiveRQNSF,
+    InverseAutoregressiveRQNSF
+)
 
 
-@pytest.mark.parametrize('architecture_class', [NICE, RealNVP, MAF, IAF])
+@pytest.mark.parametrize('architecture_class', [
+    NICE,
+    RealNVP,
+    MAF,
+    IAF,
+    CouplingRQNSF,
+    MaskedAutoregressiveRQNSF,
+    InverseAutoregressiveRQNSF
+])
 @pytest.mark.parametrize('n_dim', [2, 3, 10, 100])
 def test_architecture(architecture_class, n_dim):
     # MAF reconstruction errors are larger with fewer input dimensions
@@ -50,7 +66,15 @@ def test_architecture(architecture_class, n_dim):
         raise ValueError(f'{float(log_det_error) = }')
 
 
-@pytest.mark.parametrize('architecture_class', [NICE, RealNVP, MAF, IAF])
+@pytest.mark.parametrize('architecture_class', [
+    NICE,
+    RealNVP,
+    MAF,
+    IAF,
+    CouplingRQNSF,
+    MaskedAutoregressiveRQNSF,
+    InverseAutoregressiveRQNSF
+])
 @pytest.mark.parametrize('n_dim', [2, 3, 10, 100])
 def test_backward(architecture_class, n_dim):
     torch.manual_seed(0)
