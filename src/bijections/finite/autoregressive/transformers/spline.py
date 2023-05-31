@@ -7,9 +7,10 @@ import torch.nn.functional as F
 
 
 class RationalQuadraticSpline(Transformer):
-    min_bin_width = 1e-3
-    min_bin_height = 1e-3
-    min_delta = 1e-3
+    # Increasing these values will increase reconstruction error
+    min_bin_width = 1e-6
+    min_bin_height = 1e-6
+    min_delta = 1e-6
 
     def __init__(self, n_bins: int, boundary: float = 1.0):
         # Neural Spline Flows - Durkan et al. 2019
@@ -17,14 +18,6 @@ class RationalQuadraticSpline(Transformer):
         self.n_bins = n_bins
         self.boundary = boundary
         self.boundary_u_delta = math.log(math.expm1(1 - self.min_delta))
-
-    @staticmethod
-    def forward_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, eps=1e-10):
-        return torch.subtract(
-            2 * torch.log(s_k + eps) +
-            torch.log((deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2) + eps),
-            2 * torch.log(s_k + (deltas_kp1 + deltas_k - 2 * s_k) * xi_1m_xi + eps)
-        )
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
@@ -98,7 +91,7 @@ class RationalQuadraticSpline(Transformer):
             outputs = xi * widths_k + cumulative_widths_k
 
             # Compute the log determinant of the inverse pass
-            log_determinant = self.rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1)
+            log_determinant = -self.rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1)
             return outputs.view(-1), log_determinant.view(-1)
         else:
             xi = (inputs - cumulative_widths_k) / widths_k
