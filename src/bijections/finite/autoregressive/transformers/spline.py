@@ -8,7 +8,16 @@ import torch.nn.functional as F
 
 class RationalQuadraticSpline(Transformer):
     def __init__(self, n_bins: int = 8, boundary: float = 1.0):
-        # Neural Spline Flows - Durkan et al. 2019
+        """
+        Neural Spline Flows - Durkan et al. 2019
+
+        RQ splines are more prone to numerical instabilities when stacked in a composition than affine transforms.
+        This becomes a problem when used in autoregressive flows, since the inverse/forward passes
+        (for MAF/IAF respectively) require n_dim spline computations.
+
+        :param n_bins: number of spline bins.
+        :param boundary: boundary value for the spline; values outside [-boundary, boundary] remain identical.
+        """
         super().__init__()
         self.n_bins = n_bins
         self.boundary = boundary
@@ -25,6 +34,7 @@ class RationalQuadraticSpline(Transformer):
     def compute_bins(u, left, right):
         bin_sizes = torch.softmax(u, dim=-1) * (right - left)
         bins = left + torch.cumsum(bin_sizes, dim=-1)
+        bins = F.pad(bins, pad=(1, 0), value=left)
         return bins, bin_sizes
 
     def rqs(self,
@@ -55,9 +65,9 @@ class RationalQuadraticSpline(Transformer):
 
         # Find the correct bin for each input value
         if inverse:
-            k = torch.searchsorted(bin_y, inputs[..., None], right=True)
+            k = torch.searchsorted(bin_y, inputs[..., None]) - 1
         else:
-            k = torch.searchsorted(bin_x, inputs[..., None], right=True)
+            k = torch.searchsorted(bin_x, inputs[..., None]) - 1
 
         assert torch.all(k >= 0)
         assert torch.all(k < self.n_bins)

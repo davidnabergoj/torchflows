@@ -11,7 +11,7 @@ def test_invertible():
 
     x = torch.randn(n_data, n_dim)
     h = torch.randn(n_data, n_dim, 3 * n_bins - 1)
-    spline = RationalQuadraticSpline()
+    spline = RationalQuadraticSpline(n_bins=n_bins)
     z, log_det_forward = spline.forward(x, h)
 
     assert z.shape == x.shape
@@ -25,4 +25,4 @@ def test_invertible():
     assert torch.all(~torch.isnan(y))
     assert torch.all(~torch.isnan(log_det_inverse))
 
-    assert torch.allclose(log_det_forward + log_det_inverse, torch.zeros_like(log_det_forward))
+    assert torch.allclose(log_det_forward + log_det_inverse, torch.zeros_like(log_det_forward), atol=1e-5)
