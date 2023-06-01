@@ -16,18 +16,14 @@ class RationalQuadraticSpline(Transformer):
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
-        log_numerator = torch.add(
-            2 * torch.log(s_k),
-            torch.log(deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2)
-        )
-        log_denominator = 2 * torch.log(s_k + term1 * xi_1m_xi)
+        log_numerator = torch.log(s_k ** 2 + (deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2))
+        log_denominator = torch.log((s_k + term1 * xi_1m_xi) ** 2)
         log_determinant = log_numerator - log_denominator
         return log_determinant
 
     @staticmethod
     def compute_bins(u, left, right):
         bin_sizes = torch.softmax(u, dim=-1) * (right - left)
-        bin_sizes = F.pad(bin_sizes, pad=(1, 0), mode='constant', value=0.0)
         bins = left + torch.cumsum(bin_sizes, dim=-1)
         return bins, bin_sizes
 
@@ -50,16 +46,21 @@ class RationalQuadraticSpline(Transformer):
 
         bin_x, bin_widths = self.compute_bins(u_widths, left, right)
         bin_y, bin_heights = self.compute_bins(u_heights, bottom, top)
-        deltas = F.softplus(F.pad(u_deltas, pad=(1, 1), value=self.boundary_u_delta))  # Derivatives
+        deltas = F.softplus(u_deltas)  # Derivatives
+
+        bin_x = torch.clip(bin_x, left, right)
+        bin_y = torch.clip(bin_y, bottom, top)
+
+        assert torch.all(deltas >= 0)
 
         # Find the correct bin for each input value
         if inverse:
-            k = torch.searchsorted(bin_y, inputs[..., None]) - 1
+            k = torch.searchsorted(bin_y, inputs[..., None], right=True)
         else:
-            k = torch.searchsorted(bin_x, inputs[..., None]) - 1
+            k = torch.searchsorted(bin_x, inputs[..., None], right=True)
 
         assert torch.all(k >= 0)
-        assert torch.all(k <= self.n_bins)
+        assert torch.all(k < self.n_bins)
 
         # Index the tensors
         bin_y_k = torch.gather(bin_y, -1, k)
