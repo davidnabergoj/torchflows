@@ -7,17 +7,12 @@ import torch.nn.functional as F
 
 
 class RationalQuadraticSpline(Transformer):
-    # Increasing these values will increase reconstruction error
-    min_bin_width = 1e-6
-    min_bin_height = 1e-6
-    min_delta = 1e-6
-
     def __init__(self, n_bins: int = 8, boundary: float = 1.0):
         # Neural Spline Flows - Durkan et al. 2019
         super().__init__()
         self.n_bins = n_bins
         self.boundary = boundary
-        self.boundary_u_delta = math.log(math.expm1(1 - self.min_delta))
+        self.boundary_u_delta = math.log(math.expm1(1))
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
@@ -29,14 +24,12 @@ class RationalQuadraticSpline(Transformer):
         log_determinant = log_numerator - log_denominator
         return log_determinant
 
-    def compute_cumulative_bins(self, u, interval_left, interval_right, min_bin_size):
-        bins = min_bin_size + (1 - min_bin_size * self.n_bins) * torch.softmax(u, dim=-1)
-        cumulative_bins = F.pad(torch.cumsum(bins, dim=-1), pad=(1, 0), mode='constant', value=0.0)
-        cumulative_bins = interval_left + (interval_right - interval_left) * cumulative_bins
-        cumulative_bins[..., 0] = interval_left
-        cumulative_bins[..., -1] = interval_right
-        bins = cumulative_bins[..., 1:] - cumulative_bins[..., :-1]
-        return bins, cumulative_bins
+    @staticmethod
+    def compute_bins(u, left, right):
+        bin_sizes = torch.softmax(u, dim=-1) * (right - left)
+        bin_sizes = F.pad(bin_sizes, pad=(1, 0), mode='constant', value=0.0)
+        bins = left + torch.cumsum(bin_sizes, dim=-1)
+        return bins, bin_sizes
 
     def rqs(self,
             inputs: torch.Tensor,
@@ -55,32 +48,35 @@ class RationalQuadraticSpline(Transformer):
         assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)
         # n_data, n_dim, n_transformer_parameters = widths.shape
 
-        widths, cumulative_widths = self.compute_cumulative_bins(u_widths, left, right, self.min_bin_width)
-        heights, cumulative_heights = self.compute_cumulative_bins(u_heights, bottom, top, self.min_bin_height)
-        deltas = self.min_delta + F.softplus(u_deltas)  # Derivatives
+        bin_x, bin_widths = self.compute_bins(u_widths, left, right)
+        bin_y, bin_heights = self.compute_bins(u_heights, bottom, top)
+        deltas = F.softplus(F.pad(u_deltas, pad=(1, 1), value=self.boundary_u_delta))  # Derivatives
 
         # Find the correct bin for each input value
         if inverse:
-            k = torch.searchsorted(cumulative_heights, inputs[..., None]) - 1
+            k = torch.searchsorted(bin_y, inputs[..., None]) - 1
         else:
-            k = torch.searchsorted(cumulative_widths, inputs[..., None]) - 1
+            k = torch.searchsorted(bin_x, inputs[..., None]) - 1
+
+        assert torch.all(k >= 0)
+        assert torch.all(k <= self.n_bins)
 
         # Index the tensors
-        cumulative_heights_k = torch.gather(cumulative_heights, -1, k)
-        cumulative_widths_k = torch.gather(cumulative_widths, -1, k)
-        heights_k = torch.gather(heights, -1, k)
-        widths_k = torch.gather(widths, -1, k)
+        bin_y_k = torch.gather(bin_y, -1, k)
+        bin_x_k = torch.gather(bin_x, -1, k)
+        bin_heights_k = torch.gather(bin_heights, -1, k)
+        bin_widths_k = torch.gather(bin_widths, -1, k)
         deltas_k = torch.gather(deltas, -1, k)
         deltas_kp1 = torch.gather(deltas, -1, k + 1)
-        s_k = heights_k / widths_k
+        s_k = bin_heights_k / bin_widths_k
 
         inputs = inputs.view(-1, 1)  # Reshape to facilitate operations
         term1 = deltas_kp1 + deltas_k - 2 * s_k
         if inverse:
-            term0 = (inputs - cumulative_heights_k)
-            term2 = heights_k * deltas_k
+            term0 = (inputs - bin_y_k)
+            term2 = bin_heights_k * deltas_k
 
-            a = heights_k * s_k - term2 + term0 * term1
+            a = (bin_heights_k * s_k - term2) + term0 * term1
             b = term2 - term0 * term1
             c = -s_k * term0
 
@@ -88,19 +84,19 @@ class RationalQuadraticSpline(Transformer):
             xi_1m_xi = xi * (1 - xi)
 
             # Compute the outputs of the inverse pass
-            outputs = xi * widths_k + cumulative_widths_k
+            outputs = xi * bin_widths_k + bin_x_k
 
             # Compute the log determinant of the inverse pass
             log_determinant = -self.rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1)
             return outputs.view(-1), log_determinant.view(-1)
         else:
-            xi = (inputs - cumulative_widths_k) / widths_k
+            xi = (inputs - bin_x_k) / bin_widths_k
             xi_1m_xi = xi * (1 - xi)
 
             # Compute the outputs of the inverse pass
-            numerator0 = heights_k * (s_k * xi ** 2 + deltas_k * xi_1m_xi)
+            numerator0 = bin_heights_k * (s_k * xi ** 2 + deltas_k * xi_1m_xi)
             denominator0 = s_k + term1 * xi_1m_xi
-            outputs = cumulative_heights_k + numerator0 / denominator0
+            outputs = bin_y_k + numerator0 / denominator0
 
             # Compute the log determinant of the inverse pass
             log_determinant = self.rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1)
