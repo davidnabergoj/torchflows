@@ -10,5 +10,5 @@ class MaskedAutoregressive(Conditioner):
         self.transform = transform
         self.n_dim = n_dim
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.transform(x)
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        return self.transform(x, context=context)

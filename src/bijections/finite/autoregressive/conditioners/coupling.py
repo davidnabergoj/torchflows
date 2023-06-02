@@ -30,9 +30,9 @@ class Coupling(Conditioner):
 
         self.register_buffer('constants', torch.stack([constants for _ in range(len(constant_dims))]))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
         # Predict transformer parameters for output dimensions
-        tmp = self.transform(x[:, self.constant_dims])
+        tmp = self.transform(x[:, self.constant_dims], context=context)
         n_data = tmp.shape[0]
         n_parameters = tmp.shape[-1]
 

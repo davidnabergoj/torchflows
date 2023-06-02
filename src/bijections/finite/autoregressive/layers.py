@@ -24,13 +24,13 @@ class CouplingBijection(Bijection):
             n_dim=n_dim
         )
 
-    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(x)
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.conditioner(x, context=context)
         z, log_det = self.transformer(x, h)
         return z, log_det
 
-    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(z)
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.conditioner(z, context=context)
         x, log_det = self.transformer.inverse(z, h)
         return x, log_det
 
@@ -241,16 +241,16 @@ class ForwardMaskedAutoregressive(Bijection):
         self.transformer = transformer
         self.conditioner = MaskedAutoregressive(transform=conditioner_transform, n_dim=n_dim)
 
-    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(x)
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.conditioner(x, context=context)
         z, log_det = self.transformer(x, h)
         return z, log_det
 
-    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(size=(z.shape[0],), device=z.device)
         x = torch.clone(z)
         for i in torch.arange(z.shape[-1]):  # FIXME this probably messes up autograd b/c it overwrites the gradient?
-            h = self.conditioner(torch.clone(x))
+            h = self.conditioner(torch.clone(x), context=context)
             tmp, log_det = self.transformer.inverse(x, h)
             x[:, i] = tmp[:, i]
         return x, log_det
@@ -261,11 +261,11 @@ class InverseMaskedAutoregressive(Bijection):
         super().__init__()
         self.forward_masked_autoregressive = ForwardMaskedAutoregressive(n_dim, conditioner_transform, transformer)
 
-    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.forward_masked_autoregressive.inverse(x)
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.forward_masked_autoregressive.inverse(x, context=context)
 
-    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.forward_masked_autoregressive.forward(z)
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.forward_masked_autoregressive.forward(z, context=context)
 
 
 class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):

@@ -2,7 +2,15 @@ import torch
 import torch.nn as nn
 
 
-class MADE(nn.Sequential):
+class ConditionerTransform(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        raise NotImplementedError
+
+
+class MADE(ConditionerTransform):
     class MaskedLinear(nn.Linear):
         def __init__(self, in_features: int, out_features: int, mask: torch.Tensor):
             super().__init__(in_features=in_features, out_features=out_features)
@@ -15,8 +23,10 @@ class MADE(nn.Sequential):
                  n_input_dims: int,
                  n_output_dims: int,
                  n_output_parameters: int,
+                 n_context_dims: int = None,  # TODO implement
                  n_hidden: int = 100,
                  n_layers: int = 4):
+        super().__init__()
 
         # Set conditional dimension values
         ms = [
@@ -50,7 +60,21 @@ class MADE(nn.Sequential):
             ),
             nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
         ])
-        super().__init__(*layers)
+        self.sequential = nn.Sequential(*layers)
+
+        if n_context_dims is not None:
+            self.context_linear = nn.Sequential(
+                nn.Linear(n_context_dims, n_output_dims * n_output_parameters),
+                nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
+            )
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        out = self.sequential(x)
+        if context is not None:
+            assert x.shape[1:] == context.shape[1:], \
+                f"Shape of x and context do not match ({x.shape = }, {context.shape = })"
+            out += self.context_linear(context)
+        return out
 
 
 class LinearMADE(MADE):
@@ -58,27 +82,43 @@ class LinearMADE(MADE):
         super().__init__(n_input_dims, n_output_dims, n_output_parameters, n_layers=1, **kwargs)
 
 
-class FeedForward(nn.Sequential):
+class FeedForward(ConditionerTransform):
     def __init__(self,
                  n_input_dims: int,
                  n_output_dims: int,
                  n_output_parameters: int,
+                 n_context_dims: int = None,
                  n_hidden: int = 100,
                  n_layers: int = 4):
-        layers = [nn.Linear(n_input_dims, n_hidden), nn.ReLU()]
-        for _ in range(n_layers - 2):
-            layers.extend([nn.Linear(n_hidden, n_hidden), nn.ReLU()])
-        layers.append(nn.Linear(n_hidden, n_output_dims * n_output_parameters))
+        super().__init__()
+
+        # If context given, concatenate it to transform input
+        if n_context_dims is not None:
+            n_input_dims += n_context_dims
+
+        # Check the one layer special case
+        if n_layers == 1:
+            layers = [nn.Linear(n_input_dims, n_output_dims * n_output_parameters)]
+        elif n_layers > 1:
+            layers = [nn.Linear(n_input_dims, n_hidden), nn.ReLU()]
+            for _ in range(n_layers - 2):
+                layers.extend([nn.Linear(n_hidden, n_hidden), nn.ReLU()])
+            layers.append(nn.Linear(n_hidden, n_output_dims * n_output_parameters))
+        else:
+            raise ValueError
+
+        # Reshape the output
         layers.append(nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters)))
-        super().__init__(*layers)
+        self.sequential = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        if context is not None:
+            assert x.shape[1:] == context.shape[1:], \
+                f"Shape of x and context do not match ({x.shape = }, {context.shape = })"
+            x = torch.cat([x, context], dim=1)
+        return self.sequential(x)
 
 
-class Linear(nn.Sequential):
-    def __init__(self,
-                 n_input_dims: int,
-                 n_output_dims: int,
-                 n_output_parameters: int):
-        super().__init__(
-            nn.Linear(n_input_dims, n_output_dims * n_output_parameters),
-            nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
-        )
+class Linear(FeedForward):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, n_layers=1)

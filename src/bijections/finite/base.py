@@ -12,22 +12,24 @@ class Bijection(nn.Module):
         """
         super().__init__(*args, **kwargs)
 
-    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward bijection map.
         Returns the output vector and the log jacobian determinant of the forward transform.
 
         :param x:
+        :param context:
         :return:
         """
         raise NotImplementedError
 
-    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Inverse bijection map.
         Returns the output vector and the log jacobian determinant of the inverse transform.
 
         :param z:
+        :param context:
         :return:
         """
         raise NotImplementedError
@@ -38,7 +40,7 @@ class BijectiveComposition(Bijection):
         super().__init__()
         self.layers = nn.ModuleList(layers)
 
-    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(x.shape[0], device=x.device)
         for layer in self.layers:
             x, log_det_layer = layer(x)
@@ -46,7 +48,7 @@ class BijectiveComposition(Bijection):
         z = x
         return z, log_det
 
-    def inverse(self, z) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(z.shape[0], device=z.device)
         for layer in self.layers[::-1]:
             z, log_det_layer = layer.inverse(z)
