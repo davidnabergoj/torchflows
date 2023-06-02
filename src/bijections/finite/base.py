@@ -17,9 +17,10 @@ class Bijection(nn.Module):
         Forward bijection map.
         Returns the output vector and the log jacobian determinant of the forward transform.
 
-        :param x:
-        :param context:
-        :return:
+        :param x: input array with shape (*batch_shape, *event_shape).
+        :param context: context array with shape (*batch_shape, context_dim).
+        :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
+            determinant has shape (*batch_shape,).
         """
         raise NotImplementedError
 
@@ -28,9 +29,10 @@ class Bijection(nn.Module):
         Inverse bijection map.
         Returns the output vector and the log jacobian determinant of the inverse transform.
 
-        :param z:
-        :param context:
-        :return:
+        :param z: input array with shape (*batch_shape, *event_shape).
+        :param context: context array with shape (*batch_shape, context_dim).
+        :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
+            determinant has shape (*batch_shape,).
         """
         raise NotImplementedError
 
