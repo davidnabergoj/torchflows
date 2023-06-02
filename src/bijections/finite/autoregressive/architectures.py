@@ -22,7 +22,7 @@ class NICE(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 ShiftCoupling(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)
 
 
 class RealNVP(BijectiveComposition):
@@ -34,7 +34,7 @@ class RealNVP(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 AffineCoupling(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)
 
 
 class MAF(BijectiveComposition):
@@ -46,7 +46,7 @@ class MAF(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 AffineForwardMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)
 
 
 class IAF(BijectiveComposition):
@@ -58,7 +58,7 @@ class IAF(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 AffineInverseMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)
 
 
 class CouplingRQNSF(BijectiveComposition):
@@ -70,7 +70,7 @@ class CouplingRQNSF(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 RQSCoupling(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)
 
 
 class MaskedAutoregressiveRQNSF(BijectiveComposition):
@@ -82,7 +82,7 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 RQSForwardMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)
 
 
 class InverseAutoregressiveRQNSF(BijectiveComposition):
@@ -94,4 +94,4 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
                 Permutation(event_shape=event_shape),
                 RQSInverseMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
-        super().__init__(bijections)
+        super().__init__(event_shape, bijections)

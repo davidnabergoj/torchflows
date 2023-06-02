@@ -2,7 +2,7 @@ import torch
 
 from src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
 from src.bijections.finite.autoregressive.conditioners.base import Conditioner
-from src.utils import get_batch_shape, keepdims_event_mask
+from src.utils import get_batch_shape
 
 
 class Coupling(Conditioner):

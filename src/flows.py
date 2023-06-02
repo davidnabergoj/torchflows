@@ -24,8 +24,17 @@ class Flow(nn.Module):
         return log_base + log_det
 
     def sample(self, n: int, context: torch.Tensor = None):
+        """
+        If context given, sample n vectors for each context vector.
+        Otherwise, sample n vectors.
+
+        :param n:
+        :param context:
+        :return:
+        """
         if context is not None:
-            assert context.shape[0] == n
-        z = self.base.sample(sample_shape=torch.Size((n,)))
+            z = self.base.sample(sample_shape=torch.Size((n, len(context))))
+        else:
+            z = self.base.sample(sample_shape=torch.Size((n,)))
         x, _ = self.bijection.inverse(z, context=context)
         return x
