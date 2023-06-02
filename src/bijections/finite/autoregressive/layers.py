@@ -7,7 +7,7 @@ from src.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from src.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from src.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, ForwardMaskedAutoregressiveLayer, \
     InverseMaskedAutoregressiveLayer
-from src.bijections.finite.autoregressive.transformers.affine import Affine, Shift
+from src.bijections.finite.autoregressive.transformers.affine import Affine, Shift, InverseAffine
 from src.bijections.finite.autoregressive.transformers.spline import RationalQuadraticSpline
 
 
@@ -30,6 +30,28 @@ class AffineCoupling(AutoregressiveLayer):
             **kwargs
         )
         transformer = Affine(scale_transform=scale_transform)
+        super().__init__(conditioner, transformer, conditioner_transform)
+
+
+class InverseAffineCoupling(AutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 scale_transform: callable = torch.exp,
+                 **kwargs):
+        if event_shape == (1,):
+            raise ValueError
+        default_log_scale = 0.0
+        default_shift = 0.0
+        conditioner = Coupling(constants=torch.tensor([default_log_scale, default_shift]), event_shape=event_shape)
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=2,
+            context_shape=context_shape,
+            **kwargs
+        )
+        transformer = InverseAffine(scale_transform=scale_transform)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 

@@ -31,6 +31,22 @@ class Affine(Transformer):
         return (z - beta) / alpha, log_det
 
 
+class InverseAffine(Transformer):
+    """
+    Inverse affine transformer, numerically stable for data generation.
+    """
+
+    def __init__(self, scale_transform: callable = torch.exp):
+        super().__init__()
+        self.affine = Affine(scale_transform=scale_transform)
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.affine.inverse(x, h)
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.affine.forward(z, h)
+
+
 class Shift(Transformer):
     def __init__(self):
         super().__init__()

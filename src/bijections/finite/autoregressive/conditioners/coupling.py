@@ -11,7 +11,8 @@ class Coupling(Conditioner):
         Coupling conditioner.
 
 
-        Note: Always treats the first n_dim // 2 dimensions as constant. Shuffling is handled in Permutation bijections.
+        Note: Always treats the first n_dim // 2 dimensions as constant.
+        Shuffling is handled in Permutation bijections.
 
         :param constants:
         """

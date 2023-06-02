@@ -7,7 +7,7 @@ from src.bijections.finite.autoregressive.layers import (
     AffineInverseMaskedAutoregressive,
     RQSCoupling,
     RQSForwardMaskedAutoregressive,
-    RQSInverseMaskedAutoregressive
+    RQSInverseMaskedAutoregressive, InverseAffineCoupling
 )
 from src.bijections.finite.base import BijectiveComposition
 from src.bijections.finite.linear.permutation import Permutation
@@ -33,6 +33,18 @@ class RealNVP(BijectiveComposition):
             bijections.extend([
                 Permutation(event_shape=event_shape),
                 AffineCoupling(event_shape=event_shape, **kwargs)
+            ])
+        super().__init__(event_shape, bijections)
+
+
+class InverseRealNVP(BijectiveComposition):
+    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
+        event_shape = torch.Size((n_dim,))
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([
+                Permutation(event_shape=event_shape),
+                InverseAffineCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
 
