@@ -4,7 +4,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 
-from src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward, Linear
+from src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward, Linear, ConditionerTransform
 from src.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from src.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from src.bijections.finite.autoregressive.transformers.affine import Affine, Shift
@@ -14,7 +14,12 @@ from src.bijections.finite.base import Bijection
 
 
 class CouplingBijection(Bijection):
-    def __init__(self, n_dim, constant_dims, constants, conditioner_transform: nn.Module, transformer: Transformer):
+    def __init__(self,
+                 n_dim,
+                 constant_dims,
+                 constants,
+                 conditioner_transform: ConditionerTransform,
+                 transformer: Transformer):
         super().__init__()
         self.transformer = transformer
         self.conditioner = Coupling(
@@ -36,7 +41,7 @@ class CouplingBijection(Bijection):
 
 
 class AffineCoupling(CouplingBijection):
-    def __init__(self, n_dim, constant_dims, conditioner_transform: nn.Module, scale_transform: callable = torch.exp):
+    def __init__(self, n_dim, constant_dims, conditioner_transform: ConditionerTransform, scale_transform: callable = torch.exp):
         default_log_scale = 0.0
         default_shift = 0.0
         super().__init__(
@@ -49,7 +54,7 @@ class AffineCoupling(CouplingBijection):
 
 
 class ShiftCoupling(CouplingBijection):
-    def __init__(self, n_dim, constant_dims, conditioner_transform: nn.Module, **kwargs):
+    def __init__(self, n_dim, constant_dims, conditioner_transform: ConditionerTransform, **kwargs):
         default_shift = 0.0
         super().__init__(
             n_dim=n_dim,
@@ -65,7 +70,7 @@ class RationalQuadraticSplineCoupling(CouplingBijection):
                  n_dim,
                  n_bins: int,
                  constant_dims,
-                 conditioner_transform: nn.Module,
+                 conditioner_transform: ConditionerTransform,
                  **kwargs):
         assert n_bins >= 2
         default_unconstrained_widths = torch.zeros(n_bins)
@@ -236,7 +241,7 @@ class FeedForwardShiftCoupling(ShiftCoupling):
 
 
 class ForwardMaskedAutoregressive(Bijection):
-    def __init__(self, n_dim: int, conditioner_transform: nn.Module, transformer: Transformer):
+    def __init__(self, n_dim: int, conditioner_transform: ConditionerTransform, transformer: Transformer):
         super().__init__()
         self.transformer = transformer
         self.conditioner = MaskedAutoregressive(transform=conditioner_transform, n_dim=n_dim)
@@ -257,7 +262,7 @@ class ForwardMaskedAutoregressive(Bijection):
 
 
 class InverseMaskedAutoregressive(Bijection):
-    def __init__(self, n_dim: int, conditioner_transform: nn.Module, transformer: Transformer):
+    def __init__(self, n_dim: int, conditioner_transform: ConditionerTransform, transformer: Transformer):
         super().__init__()
         self.forward_masked_autoregressive = ForwardMaskedAutoregressive(n_dim, conditioner_transform, transformer)
 
