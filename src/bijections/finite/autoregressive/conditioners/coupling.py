@@ -21,12 +21,12 @@ class Coupling(Conditioner):
         # TODO add support for other kinds of masks
         n_constant_dims = int(torch.prod(torch.tensor(event_shape)))
         self.constant_mask = torch.less(torch.arange(n_constant_dims).view(*event_shape), (n_constant_dims // 2))
-        self.constants = constants
+        self.register_buffer('constants', constants)  # Takes care of torch devices
 
     @property
     @torch.no_grad()
     def input_shape(self):
-        return (int(torch.sum(self.constant_mask)), )
+        return (int(torch.sum(self.constant_mask)),)
 
     @property
     @torch.no_grad()
