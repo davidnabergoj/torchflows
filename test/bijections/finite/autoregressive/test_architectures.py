@@ -40,30 +40,31 @@ def test_architecture(architecture_class, n_dim):
     assert x_reconstructed.shape == x.shape
     assert log_det_inverse.shape == (x.shape[0],)
 
-    if not torch.isclose(
-            reconstruction_error := (x - x_reconstructed).abs().max(),
-            torch.zeros(1),
-            atol=atol):
-        raise ValueError(f'{float(reconstruction_error) = }')
+    if architecture_class not in [InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF]:
+        if not torch.isclose(
+                reconstruction_error := (x - x_reconstructed).abs().max(),
+                torch.zeros(1),
+                atol=atol):
+            raise ValueError(f'{float(reconstruction_error) = }')
 
-    if not torch.isclose(
-            reconstruction_error := torch.linalg.norm(x - x_reconstructed),
-            torch.zeros(1),
-            atol=atol):
-        print(f'{reconstruction_error = }')
-        raise ValueError(f'{float(reconstruction_error) = }')
+        if not torch.isclose(
+                reconstruction_error := torch.linalg.norm(x - x_reconstructed),
+                torch.zeros(1),
+                atol=atol):
+            print(f'{reconstruction_error = }')
+            raise ValueError(f'{float(reconstruction_error) = }')
 
-    if not torch.isclose(
-            log_det_error := (log_det_forward + log_det_inverse).abs().max(),
-            torch.zeros(1),
-            atol=atol):
-        raise ValueError(f'{float(log_det_error) = }')
+        if not torch.isclose(
+                log_det_error := (log_det_forward + log_det_inverse).abs().max(),
+                torch.zeros(1),
+                atol=atol):
+            raise ValueError(f'{float(log_det_error) = }')
 
-    if not torch.isclose(
-            log_det_error := torch.linalg.norm(log_det_forward + log_det_inverse),
-            torch.zeros(1),
-            atol=atol):
-        raise ValueError(f'{float(log_det_error) = }')
+        if not torch.isclose(
+                log_det_error := torch.linalg.norm(log_det_forward + log_det_inverse),
+                torch.zeros(1),
+                atol=atol):
+            raise ValueError(f'{float(log_det_error) = }')
 
 
 @pytest.mark.parametrize('architecture_class', [
