@@ -249,7 +249,7 @@ class ForwardMaskedAutoregressive(Bijection):
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(size=(z.shape[0],), device=z.device)
         x = torch.clone(z)
-        for i in torch.arange(z.shape[-1]):  # FIXME this probably messes up autograd b/c it overwrites the gradient?
+        for i in torch.arange(z.shape[-1]):
             h = self.conditioner(torch.clone(x), context=context)
             tmp, log_det = self.transformer.inverse(x, h)
             x[:, i] = tmp[:, i]
