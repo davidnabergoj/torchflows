@@ -1,78 +1,64 @@
 import math
-from typing import Tuple
 
 import torch
-import torch.nn as nn
 
-from src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward, Linear, ConditionerTransform
+from src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
 from src.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from src.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
+from src.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, ForwardMaskedAutoregressiveLayer, \
+    InverseMaskedAutoregressiveLayer
 from src.bijections.finite.autoregressive.transformers.affine import Affine, Shift
-from src.bijections.finite.autoregressive.transformers.base import Transformer
 from src.bijections.finite.autoregressive.transformers.spline import RationalQuadraticSpline
-from src.bijections.finite.base import Bijection
 
 
-class CouplingBijection(Bijection):
+class AffineCoupling(AutoregressiveLayer):
     def __init__(self,
-                 n_dim,
-                 constant_dims,
-                 constants,
-                 conditioner_transform: ConditionerTransform,
-                 transformer: Transformer):
-        super().__init__()
-        self.transformer = transformer
-        self.conditioner = Coupling(
-            transform=conditioner_transform,
-            constants=constants,
-            constant_dims=constant_dims,
-            n_dim=n_dim
-        )
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(x, context=context)
-        z, log_det = self.transformer(x, h)
-        return z, log_det
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(z, context=context)
-        x, log_det = self.transformer.inverse(z, h)
-        return x, log_det
-
-
-class AffineCoupling(CouplingBijection):
-    def __init__(self, n_dim, constant_dims, conditioner_transform: ConditionerTransform, scale_transform: callable = torch.exp):
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 scale_transform: callable = torch.exp,
+                 **kwargs):
+        if event_shape == (1,):
+            raise ValueError
         default_log_scale = 0.0
         default_shift = 0.0
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            constants=torch.tensor([default_log_scale, default_shift]),
-            conditioner_transform=conditioner_transform,
-            transformer=Affine(scale_transform=scale_transform)
+        conditioner = Coupling(constants=torch.tensor([default_log_scale, default_shift]), event_shape=event_shape)
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=2,
+            context_shape=context_shape,
+            **kwargs
         )
+        transformer = Affine(scale_transform=scale_transform)
+        super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class ShiftCoupling(CouplingBijection):
-    def __init__(self, n_dim, constant_dims, conditioner_transform: ConditionerTransform, **kwargs):
-        default_shift = 0.0
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            constants=torch.tensor([default_shift]),
-            conditioner_transform=conditioner_transform,
-            transformer=Shift()
-        )
-
-
-class RationalQuadraticSplineCoupling(CouplingBijection):
+class ShiftCoupling(AutoregressiveLayer):
     def __init__(self,
-                 n_dim,
-                 n_bins: int,
-                 constant_dims,
-                 conditioner_transform: ConditionerTransform,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
                  **kwargs):
-        assert n_bins >= 2
+        default_shift = 0.0
+        conditioner = Coupling(constants=torch.tensor([default_shift]), event_shape=event_shape)
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=2,
+            context_shape=context_shape,
+            **kwargs
+        )
+        transformer = Shift()
+        super().__init__(conditioner, transformer, conditioner_transform)
+
+
+class RQSCoupling(AutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_bins: int = 8,
+                 boundary: float = 1.0,
+                 **kwargs):
+        assert n_bins >= 1
         default_unconstrained_widths = torch.zeros(n_bins)
         default_unconstrained_heights = torch.zeros(n_bins)
         default_unconstrained_derivatives = torch.full(size=(n_bins - 1,), fill_value=math.log(math.expm1(1)))
@@ -81,239 +67,121 @@ class RationalQuadraticSplineCoupling(CouplingBijection):
             default_unconstrained_heights,
             default_unconstrained_derivatives
         ])
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            constants=constants,
-            conditioner_transform=conditioner_transform,
-            transformer=RationalQuadraticSpline(n_bins=n_bins, **kwargs)
+
+        conditioner = Coupling(constants=constants, event_shape=event_shape)
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=3 * n_bins - 1,
+            context_shape=context_shape,
+            **kwargs
         )
+        transformer = RationalQuadraticSpline(n_bins=n_bins, boundary=boundary)
+        super().__init__(conditioner, transformer, conditioner_transform)
 
 
 class LinearAffineCoupling(AffineCoupling):
-    def __init__(self, n_dim: int, **kwargs):
-        assert n_dim >= 2
-
-        # Set up the input and output dimensions
-        n_transformer_parameters = 2
-        constant_dims = torch.arange(n_dim // 2)
-        n_constant_dims = len(constant_dims)
-        n_transformed_dims = n_dim - n_constant_dims
-
-        # Create the linear conditioner transform
-        lin_cond = Linear(
-            n_input_dims=n_constant_dims,
-            n_output_dims=n_transformed_dims,
-            n_output_parameters=n_transformer_parameters
-        )
-
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            conditioner_transform=lin_cond,
-            **kwargs
-        )
+    def __init__(self, event_shape: torch.Size, **kwargs):
+        super().__init__(event_shape, **kwargs, n_layers=1)
 
 
-class LinearRationalQuadraticSplineCoupling(RationalQuadraticSplineCoupling):
-    def __init__(self, n_dim, n_bins: int = 8, **kwargs):
-        # Set up the input and output dimensions
-        n_transformer_parameters = 3 * n_bins - 1
-        constant_dims = torch.arange(n_dim // 2)
-        n_constant_dims = len(constant_dims)
-        n_transformed_dims = n_dim - n_constant_dims
-
-        # Create the linear conditioner transform
-        lin_cond = Linear(
-            n_input_dims=n_constant_dims,
-            n_output_dims=n_transformed_dims,
-            n_output_parameters=n_transformer_parameters
-        )
-        super().__init__(
-            n_dim=n_dim,
-            n_bins=n_bins,
-            constant_dims=constant_dims,
-            conditioner_transform=lin_cond,
-            **kwargs
-        )
+class LinearRQSCoupling(RQSCoupling):
+    def __init__(self, event_shape: torch.Size, **kwargs):
+        super().__init__(event_shape, **kwargs, n_layers=1)
 
 
 class LinearShiftCoupling(ShiftCoupling):
-    def __init__(self, n_dim: int, **kwargs):
-        assert n_dim >= 2
-
-        # Set up the input and output dimensions
-        n_transformer_parameters = 1
-        constant_dims = torch.arange(n_dim // 2)
-        n_constant_dims = len(constant_dims)
-        n_transformed_dims = n_dim - n_constant_dims
-
-        # Create the linear conditioner transform
-        lin_cond = Linear(
-            n_input_dims=n_constant_dims,
-            n_output_dims=n_transformed_dims,
-            n_output_parameters=n_transformer_parameters
-        )
-
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            conditioner_transform=lin_cond,
-            **kwargs
-        )
+    def __init__(self, event_shape: torch.Size, **kwargs):
+        super().__init__(event_shape, **kwargs, n_layers=1)
 
 
-class FeedForwardAffineCoupling(AffineCoupling):
-    def __init__(self, n_dim: int, **kwargs):
-        assert n_dim >= 2
-
-        # Set up the input and output dimensions
-        n_transformer_parameters = 2
-        constant_dims = torch.arange(n_dim // 2)
-        n_constant_dims = len(constant_dims)
-        n_transformed_dims = n_dim - n_constant_dims
-
-        # Create the neural network conditioner transform
-        network = FeedForward(
-            n_input_dims=n_constant_dims,
-            n_output_dims=n_transformed_dims,
-            n_output_parameters=n_transformer_parameters,
-            **kwargs
-        )
-
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            conditioner_transform=network,
-            **kwargs
-        )
-
-
-class FeedForwardRationalQuadraticSplineCoupling(RationalQuadraticSplineCoupling):
-    def __init__(self, n_dim, n_bins: int = 8, **kwargs):
-        # Set up the input and output dimensions
-        n_transformer_parameters = 3 * n_bins - 1
-        constant_dims = torch.arange(n_dim // 2)
-        n_constant_dims = len(constant_dims)
-        n_transformed_dims = n_dim - n_constant_dims
-
-        # Create the linear conditioner transform
-        network = FeedForward(
-            n_input_dims=n_constant_dims,
-            n_output_dims=n_transformed_dims,
-            n_output_parameters=n_transformer_parameters,
-            **kwargs
-        )
-
-        super().__init__(
-            n_dim=n_dim,
-            n_bins=n_bins,
-            constant_dims=constant_dims,
-            conditioner_transform=network,
-            **kwargs
-        )
-
-
-class FeedForwardShiftCoupling(ShiftCoupling):
-    def __init__(self, n_dim: int, **kwargs):
-        assert n_dim >= 2
-
-        # Set up the input and output dimensions
-        n_transformer_parameters = 1
-        constant_dims = torch.arange(n_dim // 2)
-        n_constant_dims = len(constant_dims)
-        n_transformed_dims = n_dim - n_constant_dims
-
-        # Create the neural network conditioner transform
-        network = FeedForward(
-            n_input_dims=n_constant_dims,
-            n_output_dims=n_transformed_dims,
-            n_output_parameters=n_transformer_parameters,
-            **kwargs
-        )
-
-        super().__init__(
-            n_dim=n_dim,
-            constant_dims=constant_dims,
-            conditioner_transform=network,
-            **kwargs
-        )
-
-
-class ForwardMaskedAutoregressive(Bijection):
-    def __init__(self, n_dim: int, conditioner_transform: ConditionerTransform, transformer: Transformer):
-        super().__init__()
-        self.transformer = transformer
-        self.conditioner = MaskedAutoregressive(transform=conditioner_transform, n_dim=n_dim)
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.conditioner(x, context=context)
-        z, log_det = self.transformer(x, h)
-        return z, log_det
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        log_det = torch.zeros(size=(z.shape[0],), device=z.device)
-        x = torch.clone(z)
-        for i in torch.arange(z.shape[-1]):
-            h = self.conditioner(torch.clone(x), context=context)
-            tmp, log_det = self.transformer.inverse(x, h)
-            x[:, i] = tmp[:, i]
-        return x, log_det
-
-
-class InverseMaskedAutoregressive(Bijection):
-    def __init__(self, n_dim: int, conditioner_transform: ConditionerTransform, transformer: Transformer):
-        super().__init__()
-        self.forward_masked_autoregressive = ForwardMaskedAutoregressive(n_dim, conditioner_transform, transformer)
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.forward_masked_autoregressive.inverse(x, context=context)
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.forward_masked_autoregressive.forward(z, context=context)
-
-
-class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):
-    def __init__(self, n_dim: int, scale_transform: callable = torch.exp, **kwargs):
+class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 scale_transform: callable = torch.exp,
+                 **kwargs):
         transformer = Affine(scale_transform=scale_transform)
         conditioner_transform = MADE(
-            n_input_dims=n_dim,
-            n_output_dims=n_dim,
+            input_shape=event_shape,
+            output_shape=event_shape,
             n_output_parameters=2,
-            **kwargs)
-        super().__init__(n_dim, conditioner_transform, transformer)
+            context_shape=context_shape,
+            **kwargs
+        )
+        conditioner = MaskedAutoregressive()
+        super().__init__(
+            conditioner=conditioner,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform
+        )
 
 
-class SplineForwardMaskedAutoregressive(ForwardMaskedAutoregressive):
-    def __init__(self, n_dim: int, n_bins: int = 8, **kwargs):
-        assert n_bins >= 2
-        transformer = RationalQuadraticSpline(n_bins=n_bins, **kwargs)
+class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_bins: int = 8,
+                 boundary: float = 1.0,
+                 **kwargs):
+        assert n_bins >= 1
+        transformer = RationalQuadraticSpline(n_bins=n_bins, boundary=boundary)
         conditioner_transform = MADE(
-            n_input_dims=n_dim,
-            n_output_dims=n_dim,
+            input_shape=event_shape,
+            output_shape=event_shape,
             n_output_parameters=3 * n_bins - 1,
-            **kwargs)
-        super().__init__(n_dim, conditioner_transform, transformer)
+            context_shape=context_shape,
+            **kwargs
+        )
+        conditioner = MaskedAutoregressive()
+        super().__init__(
+            conditioner=conditioner,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform
+        )
 
 
-class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressive):
-    def __init__(self, n_dim: int, scale_transform: callable = torch.exp, **kwargs):
+class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 scale_transform: callable = torch.exp,
+                 **kwargs):
         transformer = Affine(scale_transform=scale_transform)
         conditioner_transform = MADE(
-            n_input_dims=n_dim,
-            n_output_dims=n_dim,
+            input_shape=event_shape,
+            output_shape=event_shape,
             n_output_parameters=2,
-            **kwargs)
-        super().__init__(n_dim, conditioner_transform, transformer)
+            context_shape=context_shape,
+            **kwargs
+        )
+        conditioner = MaskedAutoregressive()
+        super().__init__(
+            conditioner=conditioner,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform
+        )
 
 
-class SplineInverseMaskedAutoregressive(InverseMaskedAutoregressive):
-    def __init__(self, n_dim: int, n_bins: int = 8, **kwargs):
-        assert n_bins >= 2
-        transformer = RationalQuadraticSpline(n_bins=n_bins, **kwargs)
+class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_bins: int = 8,
+                 boundary: float = 1.0,
+                 **kwargs):
+        assert n_bins >= 1
+        transformer = RationalQuadraticSpline(n_bins=n_bins, boundary=boundary)
         conditioner_transform = MADE(
-            n_input_dims=n_dim,
-            n_output_dims=n_dim,
+            input_shape=event_shape,
+            output_shape=event_shape,
             n_output_parameters=3 * n_bins - 1,
-            **kwargs)
-        super().__init__(n_dim, conditioner_transform, transformer)
+            context_shape=context_shape,
+            **kwargs
+        )
+        conditioner = MaskedAutoregressive()
+        super().__init__(
+            conditioner=conditioner,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform
+        )

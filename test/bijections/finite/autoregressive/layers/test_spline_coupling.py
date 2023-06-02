@@ -1,18 +1,14 @@
 import pytest
 import torch
 
-from src.bijections.finite.autoregressive.layers import (
-    FeedForwardRationalQuadraticSplineCoupling,
-    LinearRationalQuadraticSplineCoupling
-)
+from src.bijections.finite.autoregressive.layers import RQSCoupling, LinearRQSCoupling
 
 
 @pytest.mark.parametrize('n_dim', [2, 10, 100, 1000])
-@pytest.mark.parametrize('layer_class',
-                         [FeedForwardRationalQuadraticSplineCoupling, LinearRationalQuadraticSplineCoupling])
+@pytest.mark.parametrize('layer_class', [RQSCoupling, LinearRQSCoupling])
 def test_spline_coupling(n_dim, layer_class):
     torch.manual_seed(0)
-    bijection = layer_class(n_dim)
+    bijection = layer_class(event_shape=torch.Size((n_dim,)))
 
     x = torch.randn(size=(125, n_dim))
     z, log_det_forward = bijection(x)

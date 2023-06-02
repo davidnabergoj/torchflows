@@ -1,46 +1,50 @@
 import torch
-import torch.nn as nn
 
+from src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
 from src.bijections.finite.autoregressive.conditioners.base import Conditioner
+from src.utils import get_batch_shape, keepdims_event_mask
 
 
 class Coupling(Conditioner):
-    def __init__(self,
-                 transform: nn.Module,
-                 constants: torch.Tensor,
-                 constant_dims: torch.Tensor,
-                 n_dim: int):
+    def __init__(self, constants: torch.Tensor, event_shape):
         """
         Coupling conditioner.
 
 
         Note: Always treats the first n_dim // 2 dimensions as constant. Shuffling is handled in Permutation bijections.
 
-        :param transform: module which predicts transformer parameters.
-            Input dimension should be len(constant_dims).
-            Output dimension should be n_dim - len(constant_dims).
         :param constants:
-        :param constant_dims:
         """
         super().__init__()
-        self.transform = transform
-        self.constant_dims = constant_dims
-        self.transformed_dims = torch.arange(n_dim)[~torch.isin(torch.arange(n_dim), constant_dims)]
-        self.n_dim = n_dim
+        self.event_shape = event_shape
 
-        self.register_buffer('constants', torch.stack([constants for _ in range(len(constant_dims))]))
+        # TODO add support for other kinds of masks
+        n_constant_dims = int(torch.prod(torch.tensor(event_shape)))
+        self.constant_mask = torch.less(torch.arange(n_constant_dims).view(*event_shape), (n_constant_dims // 2))
+        self.constants = constants
 
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+    @property
+    @torch.no_grad()
+    def input_shape(self):
+        return (int(torch.sum(self.constant_mask)), )
+
+    @property
+    @torch.no_grad()
+    def output_shape(self):
+        return (int(torch.sum(~self.constant_mask)),)
+
+    def forward(self, x: torch.Tensor, transform: ConditionerTransform, context: torch.Tensor = None) -> torch.Tensor:
         # Predict transformer parameters for output dimensions
-        tmp = self.transform(x[:, self.constant_dims], context=context)
-        n_data = tmp.shape[0]
+        batch_shape = get_batch_shape(x, self.event_shape)
+        x_const = x.view(*batch_shape, *self.event_shape)[..., self.constant_mask]
+        tmp = transform(x_const, context=context)
         n_parameters = tmp.shape[-1]
 
         # Create full parameter tensor
-        h = torch.empty(size=(n_data, self.n_dim, n_parameters), dtype=x.dtype, device=x.device)
+        h = torch.empty(size=(*batch_shape, *self.event_shape, n_parameters), dtype=x.dtype, device=x.device)
 
         # Fill the parameter tensor with predicted values
-        h[:, self.transformed_dims] = tmp
-        h[:, self.constant_dims] = torch.stack([self.constants for _ in range(n_data)])
+        h[..., ~self.constant_mask, :] = tmp
+        h[..., self.constant_mask, :] = self.constants
 
         return h

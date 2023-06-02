@@ -20,13 +20,16 @@ class MADE(ConditionerTransform):
             return nn.functional.linear(x, self.weight * self.mask, self.bias)
 
     def __init__(self,
-                 n_input_dims: int,
-                 n_output_dims: int,
+                 input_shape: torch.Size,
+                 output_shape: torch.Size,
                  n_output_parameters: int,
-                 n_context_dims: int = None,
+                 context_shape: torch.Size = None,
                  n_hidden: int = 100,
                  n_layers: int = 4):
         super().__init__()
+        n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
+        n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
+        n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
 
         # Set conditional dimension values
         ms = [
@@ -62,7 +65,7 @@ class MADE(ConditionerTransform):
         ])
         self.sequential = nn.Sequential(*layers)
 
-        if n_context_dims is not None:
+        if context_shape is not None:
             self.context_linear = nn.Sequential(
                 nn.Linear(n_context_dims, n_output_dims * n_output_parameters),
                 nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
@@ -78,22 +81,25 @@ class MADE(ConditionerTransform):
 
 
 class LinearMADE(MADE):
-    def __init__(self, n_input_dims: int, n_output_dims: int, n_output_parameters: int, **kwargs):
-        super().__init__(n_input_dims, n_output_dims, n_output_parameters, n_layers=1, **kwargs)
+    def __init__(self, input_shape: torch.Size, output_shape: torch.Size, n_output_parameters: int, **kwargs):
+        super().__init__(input_shape, output_shape, n_output_parameters, n_layers=1, **kwargs)
 
 
 class FeedForward(ConditionerTransform):
     def __init__(self,
-                 n_input_dims: int,
-                 n_output_dims: int,
+                 input_shape: torch.Size,
+                 output_shape: torch.Size,
                  n_output_parameters: int,
-                 n_context_dims: int = None,
+                 context_shape: torch.Size = None,
                  n_hidden: int = 100,
                  n_layers: int = 4):
         super().__init__()
+        n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
+        n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
+        n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
 
         # If context given, concatenate it to transform input
-        if n_context_dims is not None:
+        if context_shape is not None:
             n_input_dims += n_context_dims
 
         # Check the one layer special case

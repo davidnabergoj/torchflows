@@ -8,7 +8,7 @@ from src.bijections.finite.linear.permutation import Permutation
 def test_permutation(n_dim):
     torch.manual_seed(0)
     x = torch.randn(25, n_dim)
-    bijection = Permutation(n_dim=n_dim)
+    bijection = Permutation(event_shape=torch.Size((n_dim,)))
 
     z, log_det_forward = bijection(x)
 
