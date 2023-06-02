@@ -61,14 +61,14 @@ class MADE(ConditionerTransform):
                 masks[-1].shape[0] * n_output_parameters,
                 torch.repeat_interleave(masks[-1], n_output_parameters, dim=0)
             ),
-            nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
+            nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters))
         ])
         self.sequential = nn.Sequential(*layers)
 
         if context_shape is not None:
             self.context_linear = nn.Sequential(
                 nn.Linear(n_context_dims, n_output_dims * n_output_parameters),
-                nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters))
+                nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters))
             )
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
@@ -114,7 +114,7 @@ class FeedForward(ConditionerTransform):
             raise ValueError
 
         # Reshape the output
-        layers.append(nn.Unflatten(dim=1, unflattened_size=(n_output_dims, n_output_parameters)))
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters)))
         self.sequential = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
