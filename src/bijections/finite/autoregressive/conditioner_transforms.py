@@ -71,8 +71,8 @@ class MADE(ConditionerTransform):
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         out = self.sequential(x)
         if context is not None:
-            assert x.shape[1:] == context.shape[1:], \
-                f"Shape of x and context do not match ({x.shape = }, {context.shape = })"
+            assert x.shape[0] == context.shape[0], \
+                f"Batch shapes of x and context must match ({x.shape = }, {context.shape = })"
             out += self.context_linear(context)
         return out
 
@@ -113,8 +113,8 @@ class FeedForward(ConditionerTransform):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         if context is not None:
-            assert x.shape[1:] == context.shape[1:], \
-                f"Shape of x and context do not match ({x.shape = }, {context.shape = })"
+            assert x.shape[0] == context.shape[0], \
+                f"Batch shapes of x and context must match ({x.shape = }, {context.shape = })"
             x = torch.cat([x, context], dim=1)
         return self.sequential(x)
 

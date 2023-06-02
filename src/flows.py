@@ -16,12 +16,16 @@ class Flow(nn.Module):
         )
         self.bijection = bijection.to(device)
 
-    def log_prob(self, x: torch.Tensor):
-        z, log_det = self.bijection.forward(x)
+    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
+        if context is not None:
+            assert context.shape[0] == x.shape[0]
+        z, log_det = self.bijection.forward(x, context=context)
         log_base = self.base.log_prob(z)
         return log_base + log_det
 
-    def sample(self, n: int):
+    def sample(self, n: int, context: torch.Tensor = None):
+        if context is not None:
+            assert context.shape[0] == n
         z = self.base.sample(sample_shape=torch.Size((n,)))
-        x, _ = self.bijection.inverse(z)
+        x, _ = self.bijection.inverse(z, context=context)
         return x
