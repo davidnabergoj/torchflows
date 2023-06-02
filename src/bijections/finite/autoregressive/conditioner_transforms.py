@@ -27,6 +27,8 @@ class MADE(ConditionerTransform):
                  n_hidden: int = 100,
                  n_layers: int = 4):
         super().__init__()
+        self.context_shape = context_shape
+
         n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
         n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
         n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
@@ -77,6 +79,8 @@ class MADE(ConditionerTransform):
             assert x.shape[0] == context.shape[0], \
                 f"Batch shapes of x and context must match ({x.shape = }, {context.shape = })"
             out += self.context_linear(context)
+        if context is None and self.context_shape is not None:
+            raise RuntimeError("Context required")
         return out
 
 
@@ -94,6 +98,9 @@ class FeedForward(ConditionerTransform):
                  n_hidden: int = 100,
                  n_layers: int = 4):
         super().__init__()
+        self.input_shape = input_shape
+        self.context_shape = context_shape
+
         n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
         n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
         n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
@@ -119,9 +126,11 @@ class FeedForward(ConditionerTransform):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         if context is not None:
-            assert x.shape[0] == context.shape[0], \
+            assert x.shape[:len(self.input_shape)] == context.shape[:len(self.input_shape)], \
                 f"Batch shapes of x and context must match ({x.shape = }, {context.shape = })"
-            x = torch.cat([x, context], dim=1)
+            x = torch.cat([x, context], dim=-len(self.input_shape))
+        if context is None and self.context_shape is not None:
+            raise RuntimeError("Context required")
         return self.sequential(x)
 
 

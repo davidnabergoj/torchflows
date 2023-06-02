@@ -48,7 +48,7 @@ class BijectiveComposition(Bijection):
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(*get_batch_shape(x, event_shape=self.event_shape), device=x.device)
         for layer in self.layers:
-            x, log_det_layer = layer(x)
+            x, log_det_layer = layer(x, context=context)
             log_det += log_det_layer
         z = x
         return z, log_det
@@ -56,7 +56,7 @@ class BijectiveComposition(Bijection):
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(*get_batch_shape(z, event_shape=self.event_shape), device=z.device)
         for layer in self.layers[::-1]:
-            z, log_det_layer = layer.inverse(z)
+            z, log_det_layer = layer.inverse(z, context=context)
             log_det += log_det_layer
         x = z
         return x, log_det
