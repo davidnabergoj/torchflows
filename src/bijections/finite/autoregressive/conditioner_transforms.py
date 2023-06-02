@@ -23,7 +23,7 @@ class MADE(ConditionerTransform):
                  n_input_dims: int,
                  n_output_dims: int,
                  n_output_parameters: int,
-                 n_context_dims: int = None,  # TODO implement
+                 n_context_dims: int = None,
                  n_hidden: int = 100,
                  n_layers: int = 4):
         super().__init__()
