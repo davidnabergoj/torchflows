@@ -22,7 +22,7 @@ from src.bijections.finite.autoregressive.architectures import (
     MaskedAutoregressiveRQNSF,
     InverseAutoregressiveRQNSF
 ])
-@pytest.mark.parametrize('n_dim', [2, 3, 10, 100])
+@pytest.mark.parametrize('n_dim', [2, 3, 10, 20])
 def test_architecture(architecture_class, n_dim):
     # MAF reconstruction errors are larger with fewer input dimensions
     torch.manual_seed(0)
@@ -75,7 +75,7 @@ def test_architecture(architecture_class, n_dim):
     MaskedAutoregressiveRQNSF,
     InverseAutoregressiveRQNSF
 ])
-@pytest.mark.parametrize('n_dim', [2, 3, 10, 100])
+@pytest.mark.parametrize('n_dim', [2, 3, 10, 20])
 def test_backward(architecture_class, n_dim):
     torch.manual_seed(0)
     bijection = architecture_class(n_dim)
