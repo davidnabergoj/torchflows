@@ -34,7 +34,7 @@ class RationalQuadraticSpline(Transformer):
     def compute_bins(u, left, right):
         bin_sizes = torch.softmax(u, dim=-1) * (right - left)
         bins = left + torch.cumsum(bin_sizes, dim=-1)
-        bins = F.pad(bins, pad=(1, 0), value=left)
+        bins = F.pad(bins, pad=(1, 0), value=left)[..., :-1]
         return bins, bin_sizes
 
     def rqs(self,
@@ -70,7 +70,11 @@ class RationalQuadraticSpline(Transformer):
             k = torch.searchsorted(bin_x, inputs[..., None]) - 1
 
         assert torch.all(k >= 0)
-        assert torch.all(k < self.n_bins)
+        assert torch.all(k < self.n_bins), \
+            f"{torch.max(k) = }, " \
+            f"{float(torch.max(inputs).detach()) = }, " \
+            f"{bin_y.shape = }" \
+            f"{bin_y[0] = }"
 
         # Index the tensors
         bin_y_k = torch.gather(bin_y, -1, k)
