@@ -5,15 +5,15 @@ from src.bijections.finite.base import Bijection
 
 
 class Flow(nn.Module):
-    def __init__(self,
-                 bijection: Bijection,
-                 device: torch.device = torch.device('cpu')):
+    def __init__(self, bijection: Bijection):
         super().__init__()
-        self.base = torch.distributions.MultivariateNormal(
-            loc=torch.zeros(*bijection.event_shape, device=device),
-            covariance_matrix=torch.eye(*bijection.event_shape, device=device)
-        )
-        self.bijection = bijection.to(device)
+        self.register_buffer('loc', torch.zeros(*bijection.event_shape))
+        self.register_buffer('covariance_matrix', torch.eye(*bijection.event_shape))
+        self.register_module('bijection', bijection)
+
+    @property
+    def base(self):
+        return torch.distributions.MultivariateNormal(loc=self.loc, covariance_matrix=self.covariance_matrix)
 
     def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         if context is not None:
