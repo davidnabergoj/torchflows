@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 
 class RationalQuadraticSpline(Transformer):
-    def __init__(self, n_bins: int = 8, boundary: float = 1.0):
+    def __init__(self, event_shape: torch.Size, n_bins: int = 8, boundary: float = 1.0):
         """
         Neural Spline Flows - Durkan et al. 2019
 
@@ -18,7 +18,7 @@ class RationalQuadraticSpline(Transformer):
         :param n_bins: number of spline bins.
         :param boundary: boundary value for the spline; values outside [-boundary, boundary] remain identical.
         """
-        super().__init__()
+        super().__init__(event_shape=event_shape)
         self.n_bins = n_bins
         self.boundary = boundary
         self.boundary_u_delta = math.log(math.expm1(1))

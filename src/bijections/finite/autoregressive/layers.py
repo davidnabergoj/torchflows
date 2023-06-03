@@ -29,7 +29,7 @@ class AffineCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = Affine(scale_transform=scale_transform)
+        transformer = Affine(event_shape=event_shape, scale_transform=scale_transform)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -51,7 +51,7 @@ class InverseAffineCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = InverseAffine(scale_transform=scale_transform)
+        transformer = InverseAffine(event_shape=event_shape, scale_transform=scale_transform)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -65,11 +65,11 @@ class ShiftCoupling(AutoregressiveLayer):
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=2,
+            n_output_parameters=1,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = Shift()
+        transformer = Shift(event_shape=event_shape)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -98,7 +98,7 @@ class RQSCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = RationalQuadraticSpline(n_bins=n_bins, boundary=boundary)
+        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -123,7 +123,7 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  context_shape: torch.Size = None,
                  scale_transform: callable = torch.exp,
                  **kwargs):
-        transformer = Affine(scale_transform=scale_transform)
+        transformer = Affine(event_shape=event_shape, scale_transform=scale_transform)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
@@ -147,7 +147,7 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  boundary: float = 1.0,
                  **kwargs):
         assert n_bins >= 1
-        transformer = RationalQuadraticSpline(n_bins=n_bins, boundary=boundary)
+        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
@@ -169,7 +169,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  context_shape: torch.Size = None,
                  scale_transform: callable = torch.exp,
                  **kwargs):
-        transformer = Affine(scale_transform=scale_transform)
+        transformer = Affine(event_shape=event_shape, scale_transform=scale_transform)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
@@ -193,7 +193,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  boundary: float = 1.0,
                  **kwargs):
         assert n_bins >= 1
-        transformer = RationalQuadraticSpline(n_bins=n_bins, boundary=boundary)
+        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,

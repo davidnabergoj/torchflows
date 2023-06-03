@@ -10,7 +10,7 @@ from src.bijections.finite.base import Bijection
 
 class AutoregressiveLayer(Bijection):
     def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
-        super().__init__()
+        super().__init__(event_shape=transformer.event_shape)
         self.conditioner = conditioner
         self.conditioner_transform = conditioner_transform
         self.transformer = transformer

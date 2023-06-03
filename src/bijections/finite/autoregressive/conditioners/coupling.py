@@ -6,7 +6,7 @@ from src.utils import get_batch_shape
 
 
 class Coupling(Conditioner):
-    def __init__(self, constants: torch.Tensor, event_shape):
+    def __init__(self, event_shape: torch.Size, constants: torch.Tensor):
         """
         Coupling conditioner.
 

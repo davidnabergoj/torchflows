@@ -8,11 +8,12 @@ from src.utils import get_batch_shape
 
 
 class Bijection(nn.Module):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, event_shape: torch.Size):
         """
         Bijection class.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__()
+        self.event_shape = event_shape
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -41,9 +42,8 @@ class Bijection(nn.Module):
 
 class BijectiveComposition(Bijection):
     def __init__(self, event_shape: torch.Size, layers: List[Bijection]):
-        super().__init__()
+        super().__init__(event_shape=event_shape)
         self.layers = nn.ModuleList(layers)
-        self.event_shape = event_shape
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(*get_batch_shape(x, event_shape=self.event_shape), device=x.device)

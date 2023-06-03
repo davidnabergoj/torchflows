@@ -7,8 +7,7 @@ from src.utils import get_batch_shape
 
 class Permutation(Bijection):
     def __init__(self, event_shape):
-        super().__init__()
-        self.event_shape = event_shape
+        super().__init__(event_shape=event_shape)
         n_dim = int(torch.prod(torch.tensor(self.event_shape)))
         self.forward_permutation = torch.randperm(n_dim)
         self.inverse_permutation = torch.empty_like(self.forward_permutation)
