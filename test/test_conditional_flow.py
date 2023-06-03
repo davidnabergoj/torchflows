@@ -1,5 +1,6 @@
 import pytest
 import torch
+import torch.optim as optim
 
 from src import RealNVP, Flow
 
@@ -45,3 +46,25 @@ def test_no_context(n_dim):
 
     with pytest.raises(RuntimeError):
         x_new_no_context = flow.sample(10, context=torch.randn_like(x))
+
+
+@pytest.mark.parametrize('context_dim', [1, 2, 3, 768])
+@pytest.mark.parametrize('n_dim', [2, 10, 100])
+@pytest.mark.parametrize('n_data', [1, 2, 5, 10])
+@pytest.mark.parametrize('device', ['cpu', 'cuda'])
+def test_training(n_dim: int, context_dim: int, n_data: int, device: str):
+    torch.manual_seed(0)
+    device = torch.device(device)
+    bij = RealNVP(n_dim, context_shape=(context_dim,)).to(device)
+    flow = Flow(n_dim, bij, device=device)
+    optimizer = optim.AdamW(flow.parameters())
+    x = torch.randn(n_data, n_dim)
+    c = torch.randn(n_data, context_dim)
+    for _ in range(5):
+        optimizer.zero_grad()
+        loss = -flow.log_prob(x.to(device), context=c.to(device)).mean()
+        loss.backward()
+        optimizer.step()
+
+    samples = flow.sample(23, context=c.to(device))
+    assert samples.shape == (23, n_data, n_dim)
