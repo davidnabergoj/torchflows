@@ -6,13 +6,12 @@ from src.bijections.finite.base import Bijection
 
 class Flow(nn.Module):
     def __init__(self,
-                 n_dim: int,
                  bijection: Bijection,
                  device: torch.device = torch.device('cpu')):
         super().__init__()
         self.base = torch.distributions.MultivariateNormal(
-            loc=torch.zeros(n_dim, device=device),
-            covariance_matrix=torch.eye(n_dim, device=device)
+            loc=torch.zeros(*bijection.event_shape, device=device),
+            covariance_matrix=torch.eye(*bijection.event_shape, device=device)
         )
         self.bijection = bijection.to(device)
 
