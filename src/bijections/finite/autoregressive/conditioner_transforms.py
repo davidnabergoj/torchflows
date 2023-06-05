@@ -25,7 +25,7 @@ class MADE(ConditionerTransform):
                  n_output_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = 100,
-                 n_layers: int = 4):
+                 n_layers: int = 2):
         super().__init__()
         self.context_shape = context_shape
 
@@ -54,7 +54,7 @@ class MADE(ConditionerTransform):
         layers = []
         for mask in masks[:-1]:
             n_layer_outputs, n_layer_inputs = mask.shape
-            layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.ReLU()])
+            layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Tanh()])
 
         # Final linear layer
         layers.extend([
@@ -96,7 +96,7 @@ class FeedForward(ConditionerTransform):
                  n_output_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = 100,
-                 n_layers: int = 4):
+                 n_layers: int = 2):
         super().__init__()
         self.input_shape = input_shape
         self.context_shape = context_shape
@@ -113,9 +113,9 @@ class FeedForward(ConditionerTransform):
         if n_layers == 1:
             layers = [nn.Linear(n_input_dims, n_output_dims * n_output_parameters)]
         elif n_layers > 1:
-            layers = [nn.Linear(n_input_dims, n_hidden), nn.ReLU()]
+            layers = [nn.Linear(n_input_dims, n_hidden), nn.Tanh()]
             for _ in range(n_layers - 2):
-                layers.extend([nn.Linear(n_hidden, n_hidden), nn.ReLU()])
+                layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
             layers.append(nn.Linear(n_hidden, n_output_dims * n_output_parameters))
         else:
             raise ValueError
