@@ -169,7 +169,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  context_shape: torch.Size = None,
                  scale_transform: callable = torch.exp,
                  **kwargs):
-        transformer = Affine(event_shape=event_shape, scale_transform=scale_transform)
+        transformer = InverseAffine(event_shape=event_shape, scale_transform=scale_transform)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,

@@ -34,8 +34,9 @@ class ForwardMaskedAutoregressiveLayer(AutoregressiveLayer):
         log_det = torch.zeros(size=(z.shape[0],), device=z.device)
         x = torch.clone(z)
         for i in torch.arange(z.shape[-1]):
-            h = self.conditioner(torch.clone(x), transform=self.conditioner_transform, context=context)
-            tmp, log_det = self.transformer.inverse(x, h)
+            x_clone = torch.clone(x)
+            h = self.conditioner(x_clone, transform=self.conditioner_transform, context=context)
+            tmp, log_det = self.transformer.inverse(x_clone, h)
             x[:, i] = tmp[:, i]
         return x, log_det
 
