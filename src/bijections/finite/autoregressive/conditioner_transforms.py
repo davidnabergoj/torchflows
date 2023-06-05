@@ -137,3 +137,55 @@ class FeedForward(ConditionerTransform):
 class Linear(FeedForward):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, n_layers=1)
+
+
+class ResidualFeedForward(ConditionerTransform):
+    class ResidualLinear(nn.Module):
+        def __init__(self, n_in, n_out):
+            super().__init__()
+            self.linear = nn.Linear(n_in, n_out)
+
+        def forward(self, x):
+            return x + self.linear(x)
+
+    def __init__(self,
+                 input_shape: torch.Size,
+                 output_shape: torch.Size,
+                 n_output_parameters: int,
+                 context_shape: torch.Size = None,
+                 n_layers: int = 2):
+        super().__init__()
+        self.input_shape = input_shape
+        self.context_shape = context_shape
+
+        n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
+        n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
+        n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
+
+        # If context given, concatenate it to transform input
+        if context_shape is not None:
+            n_input_dims += n_context_dims
+
+        # Check the one layer special case
+        if n_layers == 1:
+            layers = [nn.Linear(n_input_dims, n_output_dims * n_output_parameters)]
+        elif n_layers > 1:
+            layers = [self.ResidualLinear(n_input_dims, n_input_dims), nn.Tanh()]
+            for _ in range(n_layers - 2):
+                layers.extend([self.ResidualLinear(n_input_dims, n_input_dims), nn.Tanh()])
+            layers.append(nn.Linear(n_input_dims, n_output_dims * n_output_parameters))
+        else:
+            raise ValueError
+
+        # Reshape the output
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters)))
+        self.sequential = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        if context is not None:
+            assert x.shape[:len(self.input_shape)] == context.shape[:len(self.input_shape)], \
+                f"Batch shapes of x and context must match ({x.shape = }, {context.shape = })"
+            x = torch.cat([x, context], dim=-len(self.input_shape))
+        if context is None and self.context_shape is not None:
+            raise RuntimeError("Context required")
+        return self.sequential(x)
