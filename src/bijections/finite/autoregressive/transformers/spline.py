@@ -25,8 +25,10 @@ class RationalQuadraticSpline(Transformer):
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
-        log_numerator = torch.log(s_k ** 2 + (deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2))
-        log_denominator = torch.log((s_k + term1 * xi_1m_xi) ** 2)
+        log_numerator = 2 * torch.log(s_k) + torch.log1p(
+            (deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2) / s_k
+        )
+        log_denominator = 2 * torch.log(s_k) + torch.log1p(term1 * xi_1m_xi / s_k)
         log_determinant = log_numerator - log_denominator
         return log_determinant
 
