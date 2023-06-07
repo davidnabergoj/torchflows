@@ -22,6 +22,7 @@ class RationalQuadraticSpline(Transformer):
         self.n_bins = n_bins
         self.boundary = boundary
         self.boundary_u_delta = math.log(math.expm1(1))
+        self.min_bin_size = 1e-3
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
@@ -32,11 +33,15 @@ class RationalQuadraticSpline(Transformer):
         log_determinant = log_numerator - log_denominator
         return log_determinant
 
-    @staticmethod
-    def compute_bins(u, left, right):
-        bin_sizes = torch.softmax(u, dim=-1) * (right - left)
-        bins = left + torch.cumsum(bin_sizes, dim=-1)
-        bins = F.pad(bins, pad=(1, 0), value=left)[..., :-1]
+    def compute_bins(self, u, left, right):
+        bin_sizes = torch.softmax(u, dim=-1)
+        bin_sizes = self.min_bin_size + (1 - self.min_bin_size * self.n_bins) * bin_sizes
+        bins = torch.cumsum(bin_sizes, dim=-1)
+        bins = F.pad(bins, pad=(1, 0), mode='constant', value=0.0)[..., :-1]
+        bins = (right - left) * bins + left
+        bins[..., 0] = left
+        bins[..., -1] = right
+        bin_sizes = bins[..., 1:] - bins[..., :-1]
         return bins, bin_sizes
 
     def rqs(self,
