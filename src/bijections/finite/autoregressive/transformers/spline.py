@@ -21,8 +21,9 @@ class RationalQuadraticSpline(Transformer):
         super().__init__(event_shape=event_shape)
         self.n_bins = n_bins
         self.boundary = boundary
-        self.boundary_u_delta = math.log(math.expm1(1))
         self.min_bin_size = 1e-3
+        self.min_delta = 1e-5
+        self.boundary_u_delta = math.log(math.expm1(1 - self.min_delta))
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
@@ -63,7 +64,7 @@ class RationalQuadraticSpline(Transformer):
 
         bin_x, bin_widths = self.compute_bins(u_widths, left, right)
         bin_y, bin_heights = self.compute_bins(u_heights, bottom, top)
-        deltas = F.softplus(u_deltas)  # Derivatives
+        deltas = self.min_delta + F.softplus(u_deltas)  # Derivatives
 
         bin_x = torch.clip(bin_x, left, right)
         bin_y = torch.clip(bin_y, bottom, top)
