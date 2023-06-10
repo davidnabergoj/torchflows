@@ -1,6 +1,6 @@
 import torch
 
-from normalizing_flows.src.bijections import Conditioner
+from normalizing_flows.src.bijections.finite.autoregressive.conditioners.base import Conditioner
 
 
 class MaskedAutoregressive(Conditioner):

@@ -2,13 +2,11 @@ import math
 
 import torch
 
-from normalizing_flows.src.bijections import MADE, FeedForward
-from normalizing_flows.src.bijections import Coupling
-from normalizing_flows.src.bijections import MaskedAutoregressive
-from normalizing_flows.src.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, ForwardMaskedAutoregressiveLayer, \
-    InverseMaskedAutoregressiveLayer
-from normalizing_flows.src.bijections.finite.autoregressive.transformers.affine import Affine, Shift, InverseAffine
-from normalizing_flows.src.bijections import RationalQuadraticSpline
+from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
+from normalizing_flows.src.bijections.finite.autoregressive.conditioners import Coupling, MaskedAutoregressive
+from normalizing_flows.src.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
+    ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer
+from normalizing_flows.src.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, RationalQuadraticSpline
 
 
 class AffineCoupling(AutoregressiveLayer):

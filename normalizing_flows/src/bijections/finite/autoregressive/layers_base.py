@@ -2,10 +2,10 @@ from typing import Tuple
 
 import torch
 
-from normalizing_flows.src.bijections import ConditionerTransform
-from normalizing_flows.src.bijections import Conditioner
+from normalizing_flows.src.bijections.finite.autoregressive.conditioners.base import Conditioner
+from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.src.bijections import Bijection
+from normalizing_flows.src.bijections.finite.base import Bijection
 
 
 class AutoregressiveLayer(Bijection):

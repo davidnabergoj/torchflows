@@ -1,4 +1,4 @@
-from normalizing_flows.src.bijections import (
+from normalizing_flows.src.bijections.finite.autoregressive.architectures import (
     NICE,
     RealNVP,
     MAF,
