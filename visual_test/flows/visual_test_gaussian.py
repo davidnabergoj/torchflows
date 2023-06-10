@@ -13,7 +13,7 @@ def visual_test_basic(bijection_class):
 
     torch.manual_seed(0)
     bijection = bijection_class(n_dim=n_dim, n_layers=3)
-    flow = Flow(n_dim=n_dim, bijection=bijection, device=device)
+    flow = Flow(bijection).to(device)
     x = torch.randn(n_samples, n_dim) * scale.view(1, -1)
     x = x.to(device)
 
