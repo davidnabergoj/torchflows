@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.bijections.finite.autoregressive.layers import RQSCoupling, LinearRQSCoupling
+from normalizing_flows.src.bijections import RQSCoupling, LinearRQSCoupling
 
 
 @pytest.mark.parametrize('n_dim', [2, 10, 100, 1000])

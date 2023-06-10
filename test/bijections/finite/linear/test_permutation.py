@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.bijections.finite.linear.permutation import Permutation
+from normalizing_flows.src.bijections import Permutation
 
 
 @pytest.mark.parametrize('n_dim', [1, 2, 10, 100])

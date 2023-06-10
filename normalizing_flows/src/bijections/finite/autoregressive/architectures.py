@@ -1,6 +1,6 @@
 import torch
 
-from src.bijections.finite.autoregressive.layers import (
+from normalizing_flows.src.bijections import (
     ShiftCoupling,
     AffineCoupling,
     AffineForwardMaskedAutoregressive,
@@ -9,8 +9,8 @@ from src.bijections.finite.autoregressive.layers import (
     RQSForwardMaskedAutoregressive,
     RQSInverseMaskedAutoregressive, InverseAffineCoupling
 )
-from src.bijections.finite.base import BijectiveComposition
-from src.bijections.finite.linear.permutation import Permutation
+from normalizing_flows.src.bijections import BijectiveComposition
+from normalizing_flows.src.bijections import Permutation
 
 
 class NICE(BijectiveComposition):

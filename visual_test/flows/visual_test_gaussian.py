@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from src import Flow, RealNVP, NICE, MAF, IAF
+from normalizing_flows import Flow, RealNVP, NICE, MAF, IAF
 import matplotlib.pyplot as plt
 
 

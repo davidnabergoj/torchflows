@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.optim as optim
 
-from src import RealNVP, Flow
+from normalizing_flows import RealNVP, Flow
 
 
 @pytest.mark.parametrize('n_dim', [2, 10, 100])

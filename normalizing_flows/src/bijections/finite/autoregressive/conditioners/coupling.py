@@ -1,8 +1,8 @@
 import torch
 
-from src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
-from src.bijections.finite.autoregressive.conditioners.base import Conditioner
-from src.utils import get_batch_shape
+from normalizing_flows.src.bijections import ConditionerTransform
+from normalizing_flows.src.bijections import Conditioner
+from normalizing_flows.src.utils import get_batch_shape
 
 
 class Coupling(Conditioner):

@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 import torch
 
-from src.utils import get_batch_shape
+from normalizing_flows.src.utils import get_batch_shape
 
 
 @pytest.mark.parametrize('event_shape', [(1,), (2,), (3, 5), (5, 3), (1, 2, 3, 4)])

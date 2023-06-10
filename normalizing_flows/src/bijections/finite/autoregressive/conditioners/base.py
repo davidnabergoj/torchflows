@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
+from normalizing_flows.src.bijections import ConditionerTransform
 
 
 class Conditioner(nn.Module):

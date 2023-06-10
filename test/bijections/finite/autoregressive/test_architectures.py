@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from src import Flow
-from src.bijections.finite.autoregressive.architectures import (
+from normalizing_flows import Flow
+from normalizing_flows.src.bijections import (
     NICE,
     RealNVP,
     MAF,

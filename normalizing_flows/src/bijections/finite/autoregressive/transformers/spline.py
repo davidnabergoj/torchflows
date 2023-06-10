@@ -2,7 +2,7 @@ import math
 from typing import Tuple
 import torch
 
-from src.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 import torch.nn.functional as F
 
 

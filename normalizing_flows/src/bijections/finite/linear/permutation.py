@@ -1,8 +1,8 @@
 import torch
 from typing import Tuple
 
-from src.bijections.finite.base import Bijection
-from src.utils import get_batch_shape
+from normalizing_flows.src.bijections import Bijection
+from normalizing_flows.src.utils import get_batch_shape
 
 
 class Permutation(Bijection):

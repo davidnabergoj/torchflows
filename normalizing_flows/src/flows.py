@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.bijections.finite.base import Bijection
+from normalizing_flows.src.bijections import Bijection
 
 
 class Flow(nn.Module):

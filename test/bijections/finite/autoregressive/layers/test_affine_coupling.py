@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.bijections.finite.autoregressive.layers import AffineCoupling, LinearAffineCoupling
+from normalizing_flows.src.bijections import AffineCoupling, LinearAffineCoupling
 
 
 @pytest.mark.parametrize('layer_class', [AffineCoupling, LinearAffineCoupling])

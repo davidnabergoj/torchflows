@@ -4,7 +4,7 @@ import torch
 
 import torch.nn as nn
 
-from src.utils import get_batch_shape
+from normalizing_flows.src.utils import get_batch_shape
 
 
 class Bijection(nn.Module):
@@ -18,7 +18,7 @@ class Bijection(nn.Module):
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward bijection map.
-        Returns the output vector and the log jacobian determinant of the forward transform.
+        Returns the output vector and the log Jacobian determinant of the forward transform.
 
         :param x: input array with shape (*batch_shape, *event_shape).
         :param context: context array with shape (*batch_shape, context_dim).
@@ -30,7 +30,7 @@ class Bijection(nn.Module):
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Inverse bijection map.
-        Returns the output vector and the log jacobian determinant of the inverse transform.
+        Returns the output vector and the log Jacobian determinant of the inverse transform.
 
         :param z: input array with shape (*batch_shape, *event_shape).
         :param context: context array with shape (*batch_shape, context_dim).
