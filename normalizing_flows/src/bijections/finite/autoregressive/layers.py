@@ -6,7 +6,10 @@ from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transfor
 from normalizing_flows.src.bijections.finite.autoregressive.conditioners import Coupling, MaskedAutoregressive
 from normalizing_flows.src.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
     ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer
-from normalizing_flows.src.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, RationalQuadraticSpline
+from normalizing_flows.src.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, \
+    RationalQuadraticSpline
+from normalizing_flows.src.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
+    DeepSigmoidNetwork, InverseDeepSigmoidNetwork
 
 
 class AffineCoupling(AutoregressiveLayer):
@@ -97,6 +100,70 @@ class RQSCoupling(AutoregressiveLayer):
             **kwargs
         )
         transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
+        super().__init__(conditioner, transformer, conditioner_transform)
+
+
+class DSCoupling(AutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_sigmoid_layers: int = 2,
+                 hidden_dim: int = 8,
+                 **kwargs):
+        default_unconstrained_scale = torch.full(size=(hidden_dim,), fill_value=math.log(math.expm1(1.0)))
+        default_shift = torch.zeros(hidden_dim)
+        default_unconstrained_convex_weights = torch.ones(hidden_dim)
+        single_component_constants = torch.cat([
+            default_unconstrained_scale,
+            default_shift,
+            default_unconstrained_convex_weights
+        ])
+        conditioner = Coupling(
+            constants=torch.cat([single_component_constants for _ in range(n_sigmoid_layers)]),
+            event_shape=event_shape
+        )
+        # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
+        # Each component has parameter order [a_unc, b, w_unc]
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=3 * hidden_dim * n_sigmoid_layers,
+            context_shape=context_shape,
+            **kwargs
+        )
+        transformer = DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers)
+        super().__init__(conditioner, transformer, conditioner_transform)
+
+
+class InverseDSCoupling(AutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_sigmoid_layers: int = 2,
+                 hidden_dim: int = 8,
+                 **kwargs):
+        default_unconstrained_scale = torch.full(size=(hidden_dim,), fill_value=math.log(math.expm1(1.0)))
+        default_shift = torch.zeros(hidden_dim)
+        default_unconstrained_convex_weights = torch.ones(hidden_dim)
+        single_component_constants = torch.cat([
+            default_unconstrained_scale,
+            default_shift,
+            default_unconstrained_convex_weights
+        ])
+        conditioner = Coupling(
+            constants=torch.cat([single_component_constants for _ in range(n_sigmoid_layers)]),
+            event_shape=event_shape
+        )
+        # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
+        # Each component has parameter order [a_unc, b, w_unc]
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=3 * hidden_dim * n_sigmoid_layers,
+            context_shape=context_shape,
+            **kwargs
+        )
+        transformer = InverseDeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
