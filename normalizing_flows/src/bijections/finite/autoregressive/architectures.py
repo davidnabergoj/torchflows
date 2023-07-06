@@ -11,7 +11,7 @@ from normalizing_flows.src.bijections.finite.autoregressive.layers import (
     InverseAffineCoupling, DSCoupling, InverseDSCoupling
 )
 from normalizing_flows.src.bijections.finite.base import BijectiveComposition
-from normalizing_flows.src.bijections.finite.linear.permutation import Permutation
+from normalizing_flows.src.bijections.finite.linear import Permutation
 
 
 class NICE(BijectiveComposition):

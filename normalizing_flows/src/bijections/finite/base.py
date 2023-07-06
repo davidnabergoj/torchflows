@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 import torch
 
@@ -8,7 +8,7 @@ from normalizing_flows.src.utils import get_batch_shape
 
 
 class Bijection(nn.Module):
-    def __init__(self, event_shape: torch.Size):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         """
         Bijection class.
         """
