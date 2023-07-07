@@ -28,41 +28,96 @@ class Permutation(Bijection):
         return x, log_det
 
 
+class Matrix(nn.Module):
+    def __init__(self, n_dim: int, **kwargs):
+        super().__init__()
+        self.n_dim = n_dim
+        assert self.n_dim >= 2
+
+    def mat(self):
+        pass
+
+    def log_det(self):
+        pass
+
+    def forward(self):
+        return self.mat()
+
+
+class LowerTriangularInvertibleMatrix(Matrix):
+    def __init__(self, n_dim: int, unitriangular=False):
+        super().__init__(n_dim)
+        self.off_diagonal_elements = nn.Parameter(torch.randn((self.n_dim ** 2 - self.n_dim) // 2)) / self.n_dim ** 2
+        if unitriangular:
+            self.diagonal_elements = torch.ones(self.n_dim)
+        else:
+            self.diagonal_elements = nn.Parameter(torch.randn(self.n_dim))
+        self.off_diagonal_indices = torch.tril_indices(self.n_dim, self.n_dim, -1)
+
+    def mat(self):
+        mat = torch.zeros(self.n_dim, self.n_dim)
+        mat[range(self.n_dim), range(self.n_dim)] = self.diagonal_elements
+        mat[self.off_diagonal_indices[0], self.off_diagonal_indices[1]] = self.off_diagonal_elements
+        return mat
+
+    def log_det(self):
+        return torch.sum(torch.log(torch.abs(self.diagonal_elements)))
+
+
+class UpperTriangularInvertibleMatrix(Matrix):
+    def __init__(self, n_dim: int):
+        super().__init__(n_dim)
+        self.lower = LowerTriangularInvertibleMatrix(n_dim=n_dim)
+
+    def mat(self):
+        return self.lower().T
+
+    def log_det(self):
+        return -self.lower.log_det()
+
+
+class HouseholderOrthogonalMatrix(Matrix):
+    def __init__(self, n_dim: int, n_factors: int = None):
+        super().__init__(n_dim=n_dim)
+        if n_factors is None:
+            n_factors = min(5, self.n_dim)
+        assert 1 <= n_factors <= self.n_dim
+        self.v = nn.Parameter(torch.randn(n_factors, self.n_dim))
+        self.tau = torch.full((n_factors,), fill_value=2.0)
+
+    def mat(self):
+        # TODO compute this more efficiently
+        v_outer = torch.einsum('fi,fj->fij', self.v, self.v)
+        v_norms_squared = torch.linalg.norm(self.v, dim=1).view(-1, 1, 1) ** 2
+        h = (torch.eye(self.n_dim)[None] - 2 * (v_outer / v_norms_squared))
+        return torch.linalg.multi_dot(list(h))
+
+    def log_det(self):
+        return torch.tensor(0.0)
+
+
 class LowerTriangular(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
         self.n_dim = int(torch.prod(torch.tensor(self.event_shape)))
-        assert self.n_dim >= 2
-        self.elements = nn.Parameter(
-            torch.randn((self.n_dim ** 2 + self.n_dim) // 2)
-        )
-        self.indices = torch.tril_indices(self.n_dim, self.n_dim)
-
-    def construct_mat(self):
-        mat = torch.zeros(self.n_dim, self.n_dim)
-        mat[self.indices[0], self.indices[1]] = self.elements
-        return mat
+        self.lower = LowerTriangularInvertibleMatrix(self.n_dim)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        lower = self.construct_mat()
         batch_shape = get_batch_shape(x, self.event_shape)
-        z = torch.einsum('ij,bj->bi', lower, x.view(-1, self.n_dim))
-        fill_value = torch.sum(torch.log(torch.abs(lower[range(self.n_dim), range(self.n_dim)])))
-        log_det = torch.ones(size=batch_shape) * fill_value
+        z = torch.einsum('ij,bj->bi', self.lower.mat(), x.view(-1, self.n_dim))
+        log_det = torch.ones(size=batch_shape) * self.lower.log_det()
         z = torch.reshape(z, x.shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        lower = self.construct_mat()
         batch_shape = get_batch_shape(z, self.event_shape)
         x = torch.linalg.solve_triangular(
-            lower,
+            self.lower.mat(),
             z.reshape(-1, self.n_dim).T,
             upper=False,
             unitriangular=False
         ).T
-        fill_value = -torch.sum(torch.log(torch.abs(lower[range(self.n_dim), range(self.n_dim)])))
-        log_det = torch.ones(size=batch_shape) * fill_value
+        log_det = -torch.ones(size=batch_shape) * self.lower.log_det()
         x = torch.reshape(x, z.shape)
         return x, log_det
 
@@ -72,54 +127,31 @@ class LU(Bijection):
         super().__init__(event_shape)
         self.n_dim = int(torch.prod(torch.tensor(self.event_shape)))
         assert self.n_dim >= 2
-        self.lower_elements = nn.Parameter(torch.randn((self.n_dim ** 2 - self.n_dim) // 2) / self.n_dim ** 2)
-        self.upper_elements = nn.Parameter(torch.randn((self.n_dim ** 2 + self.n_dim) // 2) / self.n_dim ** 2)
-
-        self.lower_indices = torch.tril_indices(self.n_dim, self.n_dim, -1)
-        self.upper_indices = torch.triu_indices(self.n_dim, self.n_dim)
-
-    def construct_lower(self):
-        lower = torch.eye(self.n_dim)
-        lower[self.lower_indices[0], self.lower_indices[1]] = self.lower_elements
-        return lower
-
-    def construct_upper(self):
-        upper = torch.zeros(self.n_dim, self.n_dim)
-        upper[self.upper_indices[0], self.upper_indices[1]] = self.upper_elements
-        return upper
+        self.lower = LowerTriangularInvertibleMatrix(self.n_dim, unitriangular=True)
+        self.upper = UpperTriangularInvertibleMatrix(self.n_dim)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        lower = self.construct_lower()
-        upper = self.construct_upper()
-        mat = lower @ upper
         batch_shape = get_batch_shape(x, self.event_shape)
         xr = torch.reshape(x, (-1, self.n_dim))
-        z = torch.einsum('ij,bj->bi', mat, xr)
-        fill_value = torch.sum(torch.log(torch.abs(upper[range(self.n_dim), range(self.n_dim)])))
-        log_det = torch.ones(size=batch_shape) * fill_value
+        z = torch.einsum('ij,bj->bi', self.lower.mat() @ self.upper.mat(), xr)
+        log_det = torch.ones(size=batch_shape) * self.upper.log_det()
         z = torch.reshape(z, x.shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        lower = self.construct_lower()
-        upper = self.construct_upper()
         batch_shape = get_batch_shape(z, self.event_shape)
         zr = torch.reshape(z, (-1, self.n_dim))
         x = torch.linalg.solve_triangular(
-            upper,
+            self.upper.mat(),
             torch.linalg.solve_triangular(
-                lower,
+                self.lower.mat(),
                 zr.T,
                 upper=False,
                 unitriangular=True
             ),
             upper=True
         ).T
-        # mat = lower @ upper
-        # mat_inv = torch.linalg.inv(mat)
-        # x = torch.einsum('ij,bj->bi', mat_inv, zr)
-        fill_value = -torch.sum(torch.log(torch.abs(upper[range(self.n_dim), range(self.n_dim)])))
-        log_det = torch.ones(size=batch_shape) * fill_value
+        log_det = -torch.ones(size=batch_shape) * self.upper.log_det()
         x = torch.reshape(x, z.shape)
         return x, log_det
 
@@ -140,45 +172,29 @@ class HouseholderOrthogonal(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_factors: int = None):
         super().__init__(event_shape)
         self.n_dim = int(torch.prod(torch.tensor(self.event_shape)))
-        assert self.n_dim >= 2
-        if n_factors is None:
-            n_factors = min(5, self.n_dim)
-        assert 1 <= n_factors <= self.n_dim
-        self.v = nn.Parameter(torch.randn(n_factors, self.n_dim))
-        self.tau = torch.full((n_factors,), fill_value=2.0)
-
-    def construct_mat(self):
-        # TODO compute this more efficiently
-        v_outer = torch.einsum('fi,fj->fij', self.v, self.v)
-        v_norms_squared = torch.linalg.norm(self.v, dim=1).view(-1, 1, 1) ** 2
-        h = (torch.eye(self.n_dim)[None] - 2 * (v_outer / v_norms_squared))
-        return torch.linalg.multi_dot(list(h))
+        self.orthogonal = HouseholderOrthogonalMatrix(self.n_dim, n_factors)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        orthogonal = self.construct_mat()
         batch_shape = get_batch_shape(x, self.event_shape)
-        z = (orthogonal @ x.reshape(-1, self.n_dim).T).T.view_as(x)
+        z = (self.orthogonal.mat() @ x.reshape(-1, self.n_dim).T).T.view_as(x)
         log_det = torch.zeros(size=batch_shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        orthogonal = self.construct_mat().T
         batch_shape = get_batch_shape(z, self.event_shape)
-        x = (orthogonal @ z.reshape(-1, self.n_dim).T).T.view_as(z)
+        x = (self.orthogonal.mat().T @ z.reshape(-1, self.n_dim).T).T.view_as(z)
         log_det = torch.zeros(size=batch_shape)
         return x, log_det
 
 
 class QR(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape)
+        self.n_dim = int(torch.prod(torch.tensor(self.event_shape)))
+        self.upper = UpperTriangularInvertibleMatrix(self.n_dim)
+        self.orthogonal = HouseholderOrthogonalMatrix(self.n_dim, **kwargs)
 
-    def construct_orthogonal(self):
-        lower = torch.eye(self.n_dim)
-        lower[self.lower_indices[0], self.lower_indices[1]] = self.lower_elements
-        return lower
-
-    def construct_upper(self):
-        upper = torch.zeros(self.n_dim, self.n_dim)
-        upper[self.upper_indices[0], self.upper_indices[1]] = self.upper_elements
-        return upper
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        y = self.upper.mat() @ x.reshape(-1, self.n_dim)
+        z = self.orthogonal.mat() @ y
+        z = z.view_as(x)
