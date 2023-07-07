@@ -82,7 +82,7 @@ class HouseholderOrthogonalMatrix(Matrix):
         if n_factors is None:
             n_factors = min(5, self.n_dim)
         assert 1 <= n_factors <= self.n_dim
-        self.v = nn.Parameter(torch.randn(n_factors, self.n_dim))
+        self.v = nn.Parameter(torch.randn(n_factors, self.n_dim) / self.n_dim ** 2 + torch.eye(n_factors, self.n_dim))
         self.tau = torch.full((n_factors,), fill_value=2.0)
 
     def mat(self):
@@ -195,6 +195,17 @@ class QR(Bijection):
         self.orthogonal = HouseholderOrthogonalMatrix(self.n_dim, **kwargs)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        y = self.upper.mat() @ x.reshape(-1, self.n_dim)
+        batch_shape = get_batch_shape(x, self.event_shape)
+        y = self.upper.mat() @ x.reshape(-1, self.n_dim).T
         z = self.orthogonal.mat() @ y
-        z = z.view_as(x)
+        z = z.T.reshape(x.shape)
+        log_det = torch.ones(size=batch_shape) * self.upper.log_det()
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        batch_shape = get_batch_shape(z, self.event_shape)
+        y = self.orthogonal.mat().T @ z.reshape(-1, self.n_dim).T
+        x = torch.linalg.solve_triangular(self.upper.mat(), y, upper=True, unitriangular=False)
+        x = x.T.reshape(z.shape)
+        log_det = -torch.ones(size=batch_shape) * self.upper.log_det()
+        return x, log_det
