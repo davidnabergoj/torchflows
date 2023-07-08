@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, List
 import torch
 import torch.nn as nn
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
@@ -189,7 +189,7 @@ class InverseDeepSigmoidNetwork(Combination):
 
 
 class MonotonicTransformer(Transformer):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 5.0, eps: float = 1e-6):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 100.0, eps: float = 1e-6):
         super().__init__(event_shape)
         self.bound = bound
         self.eps = eps
@@ -197,7 +197,7 @@ class MonotonicTransformer(Transformer):
     def integral(self, x, h) -> torch.Tensor:
         raise NotImplementedError
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.enable_grad():
             x = x.requires_grad_()
             z = self.integral(x, h)
@@ -205,7 +205,7 @@ class MonotonicTransformer(Transformer):
         log_det = jacobian.log()
         return z, log_det
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         x = bisection(
             f=self.integral,
             y=z,
@@ -218,7 +218,7 @@ class MonotonicTransformer(Transformer):
 
 
 class UnconstrainedMonotonicTransformer(MonotonicTransformer):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], g: Callable, c: torch.Tensor, n_quad: int = 16,
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], g: Callable, c: torch.Tensor, n_quad: int = 32,
                  **kwargs):
         super().__init__(event_shape, **kwargs)
         self.g = g
@@ -228,28 +228,77 @@ class UnconstrainedMonotonicTransformer(MonotonicTransformer):
     def integral(self, x, h) -> torch.Tensor:
         return gauss_legendre(f=self.g, a=torch.zeros_like(x), b=x, n=self.n, h=h) + self.c
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.integral(x, h), self.g(x).log()
+    def forward(self, x: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.integral(x, h), self.g(x, h).log()
 
 
 class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_hidden=100, n_layers=4):
-        class OutputActivation(nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.elu = nn.ELU()
 
-            def forward(self, x):
-                return 1 + self.elu(x)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+        super().__init__(event_shape, g=self.neural_network_forward, c=torch.tensor(-100.0))
 
-        layers = [nn.Linear(in_features=1, out_features=n_hidden), nn.Tanh()]
-        for i in range(n_layers - 1):
-            layers.append(nn.Linear(in_features=n_hidden, out_features=n_hidden))
-            layers.append(nn.Tanh())
-        layers.append(nn.Linear(in_features=n_hidden, out_features=1))
-        layers.append(OutputActivation())
-        neural_network = nn.Sequential(*layers)
-        super().__init__(event_shape, g=neural_network, c=torch.tensor(10.0))
+    @staticmethod
+    def neural_network_forward(inputs, parameters: List[torch.Tensor]):
+        # inputs.shape = (batch_size, 1, 1)
+        # Each element of parameters is a (batch_size, n_out, n_in + 1) tensor comprised of matrices for the linear
+        # projection and bias vectors.
+        assert len(inputs.shape) == 3
+        assert inputs.shape[1:] == (1, 1)
+        batch_size = inputs.shape[0]
+        assert all(p.shape[0] == batch_size for p in parameters)
+        assert all(len(p.shape) == 3 for p in parameters)
+        assert parameters[0].shape[2] == 1 + 1  # input dimension should be 1 (we also acct for the bias)
+        assert parameters[-1].shape[1] == 1  # output dimension should be 1
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.integral(x, h), self.g(x.reshape(-1, 1)).log().view_as(x)
+        # Neural network pass
+        out = inputs
+        for param in parameters[:-1]:
+            weight_matrices = param[:, :, :-1]
+            bias_vectors = param[:, :, -1][..., None]
+            out = torch.bmm(weight_matrices, out) + bias_vectors
+            out = torch.tanh(out)
+
+        # Final output
+        weight_matrices = parameters[-1][:, :, :-1]
+        bias_vectors = parameters[-1][:, :, -1][..., None]
+        out = torch.bmm(weight_matrices, out) + bias_vectors
+        out = 1 + torch.nn.functional.elu(out)
+        return out
+
+    @staticmethod
+    def flatten_tensors(x: torch.Tensor, h: List[torch.Tensor]):
+        # batch_shape = get_batch_shape(x, self.event_shape)
+        # batch_dims = int(torch.as_tensor(batch_shape).prod())
+        # event_dims = int(torch.as_tensor(self.event_shape).prod())
+        flattened_dim = int(torch.as_tensor(x.shape).prod())
+        x_flat = x.view(flattened_dim, 1, 1)
+        h_flat = [h[i].view(flattened_dim, *h[i].shape[-2:]) for i in range(len(h))]
+        return x_flat, h_flat
+
+    def forward(self, x: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        x_reshaped, h_reshaped = self.flatten_tensors(x, h)
+
+        integral_flat = self.integral(x_reshaped, h_reshaped)
+        log_det_flat = self.g(x_reshaped, h_reshaped).log()  # We can apply log since g is always positive
+
+        output = integral_flat.view_as(x)
+        log_det = sum_except_batch(log_det_flat.view_as(x), self.event_shape)
+
+        return output, log_det
+
+    def inverse(self, z: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        z_flat, h_flat = self.flatten_tensors(z, h)
+
+        x_flat = bisection(
+            f=self.integral,
+            y=z_flat,
+            a=torch.full_like(z_flat, -self.bound),
+            b=torch.full_like(z_flat, self.bound),
+            n=math.ceil(math.log2(2 * self.bound / self.eps)),
+            h=h_flat
+        )
+
+        outputs = x_flat.view_as(z)
+        log_det = sum_except_batch(-self.g(x_flat, h_flat).log().view_as(z), self.event_shape)
+
+        return outputs, log_det

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Union, List
 
 import numpy as np
 import torch.autograd
@@ -10,12 +10,12 @@ import torch.autograd
 
 class Bisection(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: Any, f, y, a: torch.Tensor, b: torch.Tensor, n: int, *h: torch.Tensor) -> torch.Tensor:
+    def forward(ctx: Any, f, y, a: torch.Tensor, b: torch.Tensor, n: int, h: List[torch.Tensor]) -> torch.Tensor:
         ctx.f = f
         ctx.save_for_backward(*h)
         for _ in range(n):
             c = (a + b) / 2
-            mask = torch.as_tensor(f(c.reshape(-1, 1), h).view_as(c) < y)
+            mask = torch.as_tensor(f(c, h) < y)
             a = torch.where(mask, c, a)
             b = torch.where(mask, b, c)
         ctx.x = (a + b) / 2
@@ -39,15 +39,15 @@ class Bisection(torch.autograd.Function):
 
 
 def bisection(f, y, a, b, n, h):
-    return Bisection.apply(f, y, a.to(y), b.to(y), n, *h)
+    return Bisection.apply(f, y, a.to(y), b.to(y), n, h)
 
 
 class GaussLegendre(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, f, a: torch.Tensor, b: torch.Tensor, n: int, *h: torch.Tensor) -> torch.Tensor:
+    def forward(ctx, f, a: torch.Tensor, b: torch.Tensor, n: int, h: List[torch.Tensor]) -> torch.Tensor:
         ctx.f, ctx.n = f, n
         ctx.save_for_backward(a, b, *h)
-        return GaussLegendre.quadrature(f, a, b, n)
+        return GaussLegendre.quadrature(f, a, b, n, h)
 
     @staticmethod
     def backward(ctx, grad_area: torch.Tensor) -> Tuple[torch.Tensor, ...]:
@@ -55,19 +55,18 @@ class GaussLegendre(torch.autograd.Function):
         a, b, *h = ctx.saved_tensors
 
         if ctx.needs_input_grad[1]:
-            grad_a = -f(a) * grad_area
+            grad_a = -f(a, h) * grad_area
         else:
             grad_a = None
 
         if ctx.needs_input_grad[2]:
-            grad_b = f(b) * grad_area
+            grad_b = f(b, h) * grad_area
         else:
             grad_b = None
 
         if h:
             with torch.enable_grad():
-                area = GaussLegendre.quadrature(f, a.detach(), b.detach(), n)
-
+                area = GaussLegendre.quadrature(f, a.detach(), b.detach(), n, h)
             grad_h = torch.autograd.grad(area, h, grad_area, retain_graph=True)
         else:
             grad_h = ()
@@ -75,14 +74,15 @@ class GaussLegendre(torch.autograd.Function):
         return (None, grad_a, grad_b, None, *grad_h)
 
     @staticmethod
-    def quadrature(f, a: torch.Tensor, b: torch.Tensor, n: int) -> torch.Tensor:
+    def quadrature(f, a: torch.Tensor, b: torch.Tensor, n: int, h: List[torch.Tensor]) -> torch.Tensor:
         nodes, weights = GaussLegendre.nodes(n, dtype=a.dtype, device=a.device)
         nodes = torch.lerp(
             a[..., None],
             b[..., None],
             nodes,
         ).movedim(-1, 0)
-        values = f(nodes.reshape(-1, 1)).view_as(nodes)
+        h_repeated = [h[i].repeat(n, 1, 1) for i in range(len(h))]
+        values = f(nodes.reshape(-1, 1, 1), h_repeated).view_as(nodes)
         return (b - a) * torch.tensordot(weights, values, dims=1)
 
     @staticmethod
@@ -96,4 +96,4 @@ class GaussLegendre(torch.autograd.Function):
 
 
 def gauss_legendre(f, a, b, n, h):
-    return GaussLegendre.apply(f, a, b, n, *h)
+    return GaussLegendre.apply(f, a, b, n, h)
