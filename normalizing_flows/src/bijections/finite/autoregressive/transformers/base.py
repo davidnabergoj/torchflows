@@ -1,11 +1,11 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
 
 
 class Transformer(nn.Module):
-    def __init__(self, event_shape: torch.Size):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__()
         self.event_shape = event_shape
 

@@ -1,8 +1,9 @@
 import math
-from typing import Tuple
+from typing import Tuple, Callable, Union
 import torch
 import torch.nn as nn
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.src.bijections.finite.autoregressive.util import gauss_legendre, bisection
 from normalizing_flows.src.utils import get_batch_shape, softmax_nd, sum_except_batch, log_softmax_nd, log_sigmoid
 
 
@@ -185,3 +186,70 @@ class DeepSigmoidNetwork(Combination):
 class InverseDeepSigmoidNetwork(Combination):
     def __init__(self, event_shape: torch.Size, n_layers: int = 2, **kwargs):
         super().__init__(event_shape, [InverseSigmoidTransform(event_shape, **kwargs) for _ in range(n_layers)])
+
+
+class MonotonicTransformer(Transformer):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 5.0, eps: float = 1e-6):
+        super().__init__(event_shape)
+        self.bound = bound
+        self.eps = eps
+
+    def integral(self, x, h) -> torch.Tensor:
+        raise NotImplementedError
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        with torch.enable_grad():
+            x = x.requires_grad_()
+            z = self.integral(x, h)
+        jacobian = torch.autograd.grad(z, x, torch.ones_like(z), create_graph=True)[0]
+        log_det = jacobian.log()
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        x = bisection(
+            f=self.integral,
+            y=z,
+            a=torch.full_like(z, -self.bound),
+            b=torch.full_like(z, self.bound),
+            n=math.ceil(math.log2(2 * self.bound / self.eps)),
+            h=h
+        )
+        return x, -self.forward(x, h)[1]
+
+
+class UnconstrainedMonotonicTransformer(MonotonicTransformer):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], g: Callable, c: torch.Tensor, n_quad: int = 16,
+                 **kwargs):
+        super().__init__(event_shape, **kwargs)
+        self.g = g
+        self.c = c
+        self.n = n_quad
+
+    def integral(self, x, h) -> torch.Tensor:
+        return gauss_legendre(f=self.g, a=torch.zeros_like(x), b=x, n=self.n, h=h) + self.c
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.integral(x, h), self.g(x).log()
+
+
+class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_hidden=100, n_layers=4):
+        class OutputActivation(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.elu = nn.ELU()
+
+            def forward(self, x):
+                return 1 + self.elu(x)
+
+        layers = [nn.Linear(in_features=1, out_features=n_hidden), nn.Tanh()]
+        for i in range(n_layers - 1):
+            layers.append(nn.Linear(in_features=n_hidden, out_features=n_hidden))
+            layers.append(nn.Tanh())
+        layers.append(nn.Linear(in_features=n_hidden, out_features=1))
+        layers.append(OutputActivation())
+        neural_network = nn.Sequential(*layers)
+        super().__init__(event_shape, g=neural_network, c=torch.tensor(10.0))
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.integral(x, h), self.g(x.reshape(-1, 1)).log().view_as(x)
