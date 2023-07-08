@@ -8,7 +8,8 @@ from normalizing_flows.src.bijections.finite.autoregressive.layers import (
     RQSCoupling,
     RQSForwardMaskedAutoregressive,
     RQSInverseMaskedAutoregressive,
-    InverseAffineCoupling, DSCoupling, InverseDSCoupling
+    InverseAffineCoupling, DSCoupling, InverseDSCoupling,
+    UMNNForwardMaskedAutoregressive
 )
 from normalizing_flows.src.bijections.finite.base import BijectiveComposition
 from normalizing_flows.src.bijections.finite.linear import Permutation
@@ -130,5 +131,17 @@ class InverseCouplingDSF(BijectiveComposition):
             bijections.extend([
                 Permutation(event_shape=event_shape),
                 InverseDSCoupling(event_shape=event_shape, **kwargs)
+            ])
+        super().__init__(event_shape, bijections)
+
+
+class UMNNMAF(BijectiveComposition):
+    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
+        event_shape = torch.Size((n_dim,))
+        bijections = []
+        for _ in range(n_layers):
+            bijections.extend([
+                Permutation(event_shape=event_shape),
+                UMNNMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)

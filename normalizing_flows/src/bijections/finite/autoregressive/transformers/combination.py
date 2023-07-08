@@ -234,8 +234,27 @@ class UnconstrainedMonotonicTransformer(MonotonicTransformer):
 
 class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_hidden_layers: int, hidden_dim: int):
+        # TODO make it so that predicted parameters only affect the final linear layer instead of the entire neural
+        #  network. That is much more easily optimized. The rest of the NN are trainable parameters.
         super().__init__(event_shape, g=self.neural_network_forward, c=torch.tensor(-100.0))
+        self.n_hidden_layers = n_hidden_layers
+        self.hidden_dim = hidden_dim
+
+    def reshape_conditioner_outputs(self, h):
+        batch_shape = h.shape[:-1]
+        input_layer_params = h[..., :2 * self.hidden_dim].view(*batch_shape, self.hidden_dim, 2)
+        output_layer_params = h[..., -(self.hidden_dim + 1):].view(*batch_shape, 1, self.hidden_dim + 1)
+        hidden_layer_params = torch.chunk(
+            h[..., 2 * self.hidden_dim:(h.shape[-1] - (self.hidden_dim + 1))],
+            chunks=self.n_hidden_layers,
+            dim=-1
+        )
+        hidden_layer_params = [
+            layer.view(*batch_shape, self.hidden_dim, self.hidden_dim + 1)
+            for layer in hidden_layer_params
+        ]
+        return [input_layer_params, *hidden_layer_params, output_layer_params]
 
     @staticmethod
     def neural_network_forward(inputs, parameters: List[torch.Tensor]):
@@ -275,7 +294,8 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         h_flat = [h[i].view(flattened_dim, *h[i].shape[-2:]) for i in range(len(h))]
         return x_flat, h_flat
 
-    def forward(self, x: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.reshape_conditioner_outputs(h)
         x_reshaped, h_reshaped = self.flatten_tensors(x, h)
 
         integral_flat = self.integral(x_reshaped, h_reshaped)
@@ -286,7 +306,8 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
 
         return output, log_det
 
-    def inverse(self, z: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.reshape_conditioner_outputs(h)
         z_flat, h_flat = self.flatten_tensors(z, h)
 
         x_flat = bisection(

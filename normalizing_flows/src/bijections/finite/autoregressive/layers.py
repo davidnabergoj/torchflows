@@ -9,7 +9,7 @@ from normalizing_flows.src.bijections.finite.autoregressive.layers_base import A
 from normalizing_flows.src.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, \
     RationalQuadraticSpline
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
-    DeepSigmoidNetwork, InverseDeepSigmoidNetwork
+    DeepSigmoidNetwork, InverseDeepSigmoidNetwork, UnconstrainedMonotonicNeuralNetwork
 
 
 class AffineCoupling(AutoregressiveLayer):
@@ -263,6 +263,40 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
             input_shape=event_shape,
             output_shape=event_shape,
             n_output_parameters=3 * n_bins - 1,
+            context_shape=context_shape,
+            **kwargs
+        )
+        conditioner = MaskedAutoregressive()
+        super().__init__(
+            conditioner=conditioner,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform
+        )
+
+
+class UMNNForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden_layers: int = 1,
+                 hidden_dim: int = 5,
+                 **kwargs):
+        transformer = UnconstrainedMonotonicNeuralNetwork(
+            event_shape=event_shape,
+            n_hidden_layers=n_hidden_layers,
+            hidden_dim=hidden_dim
+        )
+        assert n_hidden_layers >= 1
+        n_output_parameters = (
+                2 * hidden_dim  # Input to h1 (W, b)
+                + n_hidden_layers * (hidden_dim ** 2 + hidden_dim)  # h1 to h2 (W, b) for all hidden layers
+                + hidden_dim + 1  # hn to output (W, b)
+        )
+
+        conditioner_transform = MADE(
+            input_shape=event_shape,
+            output_shape=event_shape,
+            n_output_parameters=n_output_parameters,
             context_shape=context_shape,
             **kwargs
         )
