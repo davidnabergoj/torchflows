@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 
 from normalizing_flows.src.bijections import Bijection
-from normalizing_flows.src.utils import get_batch_shape, Geometric
+from normalizing_flows.src.bijections.finite.residual.base import ResidualBijection
+from normalizing_flows.src.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
+from normalizing_flows.src.utils import Geometric
 
 
 class SpectralLinear(nn.Module):
@@ -38,10 +40,8 @@ class SpectralLinear(nn.Module):
         return torch.nn.functional.linear(x, self.normalized_mat, self.bias)
 
 
-class InvertibleResNet(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_hidden: int = 100, n_hidden_layers: int = 2):
-        super().__init__(event_shape)
-
+class SpectralNeuralNetwork(nn.Sequential):
+    def __init__(self, n_hidden: int = 100, n_hidden_layers: int = 2):
         layers = []
         if n_hidden_layers == 0:
             layers = [SpectralLinear(self.n_dim, self.n_dim)]
@@ -52,44 +52,16 @@ class InvertibleResNet(Bijection):
                 layers.append(SpectralLinear(n_hidden, n_hidden))
             layers.pop(-1)
             layers.append(SpectralLinear(n_hidden, self.n_dim))
+        super().__init__(*layers)
 
-        self.g = nn.Sequential(*layers)
 
-    def log_det(self, x: torch.Tensor, n_iterations: int = 8):
-        # FIXME log det depends on x, fix it
-        vt = torch.randn(self.n_dim, 1)
-        wt = torch.zeros_like(vt) + vt  # Copy of vt
-        log_det = 0.0
-        for k in range(1, n_iterations + 1):
-            # TODO check if create_graph is needed
-            wt = torch.autograd.functional.vjp(func=self.g.forward, inputs=wt.T, create_graph=True)
-            log_det += (-1.0) ** (k + 1.0) * wt @ vt.T / k
-        return log_det
+class InvertibleResNet(ResidualBijection):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape)
+        self.g = SpectralNeuralNetwork(**kwargs)
 
-    def forward(self,
-                x: torch.Tensor,
-                context: torch.Tensor = None,
-                skip_log_det: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_shape = get_batch_shape(x, self.event_shape)
-        x = x.view(*batch_shape, self.n_dim)
-        z = x + self.g(x)
-        z = z.view(*batch_shape)
-        log_det = torch.full(size=batch_shape, fill_value=torch.nan if skip_log_det else self.log_det())
-        return z, log_det
-
-    def inverse(self,
-                z: torch.Tensor,
-                context: torch.Tensor = None,
-                n_iterations: int = 25,
-                skip_log_det: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_shape = get_batch_shape(z, self.event_shape)
-        z = z.view(*batch_shape, self.n_dim)
-        x = z
-        for _ in range(n_iterations):
-            x = z - self.g(x)
-        x = x.view(*batch_shape)
-        log_det = -torch.full(size=batch_shape, fill_value=torch.nan if skip_log_det else self.log_det())
-        return x, log_det
+    def log_det(self, x: torch.Tensor, **kwargs):
+        return log_det_hutchinson(x, **kwargs)
 
 
 class ResFlow(InvertibleResNet):
@@ -98,29 +70,23 @@ class ResFlow(InvertibleResNet):
         self.dist = Geometric(probs=torch.tensor(p), minimum=1)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        # kwargs are ignored
-        n = self.dist.sample()
-        log_det = 0.0  # TODO batch the log det computation
-        v = torch.randn(self.n_dim, 1)
-        for k in range(1, n + 1):
-            vjp = torch.autograd.functional.vjp(func=self.g.forward, inputs=v, create_graph=True) @ v
-            log_det += (-1.0) ** (k + 1) / k / self.dist.icdf(torch.tensor(k, dtype=torch.long)) * vjp
-        log_det /= n
-        return log_det
+        return log_det_roulette(self.g, x, self.dist)
 
 
 class QuasiAutoregressiveFlow(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], sigma: float = 0.7):
         super().__init__(event_shape)
         self.log_theta = nn.Parameter(torch.randn())
+        self.sigma = sigma
 
 
-class ProximalBlock(nn.Module):
+class ProximalNeuralNetworkBlock(nn.Module):
     def __init__(self, n_inputs: int, n_hidden: int):
         super().__init__()
         self.n_inputs = n_inputs
         self.n_hidden = n_hidden
         self.b = nn.Parameter(torch.randn(self.n_hidden))
+        self.t_tilde = nn.Parameter(torch.randn(self.n_hidden, self.n_inputs))
         self.alpha = ...  # parameters for self.sigma
 
     @staticmethod
@@ -131,9 +97,16 @@ class ProximalBlock(nn.Module):
         return torch.tanh(x)
 
     @property
-    def stiefel_matrix(self):
+    def stiefel_matrix(self, n_iterations: int = 5):
         # has shape (n_hidden, n_inputs)
-        raise NotImplementedError  # TODO implement
+        y = self.t_tilde
+        for _ in range(n_iterations):
+            y = 2 * y @ torch.linalg.inv(torch.eye(self.n_inputs) + y.T @ y)
+        return y
+
+    def regularization(self):
+        # to be applied during optimization
+        return torch.linalg.norm(self.t_tilde.T @ self.t_tilde - torch.eye(self.n_inputs))
 
     def forward(self, x):
         mat = self.stiefel_matrix
@@ -142,12 +115,24 @@ class ProximalBlock(nn.Module):
 
 
 class ProximalNeuralNetwork(nn.Sequential):
-    def __init__(self, n_inputs: int, n_layers: int, n_hidden: int):
-        super().__init__(*[ProximalBlock(n_inputs, n_hidden) for _ in range(n_layers)])
+    def __init__(self, n_inputs: int, n_layers: int, n_hidden: int = 100):
+        super().__init__(*[ProximalNeuralNetworkBlock(n_inputs, n_hidden) for _ in range(n_layers)])
+        self.n_layers = n_layers
 
 
-class ProximalResFlow(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1.5):
+class ProximalResidualFlowBlock(ResidualBijection):
+    # Note: in its original formulation, this method computes the log of the absolute value of the jacobian determinant
+    # using automatic differentiation, which is undesirable. We instead use the hutchinson trace estimator.
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1.5, **kwargs):
         super().__init__(event_shape)
         assert gamma > 0
         self.gamma = gamma
+        self.pnn = ProximalNeuralNetwork(n_inputs=self.n_dim, **kwargs)
+        self.g = lambda x: self.gamma * self.pnn(x)
+
+    def log_det(self, x):
+        if self.pnn.n_layers == 1:
+            # TODO implement
+            raise NotImplementedError
+        else:
+            return log_det_hutchinson(self.g, x)
