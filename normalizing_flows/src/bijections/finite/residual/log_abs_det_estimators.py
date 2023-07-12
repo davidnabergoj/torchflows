@@ -33,56 +33,6 @@ class LogDetHutchinson(torch.autograd.Function):
         raise NotImplementedError
 
 
-# class LogDetRoulette(torch.autograd.Function):
-#     @staticmethod
-#     def forward(ctx: Any,
-#                 x: torch.Tensor,
-#                 g: callable,
-#                 p: float = 0.5,
-#                 training: bool = False) -> Any:
-#         # Compute log(abs{det[jac_x (x + g(x))]}) = log(abs{det[I + jac_x g(x)]})
-#         # https://github.com/rtqichen/residual-flows/blob/master/lib/layers/iresblock.py
-#         # This is an unbiased single sample approximation of the log determinant, i.e. we sample (n, v) once and
-#         # perform the estimation.
-#
-#         # n_dim = x.shape[-1]
-#         # log_det = 0.0  # TODO batch the log det computation
-#         # v = torch.randn(n_dim, 1)
-#         # vjp_list = []
-#         # for k in range(1, n + 1):
-#         #     vjp = torch.autograd.functional.vjp(func=g, inputs=v, create_graph=True)
-#         #     vjp_list.append(vjp)
-#         #     log_det += (-1.0) ** (k + 1) / k / dist.icdf(torch.tensor(k, dtype=torch.long)) * vjp @ v
-#         # log_det /= n
-#         # ctx.save_for_backward(*vjp_list)
-#         # return log_det
-#
-#         dist = Geometric(probs=torch.tensor(0.5), minimum=1)
-#         n = dist.sample()
-#         v = torch.randn_like(x)
-#
-#         # Note: torch.autograd.grad(y, x, z) = z * (\partial y / \partial x).
-#         # In this case, y is a vector, so the term in parentheses is the Jacobian matrix:
-#         #   torch.autograd.grad(y, x, z) = z * Jac
-#         # If z = v.T @ Jac^{k-1}, then we can do torch.autograd.grad(y, x, v.T @ Jac^{k-1}) = v.T @ Jac^k, which is
-#         # required for our computations.
-#         vjp = v  # Eventually holds v.T @ Jac^{n_iterations}
-#         neumann_result = v  # neumann_result @ v = log_det (we update neumann_result in the for loop)
-#         with torch.no_grad():
-#             for k in range(1, n + 1):
-#                 vjp = torch.autograd.grad(g, x, vjp, retain_graph=True)[0]
-#                 # P(N >= k) = 1 - P(N < k) = 1 - P(N <= k - 1) = 1 - cdf(k - 1)
-#                 p_k = 1 - dist.cdf(torch.tensor(k - 1, dtype=torch.long))
-#                 neumann_result += (-1) ** (k + 1) / (k * p_k) * vjp
-#         vjp_jac = torch.autograd.grad(g, x, neumann_result, create_graph=training)[0]
-#         logdetgrad = torch.sum(vjp_jac.view(x.shape[0], -1) * v.view(x.shape[0], -1), 1)
-#         return logdetgrad
-#
-#     @staticmethod
-#     def backward(ctx: Any, grad_output: torch.Tensor) -> Any:
-#         raise NotImplementedError
-
-
 class LogDetRoulette(torch.autograd.Function):
     @staticmethod
     def neumann_logdet_estimator(g, x, vareps, training):
