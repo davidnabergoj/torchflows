@@ -41,15 +41,7 @@ class MADE(ConditionerTransform):
         ]
 
         # Create autoencoder masks
-        masks = []
-        for i in range(1, n_layers + 1):
-            m_current = ms[i]
-            m_previous = ms[i - 1]
-            xx, yy = torch.meshgrid(m_current, m_previous, indexing='ij')
-            if i == n_layers:
-                masks.append(torch.as_tensor(xx > yy, dtype=torch.float))
-            else:
-                masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
+        masks = self.create_masks(n_layers, ms)
 
         layers = []
         for mask in masks[:-1]:
@@ -73,6 +65,19 @@ class MADE(ConditionerTransform):
                 nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters))
             )
 
+    @staticmethod
+    def create_masks(n_layers, ms):
+        masks = []
+        for i in range(1, n_layers + 1):
+            m_current = ms[i]
+            m_previous = ms[i - 1]
+            xx, yy = torch.meshgrid(m_current, m_previous, indexing='ij')
+            if i == n_layers:
+                masks.append(torch.as_tensor(xx > yy, dtype=torch.float))
+            else:
+                masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
+        return masks
+
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         out = self.sequential(x)
         if context is not None:
@@ -87,6 +92,23 @@ class MADE(ConditionerTransform):
 class LinearMADE(MADE):
     def __init__(self, input_shape: torch.Size, output_shape: torch.Size, n_output_parameters: int, **kwargs):
         super().__init__(input_shape, output_shape, n_output_parameters, n_layers=1, **kwargs)
+
+
+class QuasiMADE(MADE):
+    # https://arxiv.org/pdf/2009.07419.pdf
+    @staticmethod
+    def create_masks(n_layers, ms):
+        masks = []
+        for i in range(1, n_layers + 1):
+            m_current = ms[i]
+            m_previous = ms[i - 1]
+            xx, yy = torch.meshgrid(m_current, m_previous, indexing='ij')
+            masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
+        return masks
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        # TODO modify autograd
+        pass
 
 
 class FeedForward(ConditionerTransform):

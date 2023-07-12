@@ -110,8 +110,10 @@ class ResFlow(InvertibleResNet):
 
 
 class QuasiAutoregressiveFlow(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], sigma: float = 0.7):
         super().__init__(event_shape)
+        self.log_theta = nn.Parameter(torch.randn())
+
 
 
 class ProximalResFlow(Bijection):
