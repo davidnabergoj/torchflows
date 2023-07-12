@@ -14,6 +14,7 @@ class Bijection(nn.Module):
         """
         super().__init__()
         self.event_shape = event_shape
+        self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
