@@ -7,7 +7,6 @@ import torch.nn as nn
 from normalizing_flows.src.bijections import Bijection
 from normalizing_flows.src.bijections.finite.residual.base import ResidualBijection
 from normalizing_flows.src.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
-from normalizing_flows.src.utils import Geometric
 
 
 class SpectralLinear(nn.Module):
@@ -67,10 +66,9 @@ class InvertibleResNet(ResidualBijection):
 class ResFlow(InvertibleResNet):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], p: float = 0.5):
         super().__init__(event_shape)
-        self.dist = Geometric(probs=torch.tensor(p), minimum=1)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_roulette(self.g, x, self.dist)
+        return log_det_roulette(self.g, x)
 
 
 class QuasiAutoregressiveFlow(Bijection):
