@@ -15,13 +15,13 @@ class Planar(Bijection):
         return self.inv_planar.inverse(z=x, context=context)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        raise self.inv_planar.forward(x=z, context=context)
+        return self.inv_planar.forward(x=z, context=context)
 
 
 class InversePlanar(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
-        self.n_dim = torch.prod(torch.as_tensor(event_shape))
+        self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         self.w = nn.Parameter(torch.randn(self.n_dim))
         self.u = nn.Parameter(torch.randn(self.n_dim))
         self.b = nn.Parameter(torch.randn())
