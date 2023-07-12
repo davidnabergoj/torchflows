@@ -1,4 +1,3 @@
-from copy import deepcopy
 from functools import lru_cache
 from typing import Union, Tuple
 
@@ -6,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from normalizing_flows.src.bijections import Bijection
-from normalizing_flows.src.utils import get_batch_shape
+from normalizing_flows.src.utils import get_batch_shape, Geometric
 
 
 class SpectralLinear(nn.Module):
@@ -56,7 +55,8 @@ class InvertibleResNet(Bijection):
 
         self.g = nn.Sequential(*layers)
 
-    def log_det(self, n_iterations: int = 25):
+    def log_det(self, x: torch.Tensor, n_iterations: int = 8):
+        # FIXME log det depends on x, fix it
         vt = torch.randn(self.n_dim, 1)
         wt = torch.zeros_like(vt) + vt  # Copy of vt
         log_det = 0.0
@@ -92,9 +92,21 @@ class InvertibleResNet(Bijection):
         return x, log_det
 
 
-class ResFlow(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+class ResFlow(InvertibleResNet):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], p: float = 0.5):
         super().__init__(event_shape)
+        self.dist = Geometric(probs=torch.tensor(p), minimum=1)
+
+    def log_det(self, x: torch.Tensor, **kwargs):
+        # kwargs are ignored
+        n = self.dist.sample()
+        log_det = 0.0  # TODO batch the log det computation
+        v = torch.randn(self.n_dim, 1)
+        for k in range(1, n + 1):
+            vjp = torch.autograd.functional.vjp(func=self.g.forward, inputs=v, create_graph=True) @ v
+            log_det += (-1.0) ** (k + 1) / k / self.dist.icdf(torch.tensor(k, dtype=torch.long)) * vjp
+        log_det /= n
+        return log_det
 
 
 class QuasiAutoregressiveFlow(Bijection):

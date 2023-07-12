@@ -77,3 +77,30 @@ def log_sigmoid(x: torch.Tensor):
 
 def sum_except_batch(x, event_shape):
     return torch.sum(x, dim=list(range(len(x.shape)))[-len(event_shape):])
+
+
+class GeometricBase(torch.distributions.Geometric):
+    def __init__(self, *args, **kwargs):
+        """
+        Support: [0, inf).
+        """
+        super().__init__(*args, **kwargs)
+
+    def cdf(self, value):
+        return torch.clip(1 - (1 - self.probs) ** (torch.floor(value.float()) + 1), 0.0)
+
+
+class Geometric(GeometricBase):
+    def __init__(self, minimum: int = 1, *args, **kwargs):
+        # Support: [minimum, inf)
+        super().__init__(*args, **kwargs)
+        self.minimum = minimum
+
+    def cdf(self, value: torch.Tensor) -> torch.Tensor:
+        return super().cdf(value - self.minimum)
+
+    def sample(self, sample_shape=torch.Size()):
+        return super().sample(sample_shape=sample_shape) + self.minimum
+
+    def log_prob(self, value):
+        return super().log_prob(value - self.minimum)
