@@ -5,11 +5,6 @@ import torch
 from normalizing_flows.src.utils import Geometric
 
 
-# Note: backpropagating through stochastic trace estimation sounds terrible, but apparently people do it.
-# TODO We should manually set the log determinant gradients using the analytic expressions derived for the
-#  hutchinson trace estimator and the roulette estimator. This way, we have a stochastic gradient of a deterministic
-#  function instead of a deterministic gradient of a stochastic function.
-
 def log_det_hutchinson(g: callable, x: torch.Tensor, n_iterations: int = 8):
     # FIXME log det depends on x, fix it
     n_dim = x.shape[-1]
