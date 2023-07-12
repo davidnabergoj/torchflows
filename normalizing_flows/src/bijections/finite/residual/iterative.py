@@ -115,7 +115,39 @@ class QuasiAutoregressiveFlow(Bijection):
         self.log_theta = nn.Parameter(torch.randn())
 
 
+class ProximalBlock(nn.Module):
+    def __init__(self, n_inputs: int, n_hidden: int):
+        super().__init__()
+        self.n_inputs = n_inputs
+        self.n_hidden = n_hidden
+        self.b = nn.Parameter(torch.randn(self.n_hidden))
+        self.alpha = ...  # parameters for self.sigma
+
+    @staticmethod
+    def sigma(x):
+        # sigma is a proximity operator wrt a function g with 0 as a minimizer IFF sigma is 1 lip-cont,
+        # monotone increasing and sigma(0) = 0.
+        # Tanh qualifies. In fact, many activations do. They are listed in https://arxiv.org/abs/1808.07526v2.
+        return torch.tanh(x)
+
+    @property
+    def stiefel_matrix(self):
+        # has shape (n_hidden, n_inputs)
+        raise NotImplementedError  # TODO implement
+
+    def forward(self, x):
+        mat = self.stiefel_matrix
+        act = self.sigma(torch.nn.functional.linear(x, mat, self.b))
+        return torch.einsum('...ij,...jk->...ik', mat.T, act)
+
+
+class ProximalNeuralNetwork(nn.Sequential):
+    def __init__(self, n_inputs: int, n_layers: int, n_hidden: int):
+        super().__init__(*[ProximalBlock(n_inputs, n_hidden) for _ in range(n_layers)])
+
 
 class ProximalResFlow(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1.5):
         super().__init__(event_shape)
+        assert gamma > 0
+        self.gamma = gamma
