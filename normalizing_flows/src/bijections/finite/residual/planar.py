@@ -21,7 +21,6 @@ class Planar(Bijection):
 class InversePlanar(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
-        self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         self.w = nn.Parameter(torch.randn(self.n_dim))
         self.u = nn.Parameter(torch.randn(self.n_dim))
         self.b = nn.Parameter(torch.randn())
