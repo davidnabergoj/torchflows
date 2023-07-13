@@ -9,7 +9,7 @@ from normalizing_flows.src.utils import get_batch_shape
 
 # https://github.com/rtqichen/ffjord/blob/master/lib/layers/cnf.py
 
-class ContinuousBijection(Bijection):
+class FFJORD(Bijection):
     def __init__(self, g: callable, event_shape: Union[torch.Size, Tuple[int, ...]], integration_time: float = 1.0):
         super().__init__(event_shape)
         self.g = g
