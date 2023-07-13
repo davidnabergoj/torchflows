@@ -1,9 +1,58 @@
 import math
-from typing import Tuple
+from typing import Tuple, Union
 import torch
 
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 import torch.nn.functional as F
+
+
+class LinearSpline(Transformer):
+    # Neural importance sampling (2019)
+    # Expects n_bins parameters
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_bins: int = 8):
+        super().__init__(event_shape)
+        self.k = n_bins
+        self.w = 1 / self.k
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        q = torch.softmax(h, dim=-1)
+        b = torch.floor(self.k * x).long()
+        alpha = self.k * x - b
+        z = alpha * q[..., b] + torch.cumsum(q, dim=-1)[..., b - 1]
+        log_det = torch.log(q[..., b]) - torch.log(torch.as_tensor(self.w))
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        raise NotImplementedError
+
+
+class QuadraticSpline(Transformer):
+    # Neural importance sampling (2019)
+    # Expects 2 * n_bins + 1 parameters
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_bins: int = 8):
+        super().__init__(event_shape)
+        self.k = n_bins
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        v = h[..., :self.k + 1]
+        w = h[..., self.k + 1:]
+        w = torch.softmax(w, dim=-1)
+
+        exp_v = torch.exp(v)
+        v = exp_v / torch.sum(0.5 * (exp_v[..., :-1] + exp_v[..., 1:]) * w, dim=-1)
+
+        b = ...
+        alpha = x - torch.cumsum(w, dim=-1)[..., b - 1] / w[..., b]
+
+        z = (
+                alpha ** 2 / 2 * (v[..., b + 1] - v[..., b]) * w[..., b] + alpha * v[..., b] * w[..., b]
+                + torch.cumsum(0.5 * (v[..., :-1] + v[..., 1:]) * w, dim=-1)[..., b - 1]
+        )
+        log_det = ...
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        raise NotImplementedError
 
 
 class RationalQuadraticSpline(Transformer):
