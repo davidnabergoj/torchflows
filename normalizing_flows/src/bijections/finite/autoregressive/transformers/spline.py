@@ -1,29 +1,74 @@
 import math
 from typing import Tuple, Union
 import torch
-
-from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 import torch.nn.functional as F
 
+from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 
-class LinearSpline(Transformer):
-    # Neural importance sampling (2019)
-    # Expects n_bins parameters
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_bins: int = 8):
+
+class MonotonicPiecewiseLinearSpline(Transformer):
+    # Monotonic piecewise linear spline with fixed x positions and y=x extrapolation
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 n_bins: int = 8,
+                 bin_width: float = None,
+                 min_y: float = -10.0):
         super().__init__(event_shape)
-        self.k = n_bins
-        self.w = 1 / self.k
+        self.n_bins = n_bins
+        self.w = 1 / n_bins if bin_width is None else bin_width
+        self.min_y = min_y
+        self.x_positions = torch.linspace(
+            start=-self.n_bins * self.w / 2,
+            end=self.n_bins * self.w / 2,
+            steps=self.n_bins
+        )
+
+    def forward_1d(self, x, h):
+        assert len(x.shape) == 1
+        assert len(h.shape) == 2
+        assert x.shape[0] == h.shape[0]
+        assert h.shape[1] == self.n_bins
+        bin_indices = torch.searchsorted(self.x_positions, x) - 1  # Find the correct bin for each input
+        relative_position_in_bin = (x - self.x_positions[bin_indices]) / self.w
+        y_positions = self.min_y + torch.cumsum(F.softplus(h), dim=-1)
+
+        bin_floors = y_positions[range(len(y_positions)), bin_indices]
+        bin_ceilings = y_positions[range(len(y_positions)), bin_indices + 1]
+
+        z = torch.lerp(bin_floors, bin_ceilings, relative_position_in_bin)
+        log_det = torch.log(bin_ceilings - bin_floors) - math.log(self.w)
+        return z, log_det
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        q = torch.softmax(h, dim=-1)
-        b = torch.floor(self.k * x).long()
-        alpha = self.k * x - b
-        z = alpha * q[..., b] + torch.cumsum(q, dim=-1)[..., b - 1]
-        log_det = torch.log(q[..., b]) - torch.log(torch.as_tensor(self.w))
+        z = torch.clone(x)  # Remain the same out of bounds
+        log_det = torch.zeros_like(z)  # y = x means gradient = 1 or log gradient = 0 out of bounds
+        mask = (x > self.x_positions[0]) & (x < self.x_positions[-1])  # Inputs inside spline bounds
+        z[mask], log_det[mask] = self.forward_1d(x[mask], h[mask])
+        log_det = log_det.sum(dim=-1)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        raise NotImplementedError
+        pass
+
+
+# class LinearSpline(Transformer):
+#     # Neural importance sampling (2019)
+#     # Expects n_bins parameters
+#     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_bins: int = 8):
+#         super().__init__(event_shape)
+#         self.k = n_bins
+#         self.w = 1 / self.k
+#
+#     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+#         q = torch.softmax(h, dim=-1)
+#         b = torch.floor(self.k * x).long()
+#         alpha = self.k * x - b
+#         z = alpha * q[..., b] + torch.cumsum(q, dim=-1)[..., b - 1]
+#         log_det = torch.log(q[..., b]) - torch.log(torch.as_tensor(self.w))
+#         return z, log_det
+#
+#     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+#         raise NotImplementedError
 
 
 class QuadraticSpline(Transformer):
