@@ -4,13 +4,35 @@ import torch
 import torch.nn.functional as F
 
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.src.utils import sum_except_batch
 
 
 class MonotonicPiecewiseSpline(Transformer):
     # With identity extrapolation
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 1.0):
+        super().__init__(event_shape)
+        self.bound = bound
 
-    def forward_inputs_inside_bounds_mask(self, x, h):
-        raise NotImplementedError
+        self.min_x = -self.bound
+        self.max_x = self.bound
+        self.min_y = -self.bound
+        self.max_y = self.bound
+
+    @staticmethod
+    def compute_bin(u, min_val, max_val):
+        sm = torch.softmax(u, dim=-1)
+        out = min_val + torch.cumsum(sm * (max_val - min_val), dim=-1)
+        out = F.pad(out, (1, 0), value=min_val)
+        return out
+
+    def compute_bin_x(self, u):
+        return self.compute_bin(u, self.min_x, self.max_x)
+
+    def compute_bin_y(self, u):
+        return self.compute_bin(u, self.min_y, self.max_y)
+
+    def forward_inputs_inside_bounds_mask(self, x):
+        return (x > self.min_x) & (x < self.max_x)
 
     def forward_1d(self, x, h):
         raise NotImplementedError
@@ -18,10 +40,10 @@ class MonotonicPiecewiseSpline(Transformer):
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         z = torch.clone(x)  # Remain the same out of bounds
         log_det = torch.zeros_like(z)  # y = x means gradient = 1 or log gradient = 0 out of bounds
-        mask = self.forward_inputs_inside_bounds_mask(x, h)
+        mask = self.forward_inputs_inside_bounds_mask(x)
         if torch.any(mask):
             z[mask], log_det[mask] = self.forward_1d(x[mask], h[mask])
-        log_det = log_det.sum(dim=-1)
+        log_det = sum_except_batch(log_det, event_shape=self.event_shape)
         return z, log_det
 
     def inverse_1d(self, x, h):
@@ -36,20 +58,15 @@ class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_bins: int = 8,
-                 bin_width: float = None,
-                 min_y: float = -10.0):
-        super().__init__(event_shape)
+                 **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.n_bins = n_bins
-        self.w = 1 / n_bins if bin_width is None else bin_width
-        self.min_y = min_y
+        self.w = (self.max_x - self.min_x) / n_bins
         self.x_positions = torch.linspace(
             start=-self.n_bins * self.w / 2,
             end=self.n_bins * self.w / 2,
             steps=self.n_bins
         )
-
-    def forward_inputs_inside_bounds_mask(self, x, h):
-        return (x > self.x_positions[0]) & (x < self.x_positions[-1])  # Inputs inside spline bounds
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1
@@ -58,7 +75,7 @@ class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
         assert h.shape[1] == self.n_bins
         bin_indices = torch.searchsorted(self.x_positions, x) - 1  # Find the correct bin for each input
         relative_position_in_bin = (x - self.x_positions[bin_indices]) / self.w
-        y_positions = self.min_y + torch.cumsum(F.softplus(h), dim=-1)
+        y_positions = self.compute_bin_y(h)
 
         bin_floors = y_positions[range(len(y_positions)), bin_indices]
         bin_ceilings = y_positions[range(len(y_positions)), bin_indices + 1]
@@ -72,16 +89,9 @@ class MonotonicPiecewiseQuadraticSpline(MonotonicPiecewiseSpline):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_bins: int = 8,
-                 min_x: float = -10.0,
-                 min_y: float = -10.0):
-        super().__init__(event_shape)
+                 **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.n_bins = n_bins
-        self.min_x = min_x
-        self.min_y = min_y
-
-    def forward_inputs_inside_bounds_mask(self, x, h):
-        x_positions = self.min_x + torch.cumsum(F.softplus(h[..., :self.n_bins + 1]), dim=-1)
-        return (x > x_positions[..., 0]) & (x < x_positions[..., self.n_bins - 1])
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1
@@ -89,19 +99,20 @@ class MonotonicPiecewiseQuadraticSpline(MonotonicPiecewiseSpline):
         assert x.shape[0] == h.shape[0]
         assert h.shape[1] == self.n_bins * 3 + 2
 
-        x_positions = self.min_x + torch.cumsum(F.softplus(h[..., :self.n_bins + 1]), dim=-1)
-        y_positions = self.min_y + torch.cumsum(F.softplus(h[..., self.n_bins + 1:2 * (self.n_bins + 1)]), dim=-1)
+        x_positions = self.compute_bin_x(h[..., :self.n_bins + 1])
+        y_positions = self.compute_bin_y(h[..., self.n_bins + 1:2 * (self.n_bins + 1)])
         derivatives = F.softplus(h[..., 2 * (self.n_bins + 1):])
         derivatives = F.pad(derivatives, pad=(1, 1), mode='constant', value=1.0)
 
-        bin_indices = torch.searchsorted(x_positions, x) - 1
+        bin_indices = torch.searchsorted(x_positions, x.view(-1, 1)).squeeze(1) - 1
 
+        n_data = len(x)
         a = 0.5 * torch.divide(
-            derivatives[bin_indices] - derivatives[bin_indices + 1],
-            x_positions[bin_indices] - x_positions[bin_indices + 1]
+            derivatives[range(n_data), bin_indices] - derivatives[range(n_data), bin_indices + 1],
+            x_positions[range(n_data), bin_indices] - x_positions[range(n_data), bin_indices + 1]
         )
-        b = derivatives[bin_indices] - 2 * a * x_positions[bin_indices]
-        c = y_positions[bin_indices]
+        b = derivatives[range(n_data), bin_indices] - 2 * a * x_positions[range(n_data), bin_indices]
+        c = y_positions[range(n_data), bin_indices]
 
         z = (a * x ** 2) + (b * x) + c
         log_det = torch.log(2 * a * x + b)
