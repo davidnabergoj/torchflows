@@ -77,8 +77,10 @@ class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
         relative_position_in_bin = (x - self.x_positions[bin_indices]) / self.w
         y_positions = self.compute_bin_y(h)
 
-        bin_floors = y_positions[range(len(y_positions)), bin_indices]
-        bin_ceilings = y_positions[range(len(y_positions)), bin_indices + 1]
+        bin_indices = bin_indices.view(-1, 1)
+
+        bin_floors = y_positions.gather(1, bin_indices)[:, 0]
+        bin_ceilings = y_positions.gather(1, bin_indices)[:, 0]
 
         z = torch.lerp(bin_floors, bin_ceilings, relative_position_in_bin)
         log_det = torch.log(bin_ceilings - bin_floors) - math.log(self.w)
@@ -104,15 +106,14 @@ class MonotonicPiecewiseQuadraticSpline(MonotonicPiecewiseSpline):
         derivatives = F.softplus(h[..., 2 * (self.n_bins + 1):])
         derivatives = F.pad(derivatives, pad=(1, 1), mode='constant', value=1.0)
 
-        bin_indices = torch.searchsorted(x_positions, x.view(-1, 1)).squeeze(1) - 1
+        bin_indices = torch.searchsorted(x_positions, x.view(-1, 1)) - 1
 
-        n_data = len(x)
         a = 0.5 * torch.divide(
-            derivatives[range(n_data), bin_indices] - derivatives[range(n_data), bin_indices + 1],
-            x_positions[range(n_data), bin_indices] - x_positions[range(n_data), bin_indices + 1]
+            derivatives.gather(1, bin_indices)[:, 0] - derivatives.gather(1, bin_indices + 1)[:, 0],
+            x_positions.gather(1, bin_indices)[:, 0] - x_positions.gather(1, bin_indices + 1)[:, 0]
         )
-        b = derivatives[range(n_data), bin_indices] - 2 * a * x_positions[range(n_data), bin_indices]
-        c = y_positions[range(n_data), bin_indices]
+        b = derivatives.gather(1, bin_indices)[:, 0] - 2 * a * x_positions.gather(1, bin_indices)[:, 0]
+        c = y_positions.gather(1, bin_indices)[:, 0]
 
         z = (a * x ** 2) + (b * x) + c
         log_det = torch.log(2 * a * x + b)
