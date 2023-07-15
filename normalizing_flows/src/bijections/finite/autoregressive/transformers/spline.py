@@ -6,7 +6,32 @@ import torch.nn.functional as F
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 
 
-class MonotonicPiecewiseLinearSpline(Transformer):
+class MonotonicPiecewiseSpline(Transformer):
+    # With identity extrapolation
+
+    def forward_inputs_inside_bounds_mask(self, x, h):
+        raise NotImplementedError
+
+    def forward_1d(self, x, h):
+        raise NotImplementedError
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        z = torch.clone(x)  # Remain the same out of bounds
+        log_det = torch.zeros_like(z)  # y = x means gradient = 1 or log gradient = 0 out of bounds
+        mask = self.forward_inputs_inside_bounds_mask(x, h)
+        if torch.any(mask):
+            z[mask], log_det[mask] = self.forward_1d(x[mask], h[mask])
+        log_det = log_det.sum(dim=-1)
+        return z, log_det
+
+    def inverse_1d(self, x, h):
+        raise NotImplementedError
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+
+class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
     # Monotonic piecewise linear spline with fixed x positions and y=x extrapolation
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
@@ -22,6 +47,9 @@ class MonotonicPiecewiseLinearSpline(Transformer):
             end=self.n_bins * self.w / 2,
             steps=self.n_bins
         )
+
+    def forward_inputs_inside_bounds_mask(self, x, h):
+        return (x > self.x_positions[0]) & (x < self.x_positions[-1])  # Inputs inside spline bounds
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1
@@ -39,16 +67,46 @@ class MonotonicPiecewiseLinearSpline(Transformer):
         log_det = torch.log(bin_ceilings - bin_floors) - math.log(self.w)
         return z, log_det
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        z = torch.clone(x)  # Remain the same out of bounds
-        log_det = torch.zeros_like(z)  # y = x means gradient = 1 or log gradient = 0 out of bounds
-        mask = (x > self.x_positions[0]) & (x < self.x_positions[-1])  # Inputs inside spline bounds
-        z[mask], log_det[mask] = self.forward_1d(x[mask], h[mask])
-        log_det = log_det.sum(dim=-1)
-        return z, log_det
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        pass
+class MonotonicPiecewiseQuadraticSpline(MonotonicPiecewiseSpline):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 n_bins: int = 8,
+                 min_x: float = -10.0,
+                 min_y: float = -10.0):
+        super().__init__(event_shape)
+        self.n_bins = n_bins
+        self.min_x = min_x
+        self.min_y = min_y
+
+    def forward_inputs_inside_bounds_mask(self, x, h):
+        x_positions = self.min_x + torch.cumsum(F.softplus(h[..., :self.n_bins + 1]), dim=-1)
+        return (x > x_positions[..., 0]) & (x < x_positions[..., self.n_bins - 1])
+
+    def forward_1d(self, x, h):
+        assert len(x.shape) == 1
+        assert len(h.shape) == 2
+        assert x.shape[0] == h.shape[0]
+        assert h.shape[1] == self.n_bins * 3 + 2
+
+        x_positions = self.min_x + torch.cumsum(F.softplus(h[..., :self.n_bins + 1]), dim=-1)
+        y_positions = self.min_y + torch.cumsum(F.softplus(h[..., self.n_bins + 1:2 * (self.n_bins + 1)]), dim=-1)
+        derivatives = F.softplus(h[..., 2 * (self.n_bins + 1):])
+        derivatives = F.pad(derivatives, pad=(1, 1), mode='constant', value=1.0)
+
+        bin_indices = torch.searchsorted(x_positions, x) - 1
+
+        a = 0.5 * torch.divide(
+            derivatives[bin_indices] - derivatives[bin_indices + 1],
+            x_positions[bin_indices] - x_positions[bin_indices + 1]
+        )
+        b = derivatives[bin_indices] - 2 * a * x_positions[bin_indices]
+        c = y_positions[bin_indices]
+
+        z = (a * x ** 2) + (b * x) + c
+        log_det = torch.log(2 * a * x + b)
+
+        return z, log_det
 
 
 # class LinearSpline(Transformer):
@@ -71,33 +129,33 @@ class MonotonicPiecewiseLinearSpline(Transformer):
 #         raise NotImplementedError
 
 
-class QuadraticSpline(Transformer):
-    # Neural importance sampling (2019)
-    # Expects 2 * n_bins + 1 parameters
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_bins: int = 8):
-        super().__init__(event_shape)
-        self.k = n_bins
-
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        v = h[..., :self.k + 1]
-        w = h[..., self.k + 1:]
-        w = torch.softmax(w, dim=-1)
-
-        exp_v = torch.exp(v)
-        v = exp_v / torch.sum(0.5 * (exp_v[..., :-1] + exp_v[..., 1:]) * w, dim=-1)
-
-        b = ...
-        alpha = x - torch.cumsum(w, dim=-1)[..., b - 1] / w[..., b]
-
-        z = (
-                alpha ** 2 / 2 * (v[..., b + 1] - v[..., b]) * w[..., b] + alpha * v[..., b] * w[..., b]
-                + torch.cumsum(0.5 * (v[..., :-1] + v[..., 1:]) * w, dim=-1)[..., b - 1]
-        )
-        log_det = ...
-        return z, log_det
-
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        raise NotImplementedError
+# class QuadraticSpline(Transformer):
+#     # Neural importance sampling (2019)
+#     # Expects 2 * n_bins + 1 parameters
+#     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_bins: int = 8):
+#         super().__init__(event_shape)
+#         self.k = n_bins
+#
+#     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+#         v = h[..., :self.k + 1]
+#         w = h[..., self.k + 1:]
+#         w = torch.softmax(w, dim=-1)
+#
+#         exp_v = torch.exp(v)
+#         v = exp_v / torch.sum(0.5 * (exp_v[..., :-1] + exp_v[..., 1:]) * w, dim=-1)
+#
+#         b = ...
+#         alpha = x - torch.cumsum(w, dim=-1)[..., b - 1] / w[..., b]
+#
+#         z = (
+#                 alpha ** 2 / 2 * (v[..., b + 1] - v[..., b]) * w[..., b] + alpha * v[..., b] * w[..., b]
+#                 + torch.cumsum(0.5 * (v[..., :-1] + v[..., 1:]) * w, dim=-1)[..., b - 1]
+#         )
+#         log_det = ...
+#         return z, log_det
+#
+#     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+#         raise NotImplementedError
 
 
 class CubicSpline(Transformer):
