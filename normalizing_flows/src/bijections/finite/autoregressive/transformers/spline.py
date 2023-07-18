@@ -1,5 +1,7 @@
 import math
 from typing import Tuple, Union
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 
@@ -34,6 +36,9 @@ class MonotonicPiecewiseSpline(Transformer):
     def forward_inputs_inside_bounds_mask(self, x):
         return (x > self.min_x) & (x < self.max_x)
 
+    def inverse_inputs_inside_bounds_mask(self, z):
+        return (z > self.min_y) & (z < self.max_y)
+
     def forward_1d(self, x, h):
         raise NotImplementedError
 
@@ -46,11 +51,17 @@ class MonotonicPiecewiseSpline(Transformer):
         log_det = sum_except_batch(log_det, event_shape=self.event_shape)
         return z, log_det
 
-    def inverse_1d(self, x, h):
+    def inverse_1d(self, z, h):
         raise NotImplementedError
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        pass
+        x = torch.clone(z)  # Remain the same out of bounds
+        log_det = torch.zeros_like(x)  # y = x means gradient = 1 or log gradient = 0 out of bounds
+        mask = self.inverse_inputs_inside_bounds_mask(z)
+        if torch.any(mask):
+            x[mask], log_det[mask] = self.inverse_1d(z[mask], h[mask])
+        log_det = sum_except_batch(log_det, event_shape=self.event_shape)
+        return x, log_det
 
 
 class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
@@ -61,12 +72,8 @@ class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
                  **kwargs):
         super().__init__(event_shape, **kwargs)
         self.n_bins = n_bins
-        self.w = (self.max_x - self.min_x) / n_bins
-        self.x_positions = torch.linspace(
-            start=-self.n_bins * self.w / 2,
-            end=self.n_bins * self.w / 2,
-            steps=self.n_bins
-        )
+        self.x_positions = torch.linspace(start=self.min_x, end=self.max_x, steps=self.n_bins)
+        self.w = self.x_positions[1] - self.x_positions[0]
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1
@@ -80,20 +87,61 @@ class MonotonicPiecewiseLinearSpline(MonotonicPiecewiseSpline):
         bin_indices = bin_indices.view(-1, 1)
 
         bin_floors = y_positions.gather(1, bin_indices)[:, 0]
-        bin_ceilings = y_positions.gather(1, bin_indices)[:, 0]
+        bin_ceilings = y_positions.gather(1, bin_indices + 1)[:, 0]
 
-        z = torch.lerp(bin_floors, bin_ceilings, relative_position_in_bin)
+        y = torch.lerp(bin_floors, bin_ceilings, relative_position_in_bin)
         log_det = torch.log(bin_ceilings - bin_floors) - math.log(self.w)
-        return z, log_det
+        return y, log_det
+
+    def inverse_1d(self, y, h):
+        assert len(y.shape) == 1
+        assert len(h.shape) == 2
+        assert y.shape[0] == h.shape[0]
+        assert h.shape[1] == self.n_bins
+
+        # Find the correct bin
+        # Find relative spot of z in that bin
+        # Position = bin_x start + bin_width * relative_spot; this is our output
+        y_positions = self.compute_bin_y(h)
+        bin_indices = torch.searchsorted(y_positions, y.view(-1, 1)) - 1  # Find the correct bin for each input
+
+        bin_floors = y_positions.gather(1, bin_indices)[:, 0]
+        bin_ceilings = y_positions.gather(1, bin_indices + 1)[:, 0]
+        relative_y_position_in_bin = (y - bin_floors) / (bin_ceilings - bin_floors)
+
+        x = self.x_positions[bin_indices.squeeze(1)] + relative_y_position_in_bin * self.w
+        log_det = -(torch.log(bin_ceilings - bin_floors) - math.log(self.w))
+        return x, log_det
 
 
 class MonotonicPiecewiseQuadraticSpline(MonotonicPiecewiseSpline):
+    # C1 continuous
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_bins: int = 8,
                  **kwargs):
         super().__init__(event_shape, **kwargs)
         self.n_bins = n_bins
+
+    @staticmethod
+    def compute_quadratic_parameters(x, y, d, idx):
+        # Compute a, b, c
+        x0 = x.gather(1, idx)[:, 0]
+        y0 = y.gather(1, idx)[:, 0]
+        d0 = d.gather(1, idx)[:, 0]
+        
+        x1 = x.gather(1, idx + 1)[:, 0]
+        y1 = y.gather(1, idx + 1)[:, 0]
+        d1 = d.gather(1, idx + 1)[:, 0]
+
+        a = 0.5 * torch.divide(d0 - d1, x0 - x1)
+        b = (a * (x1 ** 2 - x0 ** 2) + y0 - y1) / (x0 - x1)
+        # b = d0 - 2 * a * x0
+        # assert torch.allclose(b, d1 - 2 * a * x1)
+        # assert torch.allclose(b, (a * (x1 ** 2 - x0 ** 2) + y0 - y1) / (x0 - x1))
+        c = y0 - a * x0 ** 2 - b * x0
+        # assert torch.allclose(c, y1 - a * x1 ** 2 - b * x1)
+        return a, b, c
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1
@@ -107,18 +155,58 @@ class MonotonicPiecewiseQuadraticSpline(MonotonicPiecewiseSpline):
         derivatives = F.pad(derivatives, pad=(1, 1), mode='constant', value=1.0)
 
         bin_indices = torch.searchsorted(x_positions, x.view(-1, 1)) - 1
-
-        a = 0.5 * torch.divide(
-            derivatives.gather(1, bin_indices)[:, 0] - derivatives.gather(1, bin_indices + 1)[:, 0],
-            x_positions.gather(1, bin_indices)[:, 0] - x_positions.gather(1, bin_indices + 1)[:, 0]
-        )
-        b = derivatives.gather(1, bin_indices)[:, 0] - 2 * a * x_positions.gather(1, bin_indices)[:, 0]
-        c = y_positions.gather(1, bin_indices)[:, 0]
-
+        a, b, c = self.compute_quadratic_parameters(x_positions, y_positions, derivatives, bin_indices)
+        self.plot(h)
         z = (a * x ** 2) + (b * x) + c
         log_det = torch.log(2 * a * x + b)
 
         return z, log_det
+
+    def plot(self, h):
+
+        x_positions = self.compute_bin_x(h[..., :self.n_bins + 1])
+        y_positions = self.compute_bin_y(h[..., self.n_bins + 1:2 * (self.n_bins + 1)])
+        derivatives = F.softplus(h[..., 2 * (self.n_bins + 1):])
+        derivatives = F.pad(derivatives, pad=(1, 1), mode='constant', value=1.0)
+
+        x_eval_positions = [self.min_x - 1]
+        for i in range(1, len(x_positions[0]) - 1):
+            x_eval_positions.append((x_positions[0,i + 1] + x_positions[0,i]) / 2)
+        x_eval_positions.append(self.max_x + 1)
+        x_eval_positions = torch.tensor(x_eval_positions).view(1, -1)
+
+        for i in range(len(x_eval_positions[0]) - 1):
+            xs = torch.linspace(x_eval_positions[0,i], x_eval_positions[0,i + 1], 1000)
+            bin_indices = torch.searchsorted(x_positions, x_eval_positions.view(-1, 1)) - 1
+            a, b, c = self.compute_quadratic_parameters(x_positions, y_positions, derivatives, bin_indices.ravel())
+            plt.plot(xs, a * xs ** 2 + b * xs + c)
+        plt.plot([self.max_x, 2 * self.max_x], [self.max_y, 2 * self.max_y])
+        plt.plot([self.min_x, 2 * self.min_x], [self.min_y, 2 * self.min_y])
+        plt.show()
+
+    def inverse_1d(self, y, h):
+        assert len(y.shape) == 1
+        assert len(h.shape) == 2
+        assert y.shape[0] == h.shape[0]
+        assert h.shape[1] == self.n_bins * 3 + 2
+
+        x_positions = self.compute_bin_x(h[..., :self.n_bins + 1])
+        y_positions = self.compute_bin_y(h[..., self.n_bins + 1:2 * (self.n_bins + 1)])
+        derivatives = F.softplus(h[..., 2 * (self.n_bins + 1):])
+        derivatives = F.pad(derivatives, pad=(1, 1), mode='constant', value=1.0)
+
+        bin_indices = torch.searchsorted(y_positions, y.view(-1, 1)) - 1
+
+        a, b, c = self.compute_quadratic_parameters(x_positions, y_positions, derivatives, bin_indices)
+
+        sqrt_d = torch.sqrt(b ** 2 - 4 * a * c)
+        x = (-b + sqrt_d) / (2 * a)
+        x1 = (-b - sqrt_d) / (2 * a)
+        mask = (x > x_positions.gather(1, bin_indices)[:, 0])
+        x[mask] = x1[mask]
+
+        log_det = -torch.log(2 * a * x + b)
+        return x, log_det
 
 
 # class LinearSpline(Transformer):
