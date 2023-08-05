@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
 
 from normalizing_flows.src.bijections import Bijection
 
@@ -39,3 +40,20 @@ class Flow(nn.Module):
             z = self.base.sample(sample_shape=torch.Size((n,)))
         x, _ = self.bijection.inverse(z, context=context)
         return x
+
+    def fit(self,
+            x_train: torch.Tensor,
+            n_epochs: int = 50,
+            lr: float = 0.01,
+            batch_size: int = None):
+        if batch_size is None:
+            batch_size = len(x_train)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+        dataset = TensorDataset(x_train)
+        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        for _ in range(n_epochs):
+            for batch_x, in data_loader:
+                optimizer.zero_grad()
+                loss = -self.log_prob(batch_x).mean()
+                loss.backward()
+                optimizer.step()
