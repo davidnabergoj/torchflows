@@ -7,26 +7,21 @@ from normalizing_flows.src.utils import get_batch_shape
 
 
 class Affine(Transformer):
-    def __init__(self, event_shape: torch.Size, scale_transform: callable = torch.exp):
+    def __init__(self, event_shape: torch.Size, scale_transform: callable = torch.exp, min_scale: float = 1e-3):
         super().__init__(event_shape=event_shape)
         self.scale_transform = scale_transform
+        self.min_scale = min_scale
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        alpha = self.scale_transform(h[..., 0])
-        if self.scale_transform is torch.exp:
-            log_alpha = h[..., 0]
-        else:
-            log_alpha = torch.log(alpha)
+        alpha = self.scale_transform(h[..., 0]) + self.min_scale
+        log_alpha = torch.log(alpha)
         beta = h[..., 1]
         log_det = torch.sum(log_alpha, dim=-1)
         return alpha * x + beta, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        alpha = self.scale_transform(h[..., 0])
-        if self.scale_transform is torch.exp:
-            log_alpha = h[..., 0]
-        else:
-            log_alpha = torch.log(alpha)
+        alpha = self.scale_transform(h[..., 0]) + self.min_scale
+        log_alpha = torch.log(alpha)
         beta = h[..., 1]
         log_det = -torch.sum(log_alpha, dim=-1)
         return (z - beta) / alpha, log_det
