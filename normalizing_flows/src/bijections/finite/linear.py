@@ -19,13 +19,13 @@ class Permutation(Bijection):
     def forward(self, x, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
         z = x.view(*batch_shape, -1)[..., self.forward_permutation].view_as(x)
-        log_det = torch.zeros(*batch_shape, device=x.device)
+        log_det = torch.zeros(size=batch_shape, device=x.device)
         return z, log_det
 
     def inverse(self, z, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
         x = z.view(*batch_shape, -1)[..., self.inverse_permutation].view_as(z)
-        log_det = torch.zeros(*batch_shape, device=z.device)
+        log_det = torch.zeros(size=batch_shape, device=z.device)
         return x, log_det
 
 
