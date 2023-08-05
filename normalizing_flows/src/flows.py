@@ -45,12 +45,13 @@ class Flow(nn.Module):
             x_train: torch.Tensor,
             n_epochs: int = 50,
             lr: float = 0.01,
-            batch_size: int = None):
+            batch_size: int = None,
+            shuffle: bool = True):
         if batch_size is None:
             batch_size = len(x_train)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         dataset = TensorDataset(x_train)
-        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
         for _ in range(n_epochs):
             for batch_x, in data_loader:
                 optimizer.zero_grad()
