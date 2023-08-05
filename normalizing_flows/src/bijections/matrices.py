@@ -81,6 +81,18 @@ class IdentityMatrix(Matrix):
         return torch.tensor(0.0)
 
 
+class PositiveDiagonalMatrix(Matrix):
+    def __init__(self, n_dim: int, **kwargs):
+        super().__init__(n_dim, **kwargs)
+        self.log_diag = nn.Parameter(torch.zeros(n_dim))
+
+    def mat(self):
+        return torch.diag(self.log_diag.exp())
+
+    def log_det(self):
+        return self.log_diag.sum()
+
+
 class PermutationMatrix(Matrix):
     def __init__(self, n_dim: int, **kwargs):
         super().__init__(n_dim, **kwargs)
