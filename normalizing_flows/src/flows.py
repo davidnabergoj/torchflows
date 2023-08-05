@@ -58,3 +58,17 @@ class Flow(nn.Module):
                 loss = -self.log_prob(batch_x).mean()
                 loss.backward()
                 optimizer.step()
+
+    def variational_fit(self,
+                        target,
+                        n_epochs: int = 10,
+                        lr: float = 0.01,
+                        n_samples: int = 1000):
+        # target must have a .sample method that takes as input the batch shape
+        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+        for i in range(n_epochs):
+            x_train = target.sample((n_samples,)).to(self.loc.device)
+            optimizer.zero_grad()
+            loss = -self.log_prob(x_train).mean()
+            loss.backward()
+            optimizer.step()

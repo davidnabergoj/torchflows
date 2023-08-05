@@ -3,6 +3,7 @@ from typing import Tuple, List, Union
 import torch
 
 import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
 
 from normalizing_flows.src.utils import get_batch_shape
 
@@ -39,6 +40,40 @@ class Bijection(nn.Module):
             determinant has shape (*batch_shape,).
         """
         raise NotImplementedError
+
+    @staticmethod
+    def batch_apply(fn, batch_size, *args):
+        dataset = TensorDataset(*args)
+        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        outputs = []
+        log_dets = []
+        for batch in data_loader:
+            batch_out, batch_log_det = fn(*batch)
+            outputs.append(batch_out)
+            log_dets.append(batch_log_det)
+        outputs = torch.cat(outputs, dim=0)
+        log_dets = torch.cat(log_dets, dim=0)
+        return outputs, log_dets
+
+    def batch_forward(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
+        if context:
+            outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
+        else:
+            outputs, log_dets = self.batch_apply(self.forward, batch_size, x)
+        assert outputs.shape == x.shape
+        batch_shape = get_batch_shape(x, self.event_shape)
+        assert log_dets.shape == batch_shape
+        return outputs, log_dets
+
+    def batch_inverse(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
+        if context:
+            outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
+        else:
+            outputs, log_dets = self.batch_apply(self.forward, batch_size, x)
+        assert outputs.shape == x.shape
+        batch_shape = get_batch_shape(x, self.event_shape)
+        assert log_dets.shape == batch_shape
+        return outputs, log_dets
 
 
 class BijectiveComposition(Bijection):
