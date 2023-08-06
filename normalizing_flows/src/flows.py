@@ -45,6 +45,7 @@ class Flow(nn.Module):
                 x, _ = self.bijection.inverse(z, context=context)
         else:
             x, _ = self.bijection.inverse(z, context=context)
+        x = x.to(self.loc)
         return x
 
     def fit(self,
