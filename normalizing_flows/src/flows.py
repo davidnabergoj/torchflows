@@ -23,7 +23,7 @@ class Flow(nn.Module):
         log_base = self.base.log_prob(z)
         return log_base + log_det
 
-    def sample(self, n: int, context: torch.Tensor = None, no_grad: bool = False):
+    def sample(self, n: int, context: torch.Tensor = None, no_grad: bool = False, return_log_prob: bool = False):
         """
         If context given, sample n vectors for each context vector.
         Otherwise, sample n vectors.
@@ -42,10 +42,14 @@ class Flow(nn.Module):
         if no_grad:
             z = z.detach()
             with torch.no_grad():
-                x, _ = self.bijection.inverse(z, context=context)
+                x, log_det = self.bijection.inverse(z, context=context)
         else:
-            x, _ = self.bijection.inverse(z, context=context)
+            x, log_det = self.bijection.inverse(z, context=context)
         x = x.to(self.loc)
+
+        if return_log_prob:
+            log_prob = self.base.log_prob(z) + log_det
+            return x, log_prob
         return x
 
     def fit(self,
