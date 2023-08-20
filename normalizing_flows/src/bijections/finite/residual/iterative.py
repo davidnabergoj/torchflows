@@ -118,7 +118,7 @@ class ProximalNeuralNetwork(nn.Sequential):
         self.n_layers = n_layers
 
 
-class ProximalResidualFlowBlock(ResidualBijection):
+class ProximalResidualFlow(ResidualBijection):
     # Note: in its original formulation, this method computes the log of the absolute value of the jacobian determinant
     # using automatic differentiation, which is undesirable. We instead use the hutchinson trace estimator.
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1.5, **kwargs):
