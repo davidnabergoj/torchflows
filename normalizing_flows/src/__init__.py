@@ -21,5 +21,8 @@ from normalizing_flows.src.bijections import (
     InversePlanar,
     IdentitySylvester,
     HouseholderSylvester,
-    PermutationSylvester
+    PermutationSylvester,
+    ElementwiseShift,
+    ElementwiseAffine,
+    ElementwiseRQSpline
 )

@@ -16,10 +16,10 @@ class ConditionerTransform(nn.Module):
 class Constant(ConditionerTransform):
     def __init__(self, n_output_parameters: int):
         super().__init__()
-        self.parameters = nn.Parameter(torch.zeros(size=(n_output_parameters,)))
+        self.theta = nn.Parameter(torch.zeros(size=(n_output_parameters,)))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        return self.parameters[[None] * len(x.shape)].repeat(*x.shape, 1)
+        return self.theta[[None] * len(x.shape)].repeat(*x.shape, 1)
 
 
 class MADE(ConditionerTransform):
