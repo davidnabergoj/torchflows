@@ -1,3 +1,25 @@
 from normalizing_flows.src.flows import Flow
-from normalizing_flows.src.bijections import RealNVP, InverseRealNVP, NICE, MAF, IAF, CouplingRQNSF, \
-    InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF, FFJORD, DDNF, OTFlow, RNode
+from normalizing_flows.src.bijections import (
+    NICE,
+    RealNVP,
+    InverseRealNVP,
+    MAF,
+    IAF,
+    CouplingRQNSF,
+    InverseAutoregressiveRQNSF,
+    MaskedAutoregressiveRQNSF,
+    FFJORD,
+    DDNF,
+    OTFlow,
+    RNode,
+    InvertibleResNet,
+    ResFlow,
+    ProximalResidualFlow,
+    QuasiAutoregressiveFlow,
+    Radial,
+    Planar,
+    InversePlanar,
+    IdentitySylvester,
+    HouseholderSylvester,
+    PermutationSylvester
+)

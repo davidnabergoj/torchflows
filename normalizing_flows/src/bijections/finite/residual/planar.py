@@ -21,9 +21,9 @@ class Planar(Bijection):
 class InversePlanar(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
-        self.w = nn.Parameter(torch.randn(self.n_dim))
-        self.u = nn.Parameter(torch.randn(self.n_dim))
-        self.b = nn.Parameter(torch.randn())
+        self.w = nn.Parameter(torch.randn(size=(self.n_dim,)))
+        self.u = nn.Parameter(torch.randn(size=(self.n_dim,)))
+        self.b = nn.Parameter(torch.randn(size=()))
 
     def h(self, x):
         return torch.sigmoid(x)

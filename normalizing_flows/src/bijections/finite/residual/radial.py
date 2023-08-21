@@ -13,9 +13,9 @@ class Radial(Bijection):
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
-        self.beta = nn.Parameter(torch.randn())
-        self.unconstrained_alpha = nn.Parameter(torch.randn())
-        self.z0 = nn.Parameter(torch.randn(self.n_dim))
+        self.beta = nn.Parameter(torch.randn(size=()))
+        self.unconstrained_alpha = nn.Parameter(torch.randn(size=()))
+        self.z0 = nn.Parameter(torch.randn(size=(self.n_dim,)))
 
     @property
     def alpha(self):
