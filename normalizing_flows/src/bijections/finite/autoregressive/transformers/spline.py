@@ -265,7 +265,7 @@ class RationalQuadraticSpline(Transformer):
             inverse=inverse
         )
 
-        return outputs, log_determinant.sum(dim=-1)
+        return outputs, sum_except_batch(log_determinant, self.event_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.rqs_caller(x, h, False)

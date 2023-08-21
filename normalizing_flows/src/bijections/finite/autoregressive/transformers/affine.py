@@ -3,7 +3,7 @@ from typing import Tuple
 import torch
 
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.src.utils import get_batch_shape
+from normalizing_flows.src.utils import get_batch_shape, sum_except_batch
 
 
 class Affine(Transformer):
@@ -17,10 +17,7 @@ class Affine(Transformer):
         log_alpha = torch.log(alpha)
         beta = h[..., 1]
 
-        n_event_dims = len(self.event_shape)
-        n_batch_dims = len(x.shape) - n_event_dims
-        event_dims = tuple(range(n_batch_dims, len(x.shape)))
-        log_det = torch.sum(log_alpha, dim=event_dims)
+        log_det = sum_except_batch(log_alpha, self.event_shape)
         return alpha * x + beta, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -28,10 +25,7 @@ class Affine(Transformer):
         log_alpha = torch.log(alpha)
         beta = h[..., 1]
 
-        n_event_dims = len(self.event_shape)
-        n_batch_dims = len(z.shape) - n_event_dims
-        event_dims = tuple(range(n_batch_dims, len(z.shape)))
-        log_det = -torch.sum(log_alpha, dim=event_dims)
+        log_det = -sum_except_batch(log_alpha, self.event_shape)
         return (z - beta) / alpha, log_det
 
 
