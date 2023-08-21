@@ -2,8 +2,8 @@ from typing import Tuple
 
 import torch
 
-from normalizing_flows.src.bijections.finite.autoregressive.conditioners.base import Conditioner
-from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
+from normalizing_flows.src.bijections.finite.autoregressive.conditioners.base import Conditioner, NullConditioner
+from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 from normalizing_flows.src.bijections.finite.base import Bijection
 
@@ -55,3 +55,8 @@ class InverseMaskedAutoregressiveLayer(AutoregressiveLayer):
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.forward_layer.forward(z, context=context)
+
+
+class ElementwiseLayer(AutoregressiveLayer):
+    def __init__(self, transformer: Transformer, n_transformer_parameters: int):
+        super().__init__(NullConditioner(), transformer, Constant(n_transformer_parameters))

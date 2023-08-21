@@ -5,11 +5,27 @@ import torch
 from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
 from normalizing_flows.src.bijections.finite.autoregressive.conditioners import Coupling, MaskedAutoregressive
 from normalizing_flows.src.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
-    ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer
+    ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
 from normalizing_flows.src.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, \
     RationalQuadraticSpline
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
     DeepSigmoidNetwork, InverseDeepSigmoidNetwork, UnconstrainedMonotonicNeuralNetwork
+
+
+class ElementwiseAffine(ElementwiseLayer):
+    def __init__(self, event_shape, **kwargs):
+        super().__init__(Affine(event_shape, **kwargs), n_transformer_parameters=2)
+
+
+class ElementwiseShift(ElementwiseLayer):
+    def __init__(self, event_shape):
+        super().__init__(Shift(event_shape), n_transformer_parameters=1)
+
+
+class ElementwiseRQSpline(ElementwiseLayer):
+    def __init__(self, event_shape, **kwargs):
+        transformer = RationalQuadraticSpline(event_shape, **kwargs)
+        super().__init__(transformer, n_transformer_parameters=transformer.n_bins * 3 - 1)
 
 
 class AffineCoupling(AutoregressiveLayer):

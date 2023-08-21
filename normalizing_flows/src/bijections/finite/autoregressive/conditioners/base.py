@@ -10,3 +10,12 @@ class Conditioner(nn.Module):
 
     def forward(self, x: torch.Tensor, transform: ConditionerTransform, context: torch.Tensor = None) -> torch.Tensor:
         raise NotImplementedError
+
+
+class NullConditioner(Conditioner):
+    def __init__(self):
+        # Each dimension affects only itself
+        super().__init__()
+
+    def forward(self, x: torch.Tensor, transform: ConditionerTransform, context: torch.Tensor = None) -> torch.Tensor:
+        return transform(x, context=context).to(x)  # (*batch_shape, *event_shape, n_parameters)

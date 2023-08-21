@@ -7,7 +7,19 @@ class ConditionerTransform(nn.Module):
         super().__init__()
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        # x.shape = (*batch_shape, *event_shape)
+        # context.shape = (*batch_shape, *event_shape)
+        # output.shape = (*batch_shape, *event_shape, n_parameters)
         raise NotImplementedError
+
+
+class Constant(ConditionerTransform):
+    def __init__(self, n_output_parameters: int):
+        super().__init__()
+        self.parameters = nn.Parameter(torch.zeros(size=(n_output_parameters,)))
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        return self.parameters[[None] * len(x.shape)].repeat(*x.shape, 1)
 
 
 class MADE(ConditionerTransform):
