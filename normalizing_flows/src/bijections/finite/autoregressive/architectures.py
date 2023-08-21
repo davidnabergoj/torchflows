@@ -16,8 +16,9 @@ from normalizing_flows.src.bijections.finite.linear import Permutation
 
 
 class NICE(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -28,8 +29,9 @@ class NICE(BijectiveComposition):
 
 
 class RealNVP(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -40,8 +42,9 @@ class RealNVP(BijectiveComposition):
 
 
 class InverseRealNVP(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -52,8 +55,9 @@ class InverseRealNVP(BijectiveComposition):
 
 
 class MAF(BijectiveComposition):
-    def __init__(self, n_dim, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -64,8 +68,9 @@ class MAF(BijectiveComposition):
 
 
 class IAF(BijectiveComposition):
-    def __init__(self, n_dim, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -76,8 +81,9 @@ class IAF(BijectiveComposition):
 
 
 class CouplingRQNSF(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -88,8 +94,9 @@ class CouplingRQNSF(BijectiveComposition):
 
 
 class MaskedAutoregressiveRQNSF(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -100,8 +107,9 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
 
 
 class InverseAutoregressiveRQNSF(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -112,8 +120,9 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
 
 
 class CouplingDSF(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -124,8 +133,9 @@ class CouplingDSF(BijectiveComposition):
 
 
 class InverseCouplingDSF(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
@@ -136,8 +146,9 @@ class InverseCouplingDSF(BijectiveComposition):
 
 
 class UMNNMAF(BijectiveComposition):
-    def __init__(self, n_dim: int, n_layers: int = 10, **kwargs):
-        event_shape = torch.Size((n_dim,))
+    def __init__(self, event_shape, n_layers: int = 3, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
         bijections = []
         for _ in range(n_layers):
             bijections.extend([
