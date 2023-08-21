@@ -5,7 +5,8 @@ import torch
 
 from normalizing_flows.src.bijections.finite.linear import LU, Permutation, InverseLU, LowerTriangular, \
     HouseholderOrthogonal, QR
-from normalizing_flows import RealNVP, MAF
+from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF
+
 
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (50, 50)])
@@ -31,11 +32,14 @@ def test_basic(batch_shape: Tuple, event_shape: Tuple, bijection_class):
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-3), \
         f"{torch.max(torch.abs(log_det_forward+log_det_inverse)) = }"
 
+
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (50, 50)])
 @pytest.mark.parametrize('bijection_class', [
     RealNVP,
-    MAF
+    MAF,
+    CouplingRQNSF,
+    MaskedAutoregressiveRQNSF
 ])
 def test_neural_network(batch_shape: Tuple, event_shape: Tuple, bijection_class):
     # Event shape cannot be too big, otherwise

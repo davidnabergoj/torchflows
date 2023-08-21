@@ -55,6 +55,9 @@ class InverseRealNVP(BijectiveComposition):
 
 
 class MAF(BijectiveComposition):
+    """
+    Expressive bijection with slightly unstable inverse due to autoregressive formulation.
+    """
     def __init__(self, event_shape, n_layers: int = 3, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -94,6 +97,9 @@ class CouplingRQNSF(BijectiveComposition):
 
 
 class MaskedAutoregressiveRQNSF(BijectiveComposition):
+    """
+    Expressive bijection with unstable inverse due to autoregressive formulation.
+    """
     def __init__(self, event_shape, n_layers: int = 3, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
