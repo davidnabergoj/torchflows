@@ -3,6 +3,7 @@
 This package implements normalizing flows and their building blocks.
 
 Example use:
+
 ```python
 import torch
 from normalizing_flows import RealNVP, Flow
@@ -25,36 +26,48 @@ print(x_new.shape)  # (50, 3)
 ```
 
 ## Brief background
-A normalizing flow (NF) is a flexible distribution, defined as a bijective transformation of a simple statistical distribution.
+
+A normalizing flow (NF) is a flexible distribution, defined as a bijective transformation of a simple statistical
+distribution.
 The simple distribution is typically a standard Gaussian.
 The transformation is typically an invertible neural network that can make the NF arbitrarily complex.
 Training a NF using a dataset means optimizing the parameters of transformation to make the dataset likely under the NF.
-We can use a NF to compute the probability of a data point or to independently sample data from the process that generated our dataset.
+We can use a NF to compute the probability of a data point or to independently sample data from the process that
+generated our dataset.
+
+A NF $q(x)$ with the bijection $f(z) = x$ and base distribution $p(z)$ is defined as:
+$$\log q(x) = \log p(f^{-1}(x)) + \log\left|\det J_{f^{-1}}(x)\right|$$
 
 ## Implemented architectures
 
 We implement the following NF transformations:
-* NICE
-* Real NVP
-* MAF
-* IAF
-* NSF
-* Invertible ResNet
-* ResFlow
-* Proximal ResFlow
-* Quasi AR flow
-* Planar flow
-* Radial flow
-* Sylvester flow
-* FFJORD
-* RNode
-* DDNF
-* OT flow
+
+| Flow              | Inverse     | Log determinant        |
+|-------------------|-------------|------------------------|
+| NICE              | Exact       | Exact                  |
+| Real NVP          | Exact       | Exact                  |
+| MAF               | Exact       | Exact                  |
+| IAF               | Exact       | Exact                  |
+| NSF               | Exact       | Exact                  |
+| Planar            | Approximate | Exact                  |
+| Radial            | Approximate | Exact                  |
+| Sylvester         | Approximate | Exact                  |
+| Invertible ResNet | Approximate | Biased approximation   |
+| ResFlow           | Approximate | Unbiased approximation |
+| Proximal ResFlow  | Approximate | Unbiased approximation |
+| Quasi AR flow     |             |                        |
+| FFJORD            |             |                        |
+| RNode             |             |                        |
+| DDNF              |             |                        |
+| OT flow           |             |                        |
 
 We also implement simple bijections that can be used in the same manner:
+
 * Permutation
 * Elementwise translation (shift vector)
 * Elementwise scaling (diagonal matrix)
 * Rotation (orthogonal matrix)
 * Triangular matrix
 * Dense matrix (using the QR or LU decomposition)
+
+All of these have exact inverses and log determinants.
