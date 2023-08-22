@@ -8,19 +8,26 @@ from normalizing_flows.src.utils import Geometric
 
 def hutchinson_log_abs_det_estimator(g: callable, x: torch.Tensor, noise: torch.Tensor, training: bool,
                                      n_iterations: int = 8):
-    vjp = noise
-    logdetgrad = torch.tensor(0.).to(x)
-    dist = Geometric(probs=torch.tensor(0.5), minimum=1)
+    w = noise
+    log_abs_det_jac = torch.zeros(size=(x.shape[0],))
     for k in range(1, n_iterations + 1):
-        vjp = torch.autograd.grad(g, x, vjp, create_graph=training, retain_graph=True)[0]
-        tr = torch.sum(vjp.view(x.shape[0], -1) * noise.view(x.shape[0], -1), 1)
-        p_k = 1 - dist.cdf(torch.tensor(k - 1, dtype=torch.long))
-        delta = (-1) ** (k + 1) / (k * p_k) * tr
-        logdetgrad = logdetgrad + delta
-    return logdetgrad
+        w = torch.autograd.grad(g, x, w, create_graph=training, retain_graph=True)[0]
+        log_abs_det_jac += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=-1)
+        # print(f'{log_abs_det_jac}')
+    return log_abs_det_jac
+
+    # vjp = noise
+    # log_abs_det_jac = torch.tensor(0.).to(x)
+    # for k in range(1, n_iterations + 1):
+    #     vjp = torch.autograd.grad(g, x, vjp, create_graph=training, retain_graph=True)[0]
+    #     wtv = torch.einsum('', vjp)
+    #     wtv = torch.sum(vjp.view(x.shape[0], -1) * noise.view(x.shape[0], -1), 1)
+    #     log_abs_det_jac += (-1) ** (k + 1) / k * wtv
+    # return log_abs_det_jac
 
 
-def neumann_log_abs_det_estimator(g_value: torch.Tensor, x: torch.Tensor, noise: torch.Tensor, training: bool):
+def neumann_log_abs_det_estimator(g_value: torch.Tensor, x: torch.Tensor, noise: torch.Tensor, training: bool,
+                                  p: float = 0.5):
     """
     Estimate log[abs(det(grad(f)))](x) with a roulette approach, where f(x) = x + g(x); Lip(g) < 1.
 
@@ -32,7 +39,7 @@ def neumann_log_abs_det_estimator(g_value: torch.Tensor, x: torch.Tensor, noise:
     """
     vjp = noise
     neumann_vjp = noise
-    dist = Geometric(probs=torch.tensor(0.5), minimum=1)
+    dist = Geometric(probs=torch.tensor(p), minimum=1)
     n_power_series = int(dist.sample())
     with torch.no_grad():
         for k in range(1, n_power_series + 1):
@@ -41,7 +48,13 @@ def neumann_log_abs_det_estimator(g_value: torch.Tensor, x: torch.Tensor, noise:
             p_k = 1 - dist.cdf(torch.tensor(k - 1, dtype=torch.long))
             neumann_vjp = neumann_vjp + (-1) ** k / (k * p_k) * vjp
     vjp_jac = torch.autograd.grad(g_value, x, neumann_vjp, create_graph=training)[0]
-    return torch.sum(vjp_jac.view(x.shape[0], -1) * noise.view(x.shape[0], -1), 1)
+    return torch.sum(
+        torch.multiply(
+            vjp_jac.view(x.shape[0], -1),
+            noise.view(x.shape[0], -1)
+        ),
+        dim=1
+    )
 
 
 class LogDeterminantEstimator(torch.autograd.Function):
@@ -114,10 +127,10 @@ class LogDeterminantEstimator(torch.autograd.Function):
         return (None, None, grad_x, None, None, None, None) + grad_params
 
 
-def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False):
+def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: float = 0.5):
     noise = torch.randn_like(x)
     return LogDeterminantEstimator.apply(
-        neumann_log_abs_det_estimator,
+        lambda *args, **kwargs: neumann_log_abs_det_estimator(*args, **kwargs, p=p),
         g,
         x,
         noise,
@@ -126,10 +139,10 @@ def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False):
     )
 
 
-def log_det_hutchinson(g: nn.Module, x: torch.Tensor, training: bool = False):
+def log_det_hutchinson(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8):
     noise = torch.randn_like(x)
     return LogDeterminantEstimator.apply(
-        hutchinson_log_abs_det_estimator,
+        lambda *args, **kwargs: hutchinson_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
         g,
         x,
         noise,
