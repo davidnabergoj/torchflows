@@ -42,24 +42,27 @@ $$\log q(x) = \log p(f^{-1}(x)) + \log\left|\det J_{f^{-1}}(x)\right|$$
 
 We implement the following NF transformations:
 
-| Flow              | Inverse     | Log determinant        |
-|-------------------|-------------|------------------------|
-| NICE              | Exact       | Exact                  |
-| Real NVP          | Exact       | Exact                  |
-| MAF               | Exact       | Exact                  |
-| IAF               | Exact       | Exact                  |
-| NSF               | Exact       | Exact                  |
-| Planar            | Approximate | Exact                  |
-| Radial            | Approximate | Exact                  |
-| Sylvester         | Approximate | Exact                  |
-| Invertible ResNet | Approximate | Biased approximation   |
-| ResFlow           | Approximate | Unbiased approximation |
-| Proximal ResFlow  | Approximate | Unbiased approximation |
-| Quasi AR flow     |             |                        |
-| FFJORD            |             |                        |
-| RNode             |             |                        |
-| DDNF              |             |                        |
-| OT flow           |             |                        |
+| Bijection         |   Inverse   |    Log determinant     | Inverse implemented |
+|-------------------|:-----------:|:----------------------:|:-------------------:|
+| NICE              |    Exact    |         Exact          |         Yes         |
+| Real NVP          |    Exact    |         Exact          |         Yes         |
+| MAF               |    Exact    |         Exact          |         Yes         |
+| IAF               |    Exact    |         Exact          |         Yes         |
+| NSF               |    Exact    |         Exact          |         Yes         |
+| Planar            | Approximate |         Exact          |         No          |
+| Radial            | Approximate |         Exact          |         No          |
+| Sylvester         | Approximate |         Exact          |         No          |
+| Invertible ResNet | Approximate |  Biased approximation  |         Yes         |
+| ResFlow           | Approximate | Unbiased approximation |         Yes         |
+| Proximal ResFlow  |             |                        |                     |
+| Quasi AR flow     |             |                        |                     |
+| FFJORD            |             |                        |                     |
+| RNode             |             |                        |                     |
+| DDNF              |             |                        |                     |
+| OT flow           |             |                        |                     |
+
+Architectures without an implemented inverse support either sampling or density estimation, but not both at once.
+Such architectures are unsuitable for downstream tasks which require both functionalities.
 
 We also implement simple bijections that can be used in the same manner:
 
