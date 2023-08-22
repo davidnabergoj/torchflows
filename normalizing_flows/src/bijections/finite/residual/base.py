@@ -9,9 +9,7 @@ from normalizing_flows.src.utils import get_batch_shape
 class ResidualBijection(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
-
-    def g(self, x):
-        raise NotImplementedError
+        self.g: callable = None
 
     def log_det(self, x):
         raise NotImplementedError
@@ -23,8 +21,7 @@ class ResidualBijection(Bijection):
         batch_shape = get_batch_shape(x, self.event_shape)
         x = x.view(*batch_shape, self.n_dim)
         z = x + self.g(x)
-        z = z.view(*batch_shape)
-        log_det = torch.full(size=batch_shape, fill_value=torch.nan if skip_log_det else self.log_det(x))
+        log_det = torch.full(size=batch_shape, fill_value=torch.nan) if skip_log_det else self.log_det(x)
         return z, log_det
 
     def inverse(self,
@@ -37,6 +34,5 @@ class ResidualBijection(Bijection):
         x = z
         for _ in range(n_iterations):
             x = z - self.g(x)
-        x = x.view(*batch_shape)
-        log_det = -torch.full(size=batch_shape, fill_value=torch.nan if skip_log_det else self.log_det(x))
+        log_det = -torch.full(size=batch_shape, fill_value=torch.nan) if skip_log_det else self.log_det(x)
         return x, log_det

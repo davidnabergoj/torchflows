@@ -5,7 +5,7 @@ import torch
 
 from normalizing_flows.src.bijections.finite.linear import LU, Permutation, InverseLU, LowerTriangular, \
     HouseholderOrthogonal, QR
-from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF
+from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, InvertibleResNet
 
 
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
@@ -36,6 +36,8 @@ def test_basic(batch_shape: Tuple, event_shape: Tuple, bijection_class):
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (50, 50)])
 @pytest.mark.parametrize('bijection_class', [
+    InvertibleResNet,
+    ResFlow,
     RealNVP,
     MAF,
     CouplingRQNSF,

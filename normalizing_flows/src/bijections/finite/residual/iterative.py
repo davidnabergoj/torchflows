@@ -40,27 +40,27 @@ class SpectralLinear(nn.Module):
 
 
 class SpectralNeuralNetwork(nn.Sequential):
-    def __init__(self, n_hidden: int = 100, n_hidden_layers: int = 2):
+    def __init__(self, n_dim: int, n_hidden: int = 100, n_hidden_layers: int = 2):
         layers = []
         if n_hidden_layers == 0:
-            layers = [SpectralLinear(self.n_dim, self.n_dim)]
+            layers = [SpectralLinear(n_dim, n_dim)]
         else:
-            layers.append(SpectralLinear(self.n_dim, n_hidden))
+            layers.append(SpectralLinear(n_dim, n_hidden))
             for _ in range(n_hidden):
                 layers.append(nn.Tanh())
                 layers.append(SpectralLinear(n_hidden, n_hidden))
             layers.pop(-1)
-            layers.append(SpectralLinear(n_hidden, self.n_dim))
+            layers.append(SpectralLinear(n_hidden, n_dim))
         super().__init__(*layers)
 
 
 class InvertibleResNet(ResidualBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape)
-        self.g = SpectralNeuralNetwork(**kwargs)
+        self.g = SpectralNeuralNetwork(n_dim=self.n_dim, **kwargs)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_hutchinson(x, **kwargs)
+        return log_det_hutchinson(self.g, x, **kwargs)[1]
 
 
 class ResFlow(InvertibleResNet):
@@ -68,7 +68,7 @@ class ResFlow(InvertibleResNet):
         super().__init__(event_shape)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_roulette(self.g, x)
+        return log_det_roulette(self.g, x)[1]
 
 
 class QuasiAutoregressiveFlow(Bijection):
