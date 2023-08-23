@@ -1,9 +1,11 @@
 import pytest
 import torch
-from normalizing_flows import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, Flow
+from normalizing_flows import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, Flow
 
 
-@pytest.mark.parametrize('bijection_class', [NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift])
+@pytest.mark.parametrize('bijection_class', [
+    NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline
+])
 def test_standard_gaussian(bijection_class):
     torch.manual_seed(0)
 
@@ -48,7 +50,7 @@ def test_diagonal_gaussian_elementwise_affine():
     assert relative_error < 0.1
 
 
-@pytest.mark.parametrize('bijection_class', [RealNVP, MAF, ElementwiseAffine])
+@pytest.mark.parametrize('bijection_class', [ElementwiseAffine, ElementwiseRQSpline, RealNVP, MAF])
 def test_diagonal_gaussian_1(bijection_class):
     torch.manual_seed(0)
 
