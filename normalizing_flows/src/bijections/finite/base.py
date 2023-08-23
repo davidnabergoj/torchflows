@@ -67,13 +67,25 @@ class Bijection(nn.Module):
 
     def batch_inverse(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
         if context:
-            outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
+            outputs, log_dets = self.batch_apply(self.inverse, batch_size, x, context)
         else:
-            outputs, log_dets = self.batch_apply(self.forward, batch_size, x)
+            outputs, log_dets = self.batch_apply(self.inverse, batch_size, x)
         assert outputs.shape == x.shape
         batch_shape = get_batch_shape(x, self.event_shape)
         assert log_dets.shape == batch_shape
         return outputs, log_dets
+
+
+class Inverse(Bijection):
+    def __init__(self, bijection: Bijection):
+        super().__init__(event_shape=bijection.event_shape)
+        self.base_bijection = bijection
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.base_bijection.inverse(x, context)
+
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.base_bijection.forward(z, context)
 
 
 class BijectiveComposition(Bijection):
