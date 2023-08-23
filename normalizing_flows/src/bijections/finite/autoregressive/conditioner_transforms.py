@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 
@@ -14,12 +16,16 @@ class ConditionerTransform(nn.Module):
 
 
 class Constant(ConditionerTransform):
-    def __init__(self, n_output_parameters: int):
+    def __init__(self, event_shape, n_parameters: int):
         super().__init__()
-        self.theta = nn.Parameter(torch.zeros(size=(n_output_parameters,)))
+        self.event_shape = event_shape
+        self.theta = nn.Parameter(torch.zeros(size=(*event_shape, n_parameters,)))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        return self.theta[[None] * len(x.shape)].repeat(*x.shape, 1)
+        n_batch_dims = len(x.shape) - len(self.event_shape)
+        n_event_dims = len(self.event_shape)
+        batch_shape = x.shape[:n_batch_dims]
+        return self.theta[[None] * n_batch_dims].repeat(*batch_shape, *([1] * n_event_dims), 1)
 
 
 class MADE(ConditionerTransform):
@@ -36,7 +42,7 @@ class MADE(ConditionerTransform):
                  output_shape: torch.Size,
                  n_output_parameters: int,
                  context_shape: torch.Size = None,
-                 n_hidden: int = 100,
+                 n_hidden: int = None,
                  n_layers: int = 2):
         super().__init__()
         self.context_shape = context_shape
@@ -44,6 +50,9 @@ class MADE(ConditionerTransform):
         n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
         n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
         n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
+
+        if n_hidden is None:
+            n_hidden = int(3 * math.log10(n_input_dims))
 
         # Set conditional dimension values
         ms = [
@@ -129,7 +138,7 @@ class FeedForward(ConditionerTransform):
                  output_shape: torch.Size,
                  n_output_parameters: int,
                  context_shape: torch.Size = None,
-                 n_hidden: int = 100,
+                 n_hidden: int = None,
                  n_layers: int = 2):
         super().__init__()
         self.input_shape = input_shape
@@ -138,6 +147,9 @@ class FeedForward(ConditionerTransform):
         n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
         n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
         n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
+
+        if n_hidden is None:
+            n_hidden = int(3 * math.log10(n_input_dims))
 
         # If context given, concatenate it to transform input
         if context_shape is not None:

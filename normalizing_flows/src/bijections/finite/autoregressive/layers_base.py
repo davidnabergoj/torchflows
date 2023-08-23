@@ -59,4 +59,4 @@ class InverseMaskedAutoregressiveLayer(AutoregressiveLayer):
 
 class ElementwiseLayer(AutoregressiveLayer):
     def __init__(self, transformer: Transformer, n_transformer_parameters: int):
-        super().__init__(NullConditioner(), transformer, Constant(n_transformer_parameters))
+        super().__init__(NullConditioner(), transformer, Constant(transformer.event_shape, n_transformer_parameters))
