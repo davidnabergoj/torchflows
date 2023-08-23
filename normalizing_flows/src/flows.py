@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
-
+from tqdm import tqdm
 from normalizing_flows.src.bijections import Bijection
 
 
@@ -56,14 +56,21 @@ class Flow(nn.Module):
             x_train: torch.Tensor,
             n_epochs: int = 50,
             lr: float = 0.01,
-            batch_size: int = None,
-            shuffle: bool = True):
+            batch_size: int = 1024,
+            shuffle: bool = True,
+            show_progress: bool = False):
         if batch_size is None:
             batch_size = len(x_train)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         dataset = TensorDataset(x_train)
         data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-        for _ in range(n_epochs):
+
+        if show_progress:
+            iterator = tqdm(range(n_epochs), desc='Fitting NF')
+        else:
+            iterator = range(n_epochs)
+
+        for _ in iterator:
             for batch_x, in data_loader:
                 optimizer.zero_grad()
                 loss = -self.log_prob(batch_x).mean()
