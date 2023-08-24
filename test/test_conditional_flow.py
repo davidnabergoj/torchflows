@@ -13,7 +13,7 @@ def test_context(n_dim, context_dim, device: str):
     device = torch.device(device)
 
     n_data = 100
-    flow = Flow(RealNVP(n_dim=n_dim, context_shape=(context_dim,))).to(device)
+    flow = Flow(RealNVP(n_dim, context_shape=(context_dim,))).to(device)
     x = torch.randn(n_data, n_dim)
     c = torch.randn(n_data, context_dim)
 
@@ -32,7 +32,7 @@ def test_no_context(n_dim):
     torch.manual_seed(0)
 
     n_data = 100
-    flow = Flow(RealNVP(n_dim=n_dim))
+    flow = Flow(RealNVP(n_dim))
     x = torch.randn(n_data, n_dim)
 
     log_prob = flow.log_prob(x)
