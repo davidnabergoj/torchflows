@@ -95,7 +95,6 @@ class RQSCoupling(AutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
-                 boundary: float = 1.0,
                  **kwargs):
         assert n_bins >= 1
         default_unconstrained_widths = torch.zeros(n_bins)
@@ -115,7 +114,7 @@ class RQSCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
+        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -225,10 +224,9 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
-                 boundary: float = 1.0,
                  **kwargs):
         assert n_bins >= 1
-        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
+        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
@@ -271,10 +269,9 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
-                 boundary: float = 1.0,
                  **kwargs):
         assert n_bins >= 1
-        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins, boundary=boundary)
+        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
