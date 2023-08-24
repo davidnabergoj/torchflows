@@ -73,7 +73,7 @@ class Flow(nn.Module):
         for _ in iterator:
             for batch_x, in data_loader:
                 optimizer.zero_grad()
-                loss = -self.log_prob(batch_x).mean()
+                loss = -self.log_prob(batch_x.to(self.loc)).mean()
                 loss.backward()
                 optimizer.step()
 
