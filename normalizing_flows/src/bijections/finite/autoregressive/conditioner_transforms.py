@@ -16,10 +16,14 @@ class ConditionerTransform(nn.Module):
 
 
 class Constant(ConditionerTransform):
-    def __init__(self, event_shape, n_parameters: int):
+    def __init__(self, event_shape, n_parameters: int, fill_value: float = None):
         super().__init__()
         self.event_shape = event_shape
-        self.theta = nn.Parameter(torch.zeros(size=(*event_shape, n_parameters,)))
+        if fill_value is None:
+            initial_theta = torch.randn(size=(*event_shape, n_parameters,))
+        else:
+            initial_theta = torch.full(size=(*event_shape, n_parameters), fill_value=fill_value)
+        self.theta = nn.Parameter(initial_theta)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         n_batch_dims = len(x.shape) - len(self.event_shape)
