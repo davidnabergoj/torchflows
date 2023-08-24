@@ -147,10 +147,10 @@ class RationalQuadraticSpline(Transformer):
 
     @staticmethod
     def rqs_log_determinant(s_k, deltas_k, deltas_kp1, xi, xi_1m_xi, term1):
-        log_numerator = 2 * torch.log(s_k) + torch.log1p(
-            (deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2) / s_k
+        log_numerator = 2 * torch.log(s_k) + torch.log(
+            (deltas_kp1 * xi ** 2 + 2 * s_k * xi_1m_xi + deltas_k * (1 - xi) ** 2)
         )
-        log_denominator = 2 * torch.log(s_k) + torch.log1p(term1 * xi_1m_xi / s_k)
+        log_denominator = 2 * torch.log(s_k + term1 * xi_1m_xi)
         log_determinant = log_numerator - log_denominator
         return log_determinant
 
@@ -158,7 +158,7 @@ class RationalQuadraticSpline(Transformer):
         bin_sizes = torch.softmax(u, dim=-1)
         bin_sizes = self.min_bin_size + (1 - self.min_bin_size * self.n_bins) * bin_sizes
         bins = torch.cumsum(bin_sizes, dim=-1)
-        bins = F.pad(bins, pad=(1, 0), mode='constant', value=0.0)[..., :-1]
+        bins = F.pad(bins, pad=(1, 0), mode='constant', value=0.0)
         bins = (right - left) * bins + left
         bins[..., 0] = left
         bins[..., -1] = right
