@@ -58,7 +58,7 @@ class Affine2(Transformer):
     overarching bijections that use this transformer.
     """
 
-    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-3):
+    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-3, **kwargs):
         super().__init__(event_shape=event_shape)
         assert 0 < min_scale < 1
         self.m = min_scale
@@ -71,6 +71,9 @@ class Affine2(Transformer):
         g_alpha = u_alpha / self.c + self.log_neg_log_m
         f_alpha = torch.exp(g_alpha) + self.log_m
         d_alpha = torch.exp(f_alpha) - 1
+        # d_alpha = self.m ** (1 - torch.exp(u_alpha / self.c)) - 1  # Rewritten
+        # d_alpha = self.m * self.m ** (-torch.exp(u_alpha / self.c)) - 1  # Rewritten again
+
         alpha = 1 + d_alpha
 
         u_beta = h[..., 1]
