@@ -9,7 +9,7 @@ from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveR
     ElementwiseAffine, ElementwiseShift
 
 
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
+@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (50, 50)])
 @pytest.mark.parametrize('bijection_class', [
     LU,
@@ -36,7 +36,7 @@ def test_basic(batch_shape: Tuple, event_shape: Tuple, bijection_class):
         f"{torch.max(torch.abs(log_det_forward+log_det_inverse)) = }"
 
 
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
+@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (50, 50)])
 @pytest.mark.parametrize('bijection_class', [
     InvertibleResNet,

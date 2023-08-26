@@ -127,7 +127,7 @@ class CubicSpline(Transformer):
 
 
 class RationalQuadraticSpline(Transformer):
-    def __init__(self, event_shape: torch.Size, n_bins: int = 8, boundary: float = 25.0):
+    def __init__(self, event_shape: torch.Size, n_bins: int = 8, boundary: float = 50.0):
         """
         Neural Spline Flows - Durkan et al. 2019
 

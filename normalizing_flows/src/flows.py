@@ -55,7 +55,7 @@ class Flow(nn.Module):
     def fit(self,
             x_train: torch.Tensor,
             n_epochs: int = 500,
-            lr: float = 0.01,
+            lr: float = 0.05,
             batch_size: int = 1024,
             shuffle: bool = True,
             show_progress: bool = False):
