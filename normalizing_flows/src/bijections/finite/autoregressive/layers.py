@@ -27,6 +27,11 @@ class ElementwiseRQSpline(ElementwiseLayer):
         transformer = RationalQuadraticSpline(event_shape, **kwargs)
         super().__init__(transformer, n_transformer_parameters=transformer.n_bins * 3 - 1)
 
+        # Initialize spline parameters to define a linear transform
+        with torch.no_grad():
+            self.conditioner_transform.theta[..., :2 * transformer.n_bins] = 0.0
+            self.conditioner_transform.theta[..., 2 * transformer.n_bins:] = transformer.boundary_u_delta
+
 
 class AffineCoupling(AutoregressiveLayer):
     def __init__(self,
