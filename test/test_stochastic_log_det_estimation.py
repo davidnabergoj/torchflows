@@ -38,7 +38,7 @@ def test_hutchinson(n_iterations):
     assert torch.allclose(log_det_f, log_det_f_true)
 
 
-@pytest.mark.parametrize('p', [0.1, 0.5, 0.9])
+@pytest.mark.parametrize('p', [0.01, 0.1, 0.5, 0.9, 0.99])
 def test_roulette(p):
     # an example of a Lipschitz continuous function with constant < 1: g(x) = 1/2 * x
 
