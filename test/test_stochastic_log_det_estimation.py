@@ -9,6 +9,9 @@ from normalizing_flows.src.bijections.finite.residual.log_abs_det_estimators imp
 def test_hutchinson(n_iterations):
     # an example of a Lipschitz continuous function with constant < 1: g(x) = 1/2 * x
 
+    n_data = 100
+    n_dim = 30
+
     class TestFunction(nn.Module):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -16,28 +19,21 @@ def test_hutchinson(n_iterations):
         def forward(self, inputs):
             return 0.5 * inputs
 
-    def ground_truth_jac(inputs):
-        return torch.as_tensor(3 / 2)
+    def jac_f(inputs):
+        return torch.eye(n_dim) * 1.5
 
-    def ground_truth_log_abs_det_jac(inputs):
-        return torch.log(torch.abs(ground_truth_jac(inputs)))
+    def log_det_jac_f(inputs):
+        return torch.log(torch.abs(torch.det(jac_f(inputs))))
 
-    x = torch.tensor([
-        [-3.0],
-        [-2.0],
-        [-1.0],
-        [1.0],
-        [2.0],
-        [3.0],
-    ])
 
     g = TestFunction()
 
     torch.manual_seed(0)
-    g_value, log_det = log_det_hutchinson(g, x, training=False, n_iterations=n_iterations)
-    # note that log_det refers to x + g(x)
-    log_det_true = ground_truth_log_abs_det_jac(x).ravel()
+    x = torch.randn(size=(n_data, n_dim))
+    g_value, log_det_f = log_det_hutchinson(g, x, training=False, n_iterations=n_iterations)
+    log_det_f_true = log_det_jac_f(x).ravel()
 
-    print(f'{log_det = }')
-    print(f'{log_det_true = }')
-    assert torch.allclose(log_det, log_det_true)
+    print(f'{log_det_f = }')
+    print(f'{log_det_f_true = }')
+    print(f'{log_det_f.mean() = }')
+    assert torch.allclose(log_det_f, log_det_f_true)

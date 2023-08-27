@@ -3,6 +3,27 @@ from typing import Tuple, Union
 import torch
 
 
+def vjp_tensor(v: torch.Tensor, y: torch.Tensor, x: torch.Tensor, **kwargs):
+    """
+    Compute the vector-Jacobian product v.T @ J where v is an input tensor and J is the Jacobian of y = f(x) at x.
+    Tensors v and y have the same shape.
+    Tensor x must have requires_grad set to True.
+
+    :param v: input with shape "event_shape".
+    :param y: function output to be differentiated.
+    :param x: function input with shape "event_shape".
+    :return: output tensor v.T @ J.
+    """
+    assert x.requires_grad
+    return torch.autograd.grad(
+        outputs=y,
+        inputs=x,
+        grad_outputs=v,
+        is_grads_batched=False,
+        **kwargs
+    )[0]
+
+
 def flatten_event(x: torch.Tensor, event_shape: torch.Size):
     """
     Flattens event dimensions of x into a single dimension.

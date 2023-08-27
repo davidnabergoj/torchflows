@@ -1,60 +1,47 @@
-from typing import Any
-
 import torch
 import torch.nn as nn
 
-from normalizing_flows.src.utils import Geometric
+from normalizing_flows.src.utils import Geometric, vjp_tensor
 
 
 def hutchinson_log_abs_det_estimator(g: callable, x: torch.Tensor, noise: torch.Tensor, training: bool,
                                      n_iterations: int = 8):
+    # f(x) = x + g(x)
     w = noise
-    log_abs_det_jac = torch.zeros(size=(x.shape[0],))
+    log_abs_det_jac_f = 0.0
     for k in range(1, n_iterations + 1):
-        w = torch.autograd.grad(g, x, w, create_graph=training, retain_graph=True)[0]
-        log_abs_det_jac += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=-1)
-        # print(f'{log_abs_det_jac}')
-    return log_abs_det_jac
-
-    # vjp = noise
-    # log_abs_det_jac = torch.tensor(0.).to(x)
-    # for k in range(1, n_iterations + 1):
-    #     vjp = torch.autograd.grad(g, x, vjp, create_graph=training, retain_graph=True)[0]
-    #     wtv = torch.einsum('', vjp)
-    #     wtv = torch.sum(vjp.view(x.shape[0], -1) * noise.view(x.shape[0], -1), 1)
-    #     log_abs_det_jac += (-1) ** (k + 1) / k * wtv
-    # return log_abs_det_jac
+        g_value, w = torch.autograd.functional.vjp(g, x, w)
+        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=-1)
+    return g_value, log_abs_det_jac_f
 
 
-def neumann_log_abs_det_estimator(g_value: torch.Tensor, x: torch.Tensor, noise: torch.Tensor, training: bool,
+def neumann_log_abs_det_estimator(g: callable, x: torch.Tensor, noise: torch.Tensor, training: bool,
                                   p: float = 0.5):
     """
     Estimate log[abs(det(grad(f)))](x) with a roulette approach, where f(x) = x + g(x); Lip(g) < 1.
 
-    :param g_value: tensor g(x).
+    :param g:.
     :param x: input tensor.
     :param noise: noise tensor with the same shape as x.
     :param training: is the computation being performed for a model being trained.
     :return:
     """
-    vjp = noise
+    # f(x) = x + g(x)
+    w = noise
     neumann_vjp = noise
     dist = Geometric(probs=torch.tensor(p), minimum=1)
     n_power_series = int(dist.sample())
     with torch.no_grad():
         for k in range(1, n_power_series + 1):
-            vjp = torch.autograd.grad(g_value, x, vjp, retain_graph=True)[0]
+            # w = torch.autograd.grad(g_value, x, w, retain_graph=True)[0]
+            g_value, w = torch.autograd.functional.vjp(g, x, w)
             # P(N >= k) = 1 - P(N < k) = 1 - P(N <= k - 1) = 1 - cdf(k - 1)
             p_k = 1 - dist.cdf(torch.tensor(k - 1, dtype=torch.long))
-            neumann_vjp = neumann_vjp + (-1) ** k / (k * p_k) * vjp
-    vjp_jac = torch.autograd.grad(g_value, x, neumann_vjp, create_graph=training)[0]
-    return torch.sum(
-        torch.multiply(
-            vjp_jac.view(x.shape[0], -1),
-            noise.view(x.shape[0], -1)
-        ),
-        dim=1
-    )
+            neumann_vjp = neumann_vjp + (-1) ** k / (k * p_k) * w
+    g_value, vjp_jac = torch.autograd.functional.vjp(g, x, neumann_vjp)
+    # vjp_jac = torch.autograd.grad(g_value, x, neumann_vjp, create_graph=training)[0]
+    log_abs_det_jac_f = torch.sum(vjp_jac * noise, dim=-1)
+    return g_value, log_abs_det_jac_f
 
 
 class LogDeterminantEstimator(torch.autograd.Function):
@@ -74,18 +61,16 @@ class LogDeterminantEstimator(torch.autograd.Function):
                 *g_params):
         ctx.training = training
         with torch.enable_grad():
-            x = x.detach().requires_grad_(True)
-            g_value = g(x)
-            ctx.g_value = g_value
             ctx.x = x
-            log_abs_det_jacobian = estimator_function(g_value, x, noise, training)
+            g_value, log_det_f = estimator_function(g, x, noise, training)
+            ctx.g_value = g_value
 
             if training:
                 # If a model is being trained,
                 # compute the gradient of the log determinant in the forward pass and store it for later.
                 # The gradient is computed w.r.t. x (first output) and w.r.t. the parameters of g (following outputs).
                 grad_x, *grad_params = torch.autograd.grad(
-                    log_abs_det_jacobian.sum(), (x,) + g_params, retain_graph=True, allow_unused=True
+                    log_det_f.sum(), (x,) + g_params, retain_graph=True, allow_unused=True
                 )
                 if grad_x is None:
                     grad_x = torch.zeros_like(x)
@@ -94,7 +79,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
         # Return g(x) and log(abs(det(grad(f))))(x)
         return (
             g_value.detach().requires_grad_(g_value.requires_grad),
-            log_abs_det_jacobian.detach().requires_grad_(log_abs_det_jacobian.requires_grad)
+            log_det_f.detach().requires_grad_(log_det_f.requires_grad)
         )
 
     @staticmethod
