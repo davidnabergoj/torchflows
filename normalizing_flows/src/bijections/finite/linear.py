@@ -5,7 +5,7 @@ from typing import Tuple, Union
 from normalizing_flows.src.bijections.finite.base import Bijection
 from normalizing_flows.src.bijections.matrices import LowerTriangularInvertibleMatrix, UpperTriangularInvertibleMatrix, \
     HouseholderOrthogonalMatrix, PositiveDiagonalMatrix
-from normalizing_flows.src.utils import get_batch_shape
+from normalizing_flows.src.utils import get_batch_shape, flatten_event, unflatten_event
 
 
 class Permutation(Bijection):
@@ -18,13 +18,13 @@ class Permutation(Bijection):
 
     def forward(self, x, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
-        z = x.view(*batch_shape, -1)[..., self.forward_permutation].view_as(x)
+        z = unflatten_event(flatten_event(x, self.event_shape)[..., self.forward_permutation], self.event_shape)
         log_det = torch.zeros(size=batch_shape, device=x.device)
         return z, log_det
 
     def inverse(self, z, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
-        x = z.view(*batch_shape, -1)[..., self.inverse_permutation].view_as(z)
+        x = unflatten_event(flatten_event(z, self.event_shape)[..., self.inverse_permutation], self.event_shape)
         log_det = torch.zeros(size=batch_shape, device=z.device)
         return x, log_det
 
@@ -37,9 +37,9 @@ class PositiveDiagonal(Bijection):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
-        z = torch.einsum('ij,bj->bi', self.diag.mat(), x.view(-1, self.n_dim))
+        z = torch.einsum('ij,...j->...i', self.diag.mat(), flatten_event(x, self.event_shape))
+        z = unflatten_event(z, self.event_shape)
         log_det = torch.ones(size=batch_shape) * self.diag.log_det()
-        z = torch.reshape(z, x.shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -51,6 +51,7 @@ class PositiveDiagonal(Bijection):
             unitriangular=False
         ).T
         log_det = -torch.ones(size=batch_shape) * self.diag.log_det()
+        x = unflatten_event(x, self.event_shape)
         x = torch.reshape(x, z.shape)
         return x, log_det
 
@@ -63,9 +64,9 @@ class LowerTriangular(Bijection):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
-        z = torch.einsum('ij,bj->bi', self.lower.mat(), x.view(-1, self.n_dim))
+        z = torch.einsum('ij,...j->...i', self.lower.mat(), flatten_event(x, self.event_shape))
+        z = unflatten_event(z, self.event_shape)
         log_det = torch.ones(size=batch_shape) * self.lower.log_det()
-        z = torch.reshape(z, x.shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -91,10 +92,9 @@ class LU(Bijection):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
-        xr = torch.reshape(x, (-1, self.n_dim))
-        z = torch.einsum('ij,bj->bi', self.lower.mat() @ self.upper.mat(), xr)
+        z = torch.einsum('ij,...j->...i', self.lower.mat() @ self.upper.mat(), flatten_event(x, self.event_shape))
+        z = unflatten_event(z, self.event_shape)
         log_det = torch.ones(size=batch_shape) * self.upper.log_det()
-        z = torch.reshape(z, x.shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:

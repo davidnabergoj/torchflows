@@ -6,6 +6,7 @@ from normalizing_flows.src.bijections.finite.autoregressive.conditioners.base im
 from normalizing_flows.src.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
 from normalizing_flows.src.bijections.finite.autoregressive.transformers.base import Transformer
 from normalizing_flows.src.bijections.finite.base import Bijection
+from normalizing_flows.src.utils import flatten_event, unflatten_event, get_batch_shape
 
 
 class AutoregressiveLayer(Bijection):
@@ -31,13 +32,20 @@ class ForwardMaskedAutoregressiveLayer(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        log_det = torch.zeros(size=(z.shape[0],), device=z.device)
-        x = torch.clone(z)
-        for i in torch.arange(z.shape[-1]):
-            x_clone = torch.clone(x)
-            h = self.conditioner(x_clone, transform=self.conditioner_transform, context=context)
+        batch_shape = get_batch_shape(z, self.event_shape)
+        n_event_dims = int(torch.prod(torch.as_tensor(self.event_shape)))
+        log_det = torch.zeros(size=batch_shape, device=z.device)
+        x_flat = flatten_event(torch.clone(z), self.event_shape)
+        for i in torch.arange(n_event_dims):
+            x_clone = unflatten_event(torch.clone(x_flat), self.event_shape)
+            h = self.conditioner(
+                x_clone,
+                transform=self.conditioner_transform,
+                context=context
+            )
             tmp, log_det = self.transformer.inverse(x_clone, h)
-            x[:, i] = tmp[:, i]
+            x_flat[..., i] = flatten_event(tmp, self.event_shape)[..., i]
+        x = unflatten_event(x_flat, self.event_shape)
         return x, log_det
 
 

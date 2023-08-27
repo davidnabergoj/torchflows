@@ -20,9 +20,9 @@ class Constant(ConditionerTransform):
         super().__init__()
         self.event_shape = event_shape
         if fill_value is None:
-            initial_theta = torch.randn(size=(*event_shape, n_parameters,))
+            initial_theta = torch.randn(size=(*self.event_shape, n_parameters,))
         else:
-            initial_theta = torch.full(size=(*event_shape, n_parameters), fill_value=fill_value)
+            initial_theta = torch.full(size=(*self.event_shape, n_parameters), fill_value=fill_value)
         self.theta = nn.Parameter(initial_theta)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
@@ -51,24 +51,24 @@ class MADE(ConditionerTransform):
         super().__init__()
         self.context_shape = context_shape
 
-        n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
-        n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
-        n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
+        self.n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
+        self.n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
+        self.n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
 
         if n_hidden is None:
-            n_hidden = int(3 * math.log10(n_input_dims))
+            n_hidden = int(3 * math.log10(self.n_input_dims))
 
         # Set conditional dimension values
         ms = [
-            torch.arange(n_input_dims) + 1,
-            *[(torch.arange(n_hidden) % (n_input_dims - 1)) + 1 for _ in range(n_layers - 1)],
-            torch.arange(n_output_dims) + 1
+            torch.arange(self.n_input_dims) + 1,
+            *[(torch.arange(n_hidden) % (self.n_input_dims - 1)) + 1 for _ in range(n_layers - 1)],
+            torch.arange(self.n_output_dims) + 1
         ]
 
         # Create autoencoder masks
         masks = self.create_masks(n_layers, ms)
 
-        layers = []
+        layers = [nn.Flatten(start_dim=-len(input_shape))]  # First layer flattens the input
         for mask in masks[:-1]:
             n_layer_outputs, n_layer_inputs = mask.shape
             layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Tanh()])
@@ -80,14 +80,14 @@ class MADE(ConditionerTransform):
                 masks[-1].shape[0] * n_output_parameters,
                 torch.repeat_interleave(masks[-1], n_output_parameters, dim=0)
             ),
-            nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters))
+            nn.Unflatten(dim=-1, unflattened_size=(*output_shape, n_output_parameters))
         ])
         self.sequential = nn.Sequential(*layers)
 
         if context_shape is not None:
             self.context_linear = nn.Sequential(
-                nn.Linear(n_context_dims, n_output_dims * n_output_parameters),
-                nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters))
+                nn.Linear(self.n_context_dims, self.n_output_dims * n_output_parameters),
+                nn.Unflatten(dim=-1, unflattened_size=(self.n_output_dims, n_output_parameters))
             )
 
     @staticmethod
@@ -133,7 +133,7 @@ class QuasiMADE(MADE):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         # TODO modify autograd
-        pass
+        raise NotImplementedError
 
 
 class FeedForward(ConditionerTransform):
@@ -148,30 +148,32 @@ class FeedForward(ConditionerTransform):
         self.input_shape = input_shape
         self.context_shape = context_shape
 
-        n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
-        n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
-        n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
+        self.n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
+        self.n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
+        self.n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
 
         if n_hidden is None:
-            n_hidden = int(3 * math.log10(n_input_dims))
+            n_hidden = int(3 * math.log10(self.n_input_dims))
 
         # If context given, concatenate it to transform input
         if context_shape is not None:
-            n_input_dims += n_context_dims
+            self.n_input_dims += self.n_context_dims
+
+        layers = [nn.Flatten(start_dim=-len(input_shape))]  # First layer flattens the input
 
         # Check the one layer special case
         if n_layers == 1:
-            layers = [nn.Linear(n_input_dims, n_output_dims * n_output_parameters)]
+            layers.append(nn.Linear(self.n_input_dims, self.n_output_dims * n_output_parameters))
         elif n_layers > 1:
-            layers = [nn.Linear(n_input_dims, n_hidden), nn.Tanh()]
+            layers.extend([nn.Linear(self.n_input_dims, n_hidden), nn.Tanh()])
             for _ in range(n_layers - 2):
                 layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
-            layers.append(nn.Linear(n_hidden, n_output_dims * n_output_parameters))
+            layers.append(nn.Linear(n_hidden, self.n_output_dims * n_output_parameters))
         else:
             raise ValueError
 
         # Reshape the output
-        layers.append(nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters)))
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=(*output_shape, n_output_parameters)))
         self.sequential = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
@@ -208,27 +210,29 @@ class ResidualFeedForward(ConditionerTransform):
         self.input_shape = input_shape
         self.context_shape = context_shape
 
-        n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
-        n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
-        n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
+        self.n_input_dims = int(torch.prod(torch.as_tensor(input_shape)))
+        self.n_output_dims = int(torch.prod(torch.as_tensor(output_shape)))
+        self.n_context_dims = int(torch.prod(torch.as_tensor(context_shape))) if context_shape is not None else None
 
         # If context given, concatenate it to transform input
         if context_shape is not None:
-            n_input_dims += n_context_dims
+            self.n_input_dims += self.n_context_dims
+
+        layers = [nn.Flatten(start_dim=-len(input_shape))]  # First layer flattens the input
 
         # Check the one layer special case
         if n_layers == 1:
-            layers = [nn.Linear(n_input_dims, n_output_dims * n_output_parameters)]
+            layers.append(nn.Linear(self.n_input_dims, self.n_output_dims * n_output_parameters))
         elif n_layers > 1:
-            layers = [self.ResidualLinear(n_input_dims, n_input_dims), nn.Tanh()]
+            layers.extend([self.ResidualLinear(self.n_input_dims, self.n_input_dims), nn.Tanh()])
             for _ in range(n_layers - 2):
-                layers.extend([self.ResidualLinear(n_input_dims, n_input_dims), nn.Tanh()])
-            layers.append(nn.Linear(n_input_dims, n_output_dims * n_output_parameters))
+                layers.extend([self.ResidualLinear(self.n_input_dims, self.n_input_dims), nn.Tanh()])
+            layers.append(nn.Linear(self.n_input_dims, self.n_output_dims * n_output_parameters))
         else:
             raise ValueError
 
         # Reshape the output
-        layers.append(nn.Unflatten(dim=-1, unflattened_size=(n_output_dims, n_output_parameters)))
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=(*output_shape, n_output_parameters)))
         self.sequential = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):

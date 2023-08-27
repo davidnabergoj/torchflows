@@ -175,8 +175,8 @@ class RationalQuadraticSpline(Transformer):
         right = top = self.boundary
 
         assert (
-                (inverse and torch.all((inputs >= bottom) & (inputs <= top))) or
-                (not inverse and torch.all((inputs >= left) & (inputs <= right)))
+                (inverse and torch.all(torch.as_tensor(inputs >= bottom) & torch.as_tensor(inputs <= top))) or
+                (not inverse and torch.all(torch.as_tensor(inputs >= left) & torch.as_tensor(inputs <= right)))
         )
         assert len(u_widths.shape) == len(u_heights.shape) == len(u_deltas.shape) == 2
         assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)

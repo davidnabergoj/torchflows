@@ -3,6 +3,30 @@ from typing import Tuple, Union
 import torch
 
 
+def flatten_event(x: torch.Tensor, event_shape: torch.Size):
+    """
+    Flattens event dimensions of x into a single dimension.
+
+    :param x: input tensor with shape (*batch_shape, *event_shape).
+    :param event_shape: input tensor event shape.
+    :return: output tensor with shape (*batch_shape, n_event_dims) where n_event_dims = prod(event_shape).
+    """
+    batch_shape = get_batch_shape(x, event_shape)
+    return x.view(*batch_shape, -1)
+
+
+def unflatten_event(x: torch.Tensor, event_shape: torch.Size):
+    """
+    Flattens last dimension of x into a specified event shape.
+
+    :param x: input tensor with shape (*batch_shape, n_event_dims).
+    :param event_shape: output tensor event shape.
+    :return: output tensor with shape (*batch_shape, *event_shape) where n_event_dims = prod(event_shape).
+    """
+    batch_shape = x.shape[:-1]
+    return x.view(*batch_shape, *event_shape)
+
+
 def get_batch_shape(x: torch.Tensor, event_shape: torch.Size):
     return x.shape[:-len(event_shape)]
 
