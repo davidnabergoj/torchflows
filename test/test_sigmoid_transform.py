@@ -104,7 +104,7 @@ def test_ds_coupling(event_shape, batch_shape):
 def test_coupling_dsf(n_dim, batch_shape):
     torch.manual_seed(0)
 
-    forward_flow = Flow(CouplingDSF(n_dim=n_dim))
+    forward_flow = Flow(CouplingDSF(n_dim))
     x = torch.randn(size=(*batch_shape, n_dim))
     log_prob = forward_flow.log_prob(x)
 
@@ -112,7 +112,7 @@ def test_coupling_dsf(n_dim, batch_shape):
     assert torch.all(~torch.isnan(log_prob))
     assert torch.all(~torch.isinf(log_prob))
 
-    inverse_flow = Flow(InverseCouplingDSF(n_dim=n_dim))
+    inverse_flow = Flow(InverseCouplingDSF(n_dim))
     x_new = inverse_flow.sample(len(x))
 
     assert x_new.shape == (len(x), *inverse_flow.bijection.event_shape)

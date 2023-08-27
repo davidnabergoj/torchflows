@@ -51,8 +51,8 @@ def test_piecewise_linear_2d_spline():
 
 
 @pytest.mark.parametrize('bound', [1.0, 5.0, 50.0])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (10,), (100,), (23, 56, 6, 12)])
-@pytest.mark.parametrize('event_shape', [(1,), (2,), (10,), (100,), (11, 13, 3)])
+@pytest.mark.parametrize('batch_shape', [(1,), (2,), (10,), (100,), (2, 5, 6, 3)])
+@pytest.mark.parametrize('event_shape', [(1,), (2,), (10,), (100,), (3, 4, 1)])
 def test_piecewise_linear_spline_exhaustive(bound: float, batch_shape, event_shape):
     torch.manual_seed(0)
 
