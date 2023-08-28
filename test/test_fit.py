@@ -2,12 +2,12 @@ import pytest
 import torch
 from normalizing_flows import Flow
 from normalizing_flows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, \
-    CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular, PositiveDiagonal, QR, LU
+    CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular, ElementwiseScale, QR, LU
 
 
 @pytest.mark.parametrize('bijection_class', [
     LowerTriangular,
-    PositiveDiagonal,
+    ElementwiseScale,
     LU,
     QR,
     ElementwiseAffine,
@@ -56,7 +56,7 @@ def test_diagonal_gaussian_elementwise_affine():
 @pytest.mark.parametrize('bijection_class',
                          [
                              LowerTriangular,
-                             PositiveDiagonal,
+                             ElementwiseScale,
                              LU,
                              QR,
                              MaskedAutoregressiveRQNSF,

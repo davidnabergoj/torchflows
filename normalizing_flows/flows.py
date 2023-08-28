@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
-from normalizing_flows.bijections import Bijection
+from normalizing_flows.bijections.finite.base import Bijection
 
 
 class Flow(nn.Module):

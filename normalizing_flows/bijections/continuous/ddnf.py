@@ -1,4 +1,4 @@
-from normalizing_flows.bijections import Bijection
+from normalizing_flows.bijections.finite.base import Bijection
 
 
 class DDNF(Bijection):

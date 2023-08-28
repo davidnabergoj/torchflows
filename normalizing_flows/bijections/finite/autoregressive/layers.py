@@ -8,6 +8,7 @@ from normalizing_flows.bijections.finite.autoregressive.layers_base import Autor
     ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
 from normalizing_flows.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, \
     RationalQuadraticSpline
+from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
     DeepSigmoidNetwork, InverseDeepSigmoidNetwork, UnconstrainedMonotonicNeuralNetwork
 
@@ -15,6 +16,11 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
 class ElementwiseAffine(ElementwiseLayer):
     def __init__(self, event_shape, **kwargs):
         super().__init__(Affine(event_shape, **kwargs), n_transformer_parameters=2)
+
+
+class ElementwiseScale(ElementwiseLayer):
+    def __init__(self, event_shape, **kwargs):
+        super().__init__(Scale(event_shape, **kwargs), n_transformer_parameters=1)
 
 
 class ElementwiseShift(ElementwiseLayer):

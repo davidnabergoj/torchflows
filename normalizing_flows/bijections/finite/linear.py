@@ -29,35 +29,6 @@ class Permutation(Bijection):
         return x, log_det
 
 
-class PositiveDiagonal(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
-        super().__init__(event_shape)
-        self.n_dim = int(torch.prod(torch.tensor(self.event_shape)))
-        self.diag = PositiveDiagonalMatrix(n_dim=self.n_dim)
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_shape = get_batch_shape(x, self.event_shape)
-        # TODO simplify
-        z = torch.einsum('ij,...j->...i', self.diag.mat(), flatten_event(x, self.event_shape))
-        z = unflatten_event(z, self.event_shape)
-        log_det = torch.ones(size=batch_shape) * self.diag.log_det()
-        return z, log_det
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_shape = get_batch_shape(z, self.event_shape)
-        # TODO simplify
-        x = torch.linalg.solve_triangular(
-            self.diag.mat(),
-            z.reshape(-1, self.n_dim).T,
-            upper=False,
-            unitriangular=False
-        ).T
-        log_det = -torch.ones(size=batch_shape) * self.diag.log_det()
-        x = unflatten_event(x, self.event_shape)
-        x = torch.reshape(x, z.shape)
-        return x, log_det
-
-
 class LowerTriangular(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)

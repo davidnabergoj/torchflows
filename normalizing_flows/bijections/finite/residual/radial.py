@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import softplus
 
-from normalizing_flows.bijections import Bijection
+from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.utils import get_batch_shape
 
 

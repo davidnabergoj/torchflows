@@ -4,7 +4,7 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections import Bijection
+from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.bijections.finite.residual.base import ResidualBijection
 from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
 

@@ -124,3 +124,31 @@ class Shift(Transformer):
         batch_shape = get_batch_shape(z, self.event_shape)
         log_det = torch.zeros(batch_shape, device=z.device)
         return z - beta, log_det
+
+
+class Scale(Transformer):
+    """
+    Scaling transformer.
+
+    Computes z = alpha * x, where alpha > 0.
+    We use a minimum permitted scale m, 0 < m <= alpha, for numerical stability
+    """
+
+    def __init__(self, event_shape: torch.Size, scale_transform: callable = torch.exp, min_scale: float = 1e-3):
+        super().__init__(event_shape=event_shape)
+        self.scale_transform = scale_transform
+        self.m = min_scale
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        alpha = self.scale_transform(h[..., 0]) + self.m
+        log_alpha = torch.log(alpha)
+
+        log_det = sum_except_batch(log_alpha, self.event_shape)
+        return alpha * x, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        alpha = self.scale_transform(h[..., 0]) + self.m
+        log_alpha = torch.log(alpha)
+
+        log_det = -sum_except_batch(log_alpha, self.event_shape)
+        return z / alpha, log_det

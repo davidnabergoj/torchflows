@@ -2,7 +2,7 @@ from typing import Union, Tuple
 
 import torch
 
-from normalizing_flows.bijections import Bijection
+from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.utils import get_batch_shape, unflatten_event, flatten_event
 
 

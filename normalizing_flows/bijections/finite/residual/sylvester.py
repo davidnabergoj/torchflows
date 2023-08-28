@@ -3,7 +3,7 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections import Bijection
+from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.bijections.matrices import UpperTriangularInvertibleMatrix, HouseholderOrthogonalMatrix, \
     IdentityMatrix, PermutationMatrix
 from normalizing_flows.utils import get_batch_shape
