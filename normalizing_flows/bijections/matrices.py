@@ -25,7 +25,7 @@ class LowerTriangularInvertibleMatrix(Matrix):
         if unitriangular:
             self.diagonal_elements = torch.ones(self.n_dim)
         else:
-            self.diagonal_elements = nn.Parameter(torch.randn(self.n_dim))
+            self.diagonal_elements = nn.Parameter(torch.ones(self.n_dim))
         self.off_diagonal_indices = torch.tril_indices(self.n_dim, self.n_dim, -1)
 
     def mat(self):
@@ -47,7 +47,7 @@ class UpperTriangularInvertibleMatrix(Matrix):
         return self.lower().T
 
     def log_det(self):
-        return -self.lower.log_det()
+        return self.lower.log_det()
 
 
 class HouseholderOrthogonalMatrix(Matrix):
