@@ -11,6 +11,6 @@ from normalizing_flows.src.bijections.continuous.ddnf import DDNF
 from normalizing_flows.src.bijections.finite.residual.planar import Planar, InversePlanar
 from normalizing_flows.src.bijections.finite.residual.radial import Radial
 from normalizing_flows.src.bijections.finite.residual.sylvester import IdentitySylvester, PermutationSylvester, \
-    HouseholderSylvester
+    HouseholderSylvester, Sylvester
 from normalizing_flows.src.bijections.finite.residual.iterative import InvertibleResNet, ResFlow, \
     QuasiAutoregressiveFlow, ProximalResidualFlow

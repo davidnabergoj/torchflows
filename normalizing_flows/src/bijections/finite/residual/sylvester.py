@@ -84,6 +84,9 @@ class IdentitySylvester(BaseSylvester):
         self.q = IdentityMatrix(n_dim=self.n_dim)
 
 
+Sylvester = IdentitySylvester
+
+
 class PermutationSylvester(BaseSylvester):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], m: int = None):
         super().__init__(event_shape, m)

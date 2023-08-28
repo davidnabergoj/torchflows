@@ -19,6 +19,7 @@ from normalizing_flows.src.bijections import (
     Radial,
     Planar,
     InversePlanar,
+    Sylvester,
     IdentitySylvester,
     HouseholderSylvester,
     PermutationSylvester,
