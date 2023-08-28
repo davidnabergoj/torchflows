@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from normalizing_flows.src.bijections import AffineForwardMaskedAutoregressive
+from normalizing_flows.bijections import AffineForwardMaskedAutoregressive
 
 
 @pytest.mark.parametrize('n_dim', [2, 3])

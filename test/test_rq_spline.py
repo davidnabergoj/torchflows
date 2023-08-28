@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from normalizing_flows.src.bijections import RationalQuadraticSpline
+from normalizing_flows.bijections import RationalQuadraticSpline
 
 
 @pytest.mark.parametrize('n_data', [1, 2, 5, 100, 500])

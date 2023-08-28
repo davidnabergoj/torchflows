@@ -2,8 +2,8 @@ import pytest
 import torch
 
 from normalizing_flows import Flow
-from normalizing_flows.src.bijections import DSCoupling, CouplingDSF, InverseDSCoupling, InverseCouplingDSF
-from normalizing_flows.src.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
+from normalizing_flows.bijections import DSCoupling, CouplingDSF, InverseDSCoupling, InverseCouplingDSF
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
     DeepSigmoidNetwork, InverseDeepSigmoidNetwork, InverseSigmoidTransform
 
 

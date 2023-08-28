@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from normalizing_flows.src.bijections.finite.autoregressive.transformers.spline import MonotonicPiecewiseLinearSpline, \
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline import MonotonicPiecewiseLinearSpline, \
     RationalQuadraticSpline
 
 

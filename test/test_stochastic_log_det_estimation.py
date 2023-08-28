@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from normalizing_flows.src.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
+from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
 
 
 @pytest.mark.parametrize('n_iterations', [4, 10, 25, 100])

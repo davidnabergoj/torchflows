@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from normalizing_flows.src.bijections import AffineCoupling, LinearAffineCoupling, RQSCoupling, LinearRQSCoupling
+from normalizing_flows.bijections import AffineCoupling, LinearAffineCoupling, RQSCoupling, LinearRQSCoupling
 
 
 @pytest.mark.parametrize('layer_class', [AffineCoupling, LinearAffineCoupling])
