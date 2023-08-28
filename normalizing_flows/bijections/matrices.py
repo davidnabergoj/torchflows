@@ -21,7 +21,7 @@ class Matrix(nn.Module):
 class LowerTriangularInvertibleMatrix(Matrix):
     def __init__(self, n_dim: int, unitriangular=False):
         super().__init__(n_dim)
-        self.off_diagonal_elements = nn.Parameter(torch.randn((self.n_dim ** 2 - self.n_dim) // 2)) / self.n_dim ** 2
+        self.off_diagonal_elements = nn.Parameter(torch.randn((self.n_dim ** 2 - self.n_dim) // 2) / self.n_dim ** 2)
         if unitriangular:
             self.diagonal_elements = torch.ones(self.n_dim)
         else:
