@@ -1,10 +1,13 @@
 import pytest
 import torch
-from normalizing_flows import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, Flow, CouplingRQNSF, MaskedAutoregressiveRQNSF
+from normalizing_flows import Flow
+from normalizing_flows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, \
+    CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular
 
 
 @pytest.mark.parametrize('bijection_class', [
-    ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, NICE, RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF
+    LowerTriangular, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, NICE, RealNVP, MAF, CouplingRQNSF,
+    MaskedAutoregressiveRQNSF
 ])
 def test_standard_gaussian(bijection_class):
     torch.manual_seed(0)
@@ -40,7 +43,9 @@ def test_diagonal_gaussian_elementwise_affine():
     assert relative_error < 0.1
 
 
-@pytest.mark.parametrize('bijection_class', [MaskedAutoregressiveRQNSF, ElementwiseRQSpline, ElementwiseAffine, RealNVP, MAF, CouplingRQNSF])
+@pytest.mark.parametrize('bijection_class',
+                         [MaskedAutoregressiveRQNSF, ElementwiseRQSpline, ElementwiseAffine, RealNVP, MAF,
+                          CouplingRQNSF])
 def test_diagonal_gaussian_1(bijection_class):
     torch.manual_seed(0)
 
