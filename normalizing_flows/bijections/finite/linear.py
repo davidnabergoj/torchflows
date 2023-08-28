@@ -37,6 +37,7 @@ class PositiveDiagonal(Bijection):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
+        # TODO simplify
         z = torch.einsum('ij,...j->...i', self.diag.mat(), flatten_event(x, self.event_shape))
         z = unflatten_event(z, self.event_shape)
         log_det = torch.ones(size=batch_shape) * self.diag.log_det()
@@ -44,6 +45,7 @@ class PositiveDiagonal(Bijection):
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
+        # TODO simplify
         x = torch.linalg.solve_triangular(
             self.diag.mat(),
             z.reshape(-1, self.n_dim).T,

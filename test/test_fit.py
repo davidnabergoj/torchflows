@@ -2,11 +2,21 @@ import pytest
 import torch
 from normalizing_flows import Flow
 from normalizing_flows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, \
-    CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular
+    CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular, PositiveDiagonal, QR, LU
 
 
 @pytest.mark.parametrize('bijection_class', [
-    LowerTriangular, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, NICE, RealNVP, MAF, CouplingRQNSF,
+    LowerTriangular,
+    PositiveDiagonal,
+    LU,
+    QR,
+    ElementwiseAffine,
+    ElementwiseShift,
+    ElementwiseRQSpline,
+    NICE,
+    RealNVP,
+    MAF,
+    CouplingRQNSF,
     MaskedAutoregressiveRQNSF
 ])
 def test_standard_gaussian(bijection_class):
@@ -44,8 +54,18 @@ def test_diagonal_gaussian_elementwise_affine():
 
 
 @pytest.mark.parametrize('bijection_class',
-                         [MaskedAutoregressiveRQNSF, ElementwiseRQSpline, ElementwiseAffine, RealNVP, MAF,
-                          CouplingRQNSF])
+                         [
+                             LowerTriangular,
+                             PositiveDiagonal,
+                             LU,
+                             QR,
+                             MaskedAutoregressiveRQNSF,
+                             ElementwiseRQSpline,
+                             ElementwiseAffine,
+                             RealNVP,
+                             MAF,
+                             CouplingRQNSF
+                         ])
 def test_diagonal_gaussian_1(bijection_class):
     torch.manual_seed(0)
 
@@ -55,7 +75,10 @@ def test_diagonal_gaussian_1(bijection_class):
     x = torch.randn(size=(n_data, n_dim)) * sigma
     bijection = bijection_class(event_shape=(n_dim,))
     flow = Flow(bijection)
-    flow.fit(x, n_epochs=25)
+    if isinstance(bijection, LowerTriangular):
+        flow.fit(x, n_epochs=100)
+    else:
+        flow.fit(x, n_epochs=25)
     x_flow = flow.sample(100_000)
     x_std = torch.std(x_flow, dim=0)
     relative_error = max((x_std - sigma.ravel()).abs() / sigma.ravel())
