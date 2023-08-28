@@ -19,23 +19,41 @@ class Matrix(nn.Module):
 
 
 class LowerTriangularInvertibleMatrix(Matrix):
-    def __init__(self, n_dim: int, unitriangular=False):
+    """
+    Lower triangular matrix with strictly positive diagonal values.
+    """
+
+    def __init__(self, n_dim: int, unitriangular: bool = False, min_eigval: float = 1e-3):
+        """
+
+        :param n_dim:
+        :param unitriangular:
+        :param min_eigval: minimum eigenvalue. This is added to
+        """
         super().__init__(n_dim)
+        self.unitriangular = unitriangular
         self.off_diagonal_elements = nn.Parameter(torch.randn((self.n_dim ** 2 - self.n_dim) // 2) / self.n_dim ** 2)
         if unitriangular:
-            self.diagonal_elements = torch.ones(self.n_dim)
+            self.unc_diagonal_elements = None
         else:
-            self.diagonal_elements = nn.Parameter(torch.ones(self.n_dim))
+            self.unc_diagonal_elements = nn.Parameter(torch.zeros(self.n_dim))
         self.off_diagonal_indices = torch.tril_indices(self.n_dim, self.n_dim, -1)
+        self.min_eigval = min_eigval
 
     def mat(self):
-        mat = torch.zeros(self.n_dim, self.n_dim)
-        mat[range(self.n_dim), range(self.n_dim)] = self.diagonal_elements
+        mat = torch.zeros(size=(self.n_dim, self.n_dim))
+        mat[range(self.n_dim), range(self.n_dim)] = self.compute_diagonal_elements()
         mat[self.off_diagonal_indices[0], self.off_diagonal_indices[1]] = self.off_diagonal_elements
         return mat
 
+    def compute_diagonal_elements(self):
+        if self.unitriangular:
+            return torch.ones(self.n_dim)
+        else:
+            return torch.exp(self.unc_diagonal_elements) + self.min_eigval
+
     def log_det(self):
-        return torch.sum(torch.log(torch.abs(self.diagonal_elements)))
+        return torch.sum(torch.log(self.compute_diagonal_elements()))
 
 
 class UpperTriangularInvertibleMatrix(Matrix):
