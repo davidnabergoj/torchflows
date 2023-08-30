@@ -77,6 +77,9 @@ class Flow(nn.Module):
                 loss.backward()
                 optimizer.step()
 
+                if show_progress:
+                    iterator.set_postfix_str(f'Loss: {loss:.4f}')
+
     def variational_fit(self,
                         target,
                         n_epochs: int = 10,
