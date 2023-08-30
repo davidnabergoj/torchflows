@@ -14,4 +14,4 @@ from normalizing_flows.bijections.finite.residual.sylvester import IdentitySylve
     HouseholderSylvester, Sylvester
 from normalizing_flows.bijections.finite.residual.iterative import InvertibleResNet, ResFlow, \
     QuasiAutoregressiveFlow, ProximalResidualFlow
-from normalizing_flows.bijections.finite.linear import LowerTriangular, HouseholderOrthogonal, LU, QR, InverseLU
+from normalizing_flows.bijections.finite.linear import LowerTriangular, Orthogonal, LU, QR

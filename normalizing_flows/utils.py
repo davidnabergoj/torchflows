@@ -48,6 +48,31 @@ def unflatten_event(x: torch.Tensor, event_shape: torch.Size):
     return x.view(*batch_shape, *event_shape)
 
 
+def flatten_batch(x: torch.Tensor, batch_shape: torch.Size):
+    """
+    Flattens batch dimensions of x into a single dimension.
+
+    :param x: input tensor with shape (*batch_shape, *event_shape).
+    :param batch_shape: input tensor batch shape.
+    :return: output tensor with shape (n_batch_dims, *event_shape) where n_batch_dims = prod(batch_shape).
+    """
+    n_batch_dims = len(batch_shape)
+    event_shape = x.shape[n_batch_dims:]
+    return x.view(-1, *event_shape)
+
+
+def unflatten_batch(x: torch.Tensor, batch_shape: torch.Size):
+    """
+    Flattens first dimension of x into a specified batch shape.
+
+    :param x: input tensor with shape (n_batch_dims, *event_shape).
+    :param batch_shape: output tensor batch shape.
+    :return: output tensor with shape (*batch_shape, *event_shape) where n_batch_dims = prod(batch_shape).
+    """
+    event_shape = x.shape[1:]
+    return x.view(*batch_shape, *event_shape)
+
+
 def get_batch_shape(x: torch.Tensor, event_shape: torch.Size):
     return x.shape[:-len(event_shape)]
 

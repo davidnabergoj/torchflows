@@ -3,8 +3,8 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections import LU, Permutation, InverseLU, LowerTriangular, \
-    HouseholderOrthogonal, QR, ElementwiseScale
+from normalizing_flows.bijections import LU, Permutation, LowerTriangular, \
+    Orthogonal, QR, ElementwiseScale
 from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, InvertibleResNet, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE, Flow
 
@@ -35,9 +35,8 @@ def test_permutation_reconstruction(n_dim):
     LU,
     Permutation,
     ElementwiseScale,
-    InverseLU,
     LowerTriangular,
-    HouseholderOrthogonal,
+    Orthogonal,
     QR,
     ElementwiseAffine,
     ElementwiseShift
