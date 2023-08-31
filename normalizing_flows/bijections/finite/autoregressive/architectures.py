@@ -12,7 +12,7 @@ from normalizing_flows.bijections.finite.autoregressive.layers import (
     UMNNForwardMaskedAutoregressive, ElementwiseAffine
 )
 from normalizing_flows.bijections.finite.base import BijectiveComposition
-from normalizing_flows.bijections.finite.linear import Permutation
+from normalizing_flows.bijections.finite.linear import Permutation, ReversePermutation
 
 
 class NICE(BijectiveComposition):
@@ -22,7 +22,7 @@ class NICE(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 ShiftCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -35,7 +35,7 @@ class RealNVP(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 AffineCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -48,7 +48,7 @@ class InverseRealNVP(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 InverseAffineCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -64,7 +64,7 @@ class MAF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 AffineForwardMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -77,7 +77,7 @@ class IAF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 AffineInverseMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -90,7 +90,7 @@ class CouplingRQNSF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 RQSCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -106,7 +106,7 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 RQSForwardMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -119,7 +119,7 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 RQSInverseMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -132,7 +132,7 @@ class CouplingDSF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 DSCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -145,7 +145,7 @@ class InverseCouplingDSF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 InverseDSCoupling(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)
@@ -158,7 +158,7 @@ class UMNNMAF(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
-                Permutation(event_shape=event_shape),
+                ReversePermutation(event_shape=event_shape),
                 UMNNMaskedAutoregressive(event_shape=event_shape, **kwargs)
             ])
         super().__init__(event_shape, bijections)

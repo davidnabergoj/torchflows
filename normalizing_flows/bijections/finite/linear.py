@@ -45,6 +45,15 @@ class Permutation(LinearBijection):
         super().__init__(event_shape, PermutationMatrix(int(torch.prod(torch.as_tensor(event_shape)))))
 
 
+class ReversePermutation(LinearBijection):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+        matrix = PermutationMatrix(int(torch.prod(torch.as_tensor(event_shape))))
+        matrix.forward_permutation = (matrix.n_dim - 1) - torch.arange(matrix.n_dim)
+        matrix.inverse_permutation = torch.empty_like(matrix.forward_permutation)
+        matrix.inverse_permutation[matrix.forward_permutation] = torch.arange(matrix.n_dim)
+        super().__init__(event_shape, matrix)
+
+
 class LowerTriangular(LinearBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape, LowerTriangularInvertibleMatrix(int(torch.prod(torch.as_tensor(event_shape)))))
