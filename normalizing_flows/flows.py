@@ -58,12 +58,28 @@ class Flow(nn.Module):
             lr: float = 0.05,
             batch_size: int = 1024,
             shuffle: bool = True,
-            show_progress: bool = False):
+            show_progress: bool = False,
+            w_train: torch.Tensor = None):
+        """
+
+        :param x_train:
+        :param n_epochs:
+        :param lr:
+        :param batch_size:
+        :param shuffle:
+        :param show_progress:
+        :param w_train: training data weights
+        :return:
+        """
+        if w_train is None:
+            w_train = torch.ones(len(x_train))
         if batch_size is None:
             batch_size = len(x_train)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
-        dataset = TensorDataset(x_train)
+        dataset = TensorDataset(x_train, w_train)
         data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+        n_event_dims = int(torch.prod(self.bijection.event_shape))
 
         if show_progress:
             iterator = tqdm(range(n_epochs), desc='Fitting NF')
@@ -71,9 +87,13 @@ class Flow(nn.Module):
             iterator = range(n_epochs)
 
         for _ in iterator:
-            for batch_x, in data_loader:
+            for batch_x, batch_w in data_loader:
                 optimizer.zero_grad()
-                loss = -self.log_prob(batch_x.to(self.loc)).mean()
+
+                log_prob = self.log_prob(batch_x.to(self.loc))
+                w = batch_w.to(self.loc)
+                assert log_prob.shape == w.shape
+                loss = -torch.mean(log_prob) / n_event_dims
                 loss.backward()
                 optimizer.step()
 
