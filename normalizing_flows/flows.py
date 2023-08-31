@@ -25,7 +25,8 @@ class Flow(nn.Module):
     def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         if context is not None:
             assert context.shape[0] == x.shape[0]
-        z, log_det = self.bijection.forward(x, context=context)
+            context = context.to(self.loc)
+        z, log_det = self.bijection.forward(x.to(self.loc), context=context)
         log_base = self.base_log_prob(z)
         return log_base + log_det
 
