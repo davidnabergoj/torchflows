@@ -98,7 +98,7 @@ class HouseholderOrthogonalMatrix(InvertibleMatrix):
         return torch.linalg.multi_dot(list(h))
 
     def log_det(self):
-        return torch.tensor(0.0)
+        return 0.0
 
     def solve(self, z):
         return (self.mat().T @ z.T).T
@@ -112,7 +112,7 @@ class IdentityMatrix(InvertibleMatrix):
         return torch.eye(self.n_dim)
 
     def log_det(self):
-        return torch.tensor(0.0)
+        return 0.0
 
     def project(self, x):
         return x
@@ -132,7 +132,7 @@ class PermutationMatrix(InvertibleMatrix):
         return torch.eye(self.n_dim)[self.forward_permutation]
 
     def log_det(self):
-        return torch.tensor(0.0)
+        return 0.0
 
     def project(self, x):
         return x[..., self.forward_permutation]

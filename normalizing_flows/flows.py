@@ -3,24 +3,30 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
 from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.utils import flatten_event, get_batch_shape
 
 
 class Flow(nn.Module):
     def __init__(self, bijection: Bijection):
         super().__init__()
-        self.register_buffer('loc', torch.zeros(*bijection.event_shape))
-        self.register_buffer('covariance_matrix', torch.eye(*bijection.event_shape))
         self.register_module('bijection', bijection)
+        self.register_buffer('loc', torch.zeros(self.bijection.n_dim))
+        self.register_buffer('covariance_matrix', torch.eye(self.bijection.n_dim))
 
     @property
     def base(self):
         return torch.distributions.MultivariateNormal(loc=self.loc, covariance_matrix=self.covariance_matrix)
 
+    def base_log_prob(self, z):
+        zf = flatten_event(z, self.bijection.event_shape)
+        log_prob = self.base.log_prob(zf)
+        return log_prob
+
     def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         if context is not None:
             assert context.shape[0] == x.shape[0]
         z, log_det = self.bijection.forward(x, context=context)
-        log_base = self.base.log_prob(z)
+        log_base = self.base_log_prob(z)
         return log_base + log_det
 
     def sample(self, n: int, context: torch.Tensor = None, no_grad: bool = False, return_log_prob: bool = False):
@@ -48,7 +54,7 @@ class Flow(nn.Module):
         x = x.to(self.loc)
 
         if return_log_prob:
-            log_prob = self.base.log_prob(z) + log_det
+            log_prob = self.base_log_prob(z) + log_det
             return x, log_prob
         return x
 
@@ -72,14 +78,15 @@ class Flow(nn.Module):
         :return:
         """
         if w_train is None:
-            w_train = torch.ones(len(x_train))
+            batch_shape = get_batch_shape(x_train, self.bijection.event_shape)
+            w_train = torch.ones(batch_shape)
         if batch_size is None:
             batch_size = len(x_train)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         dataset = TensorDataset(x_train, w_train)
         data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
-        n_event_dims = int(torch.prod(self.bijection.event_shape))
+        n_event_dims = int(torch.prod(torch.as_tensor(self.bijection.event_shape)))
 
         if show_progress:
             iterator = tqdm(range(n_epochs), desc='Fitting NF')
