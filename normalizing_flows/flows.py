@@ -71,7 +71,7 @@ class Flow(nn.Module):
 
         :param x_train:
         :param n_epochs:
-        :param lr:
+        :param lr: learning rate. In general, lower learning rates are recommended for high-parametric bijections.
         :param batch_size:
         :param shuffle:
         :param show_progress:
