@@ -11,9 +11,9 @@ from normalizing_flows.utils import sum_except_batch, get_batch_shape
 
 class MonotonicPiecewiseSpline(Transformer):
     # With identity extrapolation
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 1.0):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], boundary: float = 1.0, **kwargs):
         super().__init__(event_shape)
-        self.bound = bound
+        self.bound = boundary
 
         self.min_x = -self.bound
         self.max_x = self.bound
@@ -127,6 +127,7 @@ class CubicSpline(Transformer):
 
 
 class RationalQuadraticSpline(Transformer):
+    # TODO inherit MonotonicPiecewiseSpline
     def __init__(self, event_shape: torch.Size, n_bins: int = 8, boundary: float = 50.0):
         """
         Neural Spline Flows - Durkan et al. 2019
@@ -340,3 +341,49 @@ class BSpline(Transformer):
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         raise NotImplementedError
+
+
+class UnconstrainedSpline(Transformer):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], spline: MonotonicPiecewiseSpline):
+        super().__init__(event_shape)
+        self.spline = spline
+        assert self.spline.bound == 1.0
+
+    def forward_1d(self, x, h):
+        # Constrain with tanh, pass through spline, unconstrain with tanh^-1
+
+        # Push into bounded interval and compute the log determinant
+        y = torch.tanh(x)
+        log_det_0 = sum_except_batch(torch.log1p(-y ** 2), self.event_shape)
+
+        # Transform with spline and compute its log determinant
+        w, log_det_1 = self.spline.forward_1d(y, h)
+
+        # Bring back to original space and compute the log determinant
+        z = 0.5 * (torch.log1p(w) - torch.log1p(-w))
+        log_det_2 = sum_except_batch(-torch.log1p(-torch.as_tensor(z ** 2)), self.event_shape)
+
+        log_det = log_det_0 + log_det_1 + log_det_2
+        return z, log_det
+
+    def inverse_1d(self, z, h):
+        # Constrain with tanh, pass through spline, unconstrain with tanh^-1
+
+        # Push into bounded interval and compute the log determinant
+        y = torch.tanh(z)
+        log_det_0 = sum_except_batch(torch.log1p(-y ** 2), self.event_shape)
+
+        # Transform with spline and compute its log determinant
+        w, log_det_1 = self.spline.inverse_1d(y, h)
+
+        # Bring back to original space and compute the log determinant
+        x = 0.5 * (torch.log1p(w) - torch.log1p(-w))
+        log_det_2 = sum_except_batch(-torch.log1p(-torch.as_tensor(x ** 2)), self.event_shape)
+
+        log_det = log_det_0 + log_det_1 + log_det_2
+        return x, log_det
+
+
+class UnconstrainedRationalQuadraticSpline(UnconstrainedSpline):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, RationalQuadraticSpline(event_shape, boundary=1.0, **kwargs))
