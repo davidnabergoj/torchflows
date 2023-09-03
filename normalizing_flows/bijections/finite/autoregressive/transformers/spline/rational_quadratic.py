@@ -8,17 +8,30 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.spline.base
 
 
 class RationalQuadratic(MonotonicSpline):
+    """
+    Neural Spline Flows - Durkan et al. 2019
+    RQ splines are more prone to numerical instabilities when stacked in a composition than affine transforms.
+    This becomes a problem when used in autoregressive flows, since the inverse/forward passes
+    (for MAF/IAF respectively) require n_dim spline computations.
+    """
+
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  boundary: float = 50.0,
-                 n_bins: int = 8):
+                 **kwargs):
+        """
+
+        :param event_shape:
+        :param boundary: boundary value for the spline; values outside [-boundary, boundary] remain identical.
+        :param kwargs:
+        """
         super().__init__(
             event_shape,
             min_input=-boundary,
             max_input=boundary,
             min_output=-boundary,
             max_output=boundary,
-            n_bins=n_bins
+            **kwargs
         )
         self.min_bin_size = 1e-3
         self.min_delta = 1e-5
