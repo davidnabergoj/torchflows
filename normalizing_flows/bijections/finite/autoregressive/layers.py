@@ -6,11 +6,13 @@ from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms i
 from normalizing_flows.bijections.finite.autoregressive.conditioners import Coupling, MaskedAutoregressive
 from normalizing_flows.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
     ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
-from normalizing_flows.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, \
-    RationalQuadratic
+from normalizing_flows.bijections.finite.autoregressive.transformers import Affine, Shift, RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
-    DeepSigmoidNetwork, InverseDeepSigmoidNetwork, UnconstrainedMonotonicNeuralNetwork
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination import (
+    DeepSigmoidNetwork,
+    UnconstrainedMonotonicNeuralNetwork
+)
 
 
 class ElementwiseAffine(ElementwiseLayer):
@@ -79,7 +81,7 @@ class InverseAffineCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = InverseAffine(event_shape=event_shape, scale_transform=scale_transform)
+        transformer = Inverse(Affine(event_shape=event_shape, scale_transform=scale_transform))
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -189,7 +191,7 @@ class InverseDSCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = InverseDeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers)
+        transformer = Inverse(DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers))
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -259,7 +261,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  context_shape: torch.Size = None,
                  scale_transform: callable = torch.exp,
                  **kwargs):
-        transformer = InverseAffine(event_shape=event_shape, scale_transform=scale_transform)
+        transformer = Inverse(Affine(event_shape=event_shape, scale_transform=scale_transform))
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
