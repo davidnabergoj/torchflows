@@ -113,14 +113,6 @@ class SigmoidTransform(Transformer):
         raise NotImplementedError
 
 
-class InverseSigmoidTransform(SigmoidTransform):
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        raise NotImplementedError
-
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        return super().forward(z, h)
-
-
 class DenseSigmoidTransform(Transformer):
     def __init__(self,
                  event_shape: torch.Size,
@@ -181,11 +173,6 @@ class DeepSigmoidNetwork(Combination):
 
     def __init__(self, event_shape: torch.Size, n_layers: int = 2, **kwargs):
         super().__init__(event_shape, [SigmoidTransform(event_shape, **kwargs) for _ in range(n_layers)])
-
-
-class InverseDeepSigmoidNetwork(Combination):
-    def __init__(self, event_shape: torch.Size, n_layers: int = 2, **kwargs):
-        super().__init__(event_shape, [InverseSigmoidTransform(event_shape, **kwargs) for _ in range(n_layers)])
 
 
 class MonotonicTransformer(Transformer):
