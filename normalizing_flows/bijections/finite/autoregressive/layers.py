@@ -7,7 +7,7 @@ from normalizing_flows.bijections.finite.autoregressive.conditioners import Coup
 from normalizing_flows.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
     ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
 from normalizing_flows.bijections.finite.autoregressive.transformers import Affine, Shift, InverseAffine, \
-    RationalQuadraticSpline
+    RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
     DeepSigmoidNetwork, InverseDeepSigmoidNetwork, UnconstrainedMonotonicNeuralNetwork
@@ -30,7 +30,7 @@ class ElementwiseShift(ElementwiseLayer):
 
 class ElementwiseRQSpline(ElementwiseLayer):
     def __init__(self, event_shape, **kwargs):
-        transformer = RationalQuadraticSpline(event_shape, **kwargs)
+        transformer = RationalQuadratic(event_shape, **kwargs)
         super().__init__(transformer, n_transformer_parameters=transformer.n_bins * 3 - 1)
 
         # Initialize spline parameters to define a linear transform
@@ -125,7 +125,7 @@ class RQSCoupling(AutoregressiveLayer):
             context_shape=context_shape,
             **kwargs
         )
-        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins)
+        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -237,7 +237,7 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
-        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins)
+        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
@@ -282,7 +282,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
-        transformer = RationalQuadraticSpline(event_shape=event_shape, n_bins=n_bins)
+        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,

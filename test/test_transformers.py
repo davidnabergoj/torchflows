@@ -1,8 +1,7 @@
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline import MonotonicPiecewiseLinearSpline, \
-    RationalQuadraticSpline
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline import RationalQuadratic
 
 
 def test_piecewise_linear_1d_spline():
@@ -82,7 +81,7 @@ def test_rq_spline(n_data, n_dim, n_bins, scale):
 
     x = torch.randn(n_data, n_dim) * scale
     h = torch.randn(n_data, n_dim, 3 * n_bins - 1)
-    spline = RationalQuadraticSpline(event_shape=torch.Size((n_dim,)), n_bins=n_bins)
+    spline = RationalQuadratic(event_shape=torch.Size((n_dim,)), n_bins=n_bins)
     z, log_det_forward = spline.forward(x, h)
 
     assert z.shape == x.shape
