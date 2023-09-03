@@ -1,5 +1,3 @@
-import torch
-
 from normalizing_flows.bijections.finite.autoregressive.layers import (
     ShiftCoupling,
     AffineCoupling,
@@ -8,11 +6,13 @@ from normalizing_flows.bijections.finite.autoregressive.layers import (
     RQSCoupling,
     RQSForwardMaskedAutoregressive,
     RQSInverseMaskedAutoregressive,
-    InverseAffineCoupling, DSCoupling, InverseDSCoupling,
-    UMNNForwardMaskedAutoregressive, ElementwiseAffine
+    InverseAffineCoupling,
+    DSCoupling,
+    InverseDSCoupling,
+    ElementwiseAffine
 )
 from normalizing_flows.bijections.finite.base import BijectiveComposition
-from normalizing_flows.bijections.finite.linear import Permutation, ReversePermutation
+from normalizing_flows.bijections.finite.linear import ReversePermutation
 
 
 class NICE(BijectiveComposition):

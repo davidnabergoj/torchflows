@@ -22,6 +22,10 @@ class MonotonicSpline(Transformer):
         self.n_bins = n_bins
         self.n_knots = n_bins + 1
 
+    @property
+    def n_parameters(self) -> int:
+        raise NotImplementedError
+
     def forward_inputs_inside_bounds_mask(self, x):
         return (x > self.min_input) & (x < self.max_input)
 

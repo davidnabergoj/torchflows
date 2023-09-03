@@ -1,1 +1,5 @@
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.basis import Basis
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.cubic import Cubic

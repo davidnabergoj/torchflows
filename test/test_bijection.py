@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections import LU, Permutation, LowerTriangular, \
+from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular, \
     Orthogonal, QR, ElementwiseScale
 from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, InvertibleResNet, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE, Flow
@@ -13,7 +13,7 @@ from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveR
 def test_permutation_reconstruction(n_dim):
     torch.manual_seed(0)
     x = torch.randn(25, n_dim)
-    bijection = Permutation(event_shape=torch.Size((n_dim,)))
+    bijection = ReversePermutation(event_shape=torch.Size((n_dim,)))
 
     z, log_det_forward = bijection(x)
 
@@ -33,7 +33,7 @@ def test_permutation_reconstruction(n_dim):
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
 @pytest.mark.parametrize('bijection_class', [
     LU,
-    Permutation,
+    ReversePermutation,
     ElementwiseScale,
     LowerTriangular,
     Orthogonal,
