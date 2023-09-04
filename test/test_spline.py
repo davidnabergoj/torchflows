@@ -1,9 +1,11 @@
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline import (
-    RationalQuadratic, LinearRational, Linear, Cubic, Basis
-)
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.cubic import Cubic
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.basis import Basis
 
 
 @pytest.mark.parametrize('spline_class', [Linear, LinearRational, RationalQuadratic, Cubic, Basis])

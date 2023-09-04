@@ -3,11 +3,12 @@ import math
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
-from normalizing_flows.bijections.finite.autoregressive.conditioners import Coupling, MaskedAutoregressive
+from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
+from normalizing_flows.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from normalizing_flows.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
     ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
-from normalizing_flows.bijections.finite.autoregressive.transformers import Affine, Shift, RationalQuadratic
-from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale
+from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination import (
     DeepSigmoidNetwork,

@@ -1,6 +1,6 @@
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.conditioners import Conditioner
+from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform
 
 
