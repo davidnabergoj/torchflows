@@ -3,8 +3,8 @@ import torch
 
 from normalizing_flows import Flow
 from normalizing_flows.bijections import DSCoupling, CouplingDSF, InverseDSCoupling, InverseCouplingDSF
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, \
-    DeepSigmoidNetwork, InverseDeepSigmoidNetwork, InverseSigmoidTransform
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, DeepSigmoidNetwork
+from normalizing_flows.bijections.finite.base import Inverse
 
 
 @pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
@@ -13,7 +13,7 @@ def test_basic(event_shape, batch_shape):
     torch.manual_seed(0)
 
     forward_transformer = SigmoidTransform(event_shape=torch.Size(event_shape))
-    inverse_transformer = InverseSigmoidTransform(event_shape=torch.Size(event_shape))
+    inverse_transformer = Inverse(SigmoidTransform(event_shape=torch.Size(event_shape)))
 
     x = torch.randn(size=(*batch_shape, *event_shape))
     h = torch.randn(size=(*batch_shape, *event_shape, forward_transformer.hidden_dim * 3))
@@ -45,7 +45,7 @@ def test_deep_sigmoid_network(event_shape, batch_shape, hidden_dim):
     torch.manual_seed(0)
 
     forward_transformer = DeepSigmoidNetwork(torch.Size(event_shape), hidden_dim=hidden_dim)
-    inverse_transformer = InverseDeepSigmoidNetwork(torch.Size(event_shape), hidden_dim=hidden_dim)
+    inverse_transformer = Inverse(DeepSigmoidNetwork(torch.Size(event_shape), hidden_dim=hidden_dim))
 
     x = torch.randn(size=(*batch_shape, *event_shape))
     h = torch.randn(size=(*batch_shape, *event_shape, hidden_dim * len(forward_transformer.components) * 3))
