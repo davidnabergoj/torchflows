@@ -121,7 +121,7 @@ class LinearRational(MonotonicSpline):
         )
         log_det_phi_gt_lambda = (
                 torch.log((1 - lambda_k) * w_m * w_kp1 * (y_kp1 - y_m))
-                - 2 * torch.log(w_m * (1 - phi) + w_m * (phi - lambda_k))
+                - 2 * torch.log(w_m * (1 - phi) + w_kp1 * (phi - lambda_k))
                 - torch.log(x_kp1 - x_k)
         )
 
