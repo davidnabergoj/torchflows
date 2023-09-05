@@ -157,7 +157,7 @@ class LinearRational(MonotonicSpline):
         ) * (x_kp1 - x_k) + x_k
         log_det_y_lt_ym = (
                 torch.log(lambda_k * w_k * w_m * (y_m - y_k))
-                - 2 * torch.log(w_k * (y_k - z) + w_m * (z - y_m))
+                - torch.log((w_k * (y_k - z) + w_m * (z - y_m)) ** 2)
                 + torch.log(x_kp1 - x_k)
         )
 

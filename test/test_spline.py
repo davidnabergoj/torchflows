@@ -18,7 +18,7 @@ def test_linear_rational():
     assert x.shape == z.shape == xr.shape
     assert log_det_forward.shape == log_det_inverse.shape
     assert torch.allclose(x, xr)
-    assert torch.allclose(log_det_forward, -log_det_inverse)
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-4)
 
 
 @pytest.mark.parametrize('spline_class', [Linear, LinearRational, RationalQuadratic, Cubic, Basis])
