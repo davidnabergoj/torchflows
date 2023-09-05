@@ -8,6 +8,19 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.spline.cubi
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.basis import Basis
 
 
+def test_linear_rational():
+    torch.manual_seed(0)
+    x = torch.tensor([-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0])
+    spline = LinearRational(event_shape=(1,))
+    h = torch.randn(size=(len(x), spline.n_parameters))
+    z, log_det_forward = spline.forward(x, h)
+    xr, log_det_inverse = spline.inverse(z, h)
+    assert x.shape == z.shape == xr.shape
+    assert log_det_forward.shape == log_det_inverse.shape
+    assert torch.allclose(x, xr)
+    assert torch.allclose(log_det_forward, -log_det_inverse)
+
+
 @pytest.mark.parametrize('spline_class', [Linear, LinearRational, RationalQuadratic, Cubic, Basis])
 def test_1d_spline(spline_class):
     torch.manual_seed(0)
