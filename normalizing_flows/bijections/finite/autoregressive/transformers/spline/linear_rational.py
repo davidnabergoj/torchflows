@@ -46,8 +46,8 @@ class LinearRational(MonotonicSpline):
         d_kp1 = knots_d.gather(1, idx + 1)
 
         x_m = torch.divide(
-            (1 - lambda_k) * w_k * x_k + lambda_k * w_kp1 * x_kp1,
-            (1 - lambda_k) * w_k + lambda_k * w_kp1
+            lambda_k * w_k * x_k + (1 - lambda_k) * w_kp1 * x_kp1,
+            lambda_k * w_k + (1 - lambda_k) * w_kp1
         )  # TODO check that this is correct
         y_m = torch.divide(
             (1 - lambda_k) * w_k * y_k + lambda_k * w_kp1 * y_kp1,
@@ -98,7 +98,7 @@ class LinearRational(MonotonicSpline):
 
         knots_x, knots_y, knots_d, knots_lambda = self.compute_knots(u_x, u_y, u_lambda, u_d)
         idx = torch.searchsorted(knots_x, x[:, None]) - 1
-        lambda_k, w_k, w_m, w_kp1, x_k, x_m, x_kp1, y_k, y_m, y_kp1 = self.compute_parameters(
+        lambda_k, w_k, w_m, w_kp1, x_k, _, x_kp1, y_k, y_m, y_kp1 = self.compute_parameters(
             idx, knots_x, knots_y, knots_d, knots_lambda, u_w0
         )
 
@@ -108,7 +108,7 @@ class LinearRational(MonotonicSpline):
         outputs_phi_lt_lambda = torch.divide(
             w_k * y_k * (lambda_k - phi) + w_m * y_m * phi,
             w_k * (lambda_k - phi) + w_m * phi
-        ) * (x_kp1 - x_k) + x_k
+        )
         log_det_phi_lt_lambda = (
                 torch.log(lambda_k * w_k * w_m * (y_m - y_k))
                 - 2 * torch.log(w_k * (lambda_k - phi) + w_m * phi)
@@ -118,7 +118,7 @@ class LinearRational(MonotonicSpline):
         outputs_phi_gt_lambda = torch.divide(
             w_m * y_m * (1 - phi) + w_kp1 * y_kp1 * (phi - lambda_k),
             w_m * (1 - phi) + w_kp1 * (phi - lambda_k)
-        ) * (x_kp1 - x_k) + x_k
+        )
         log_det_phi_gt_lambda = (
                 torch.log((1 - lambda_k) * w_m * w_kp1 * (y_kp1 - y_m))
                 - 2 * torch.log(w_m * (1 - phi) + w_m * (phi - lambda_k))
@@ -154,7 +154,7 @@ class LinearRational(MonotonicSpline):
         outputs_y_lt_ym = torch.divide(
             lambda_k * w_k * (y_k - z),
             w_k * (y_k - z) + w_m * (z - y_m)
-        )
+        ) * (x_kp1 - x_k) + x_k
         log_det_y_lt_ym = (
                 torch.log(lambda_k * w_k * w_m * (y_m - y_k))
                 - 2 * torch.log(w_k * (y_k - z) + w_m * (z - y_m))
@@ -164,7 +164,7 @@ class LinearRational(MonotonicSpline):
         outputs_y_gt_ym = torch.divide(
             lambda_k * w_kp1 * (y_kp1 - z) + w_m * (z - y_m),
             w_kp1 * (y_kp1 - z) + w_m * (z - y_m)
-        )
+        ) * (x_kp1 - x_k) + x_k
         log_det_y_gt_ym = (
                 torch.log((1 - lambda_k) * w_m * w_kp1 * (y_kp1 - y_m))
                 - 2 * torch.log(w_kp1 * (y_kp1 - z) + w_m * (z - y_m))
