@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular, \
-    Orthogonal, QR, ElementwiseScale
+    Orthogonal, QR, ElementwiseScale, LRSCoupling, LinearRQSCoupling
 from normalizing_flows import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, InvertibleResNet, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE, Flow
 
@@ -101,6 +101,8 @@ def test_maf_nontrivial_event_shape():
     CouplingRQNSF,
     InverseAutoregressiveRQNSF,
     MaskedAutoregressiveRQNSF,
+    LRSCoupling,
+    LinearRQSCoupling
 ])
 def test_autoregressive_reconstruction(batch_shape: Tuple, event_shape: Tuple, bijection_class):
     # Event shape cannot be too big, otherwise
@@ -124,7 +126,9 @@ def test_autoregressive_reconstruction(batch_shape: Tuple, event_shape: Tuple, b
     IAF,
     CouplingRQNSF,
     MaskedAutoregressiveRQNSF,
-    InverseAutoregressiveRQNSF
+    InverseAutoregressiveRQNSF,
+    LRSCoupling,
+    LinearRQSCoupling
 ])
 @pytest.mark.parametrize('n_dim', [2, 3, 10, 20])
 def test_autoregressive_backward(architecture_class, n_dim):
