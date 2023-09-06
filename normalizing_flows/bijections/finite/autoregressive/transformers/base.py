@@ -17,6 +17,22 @@ class Transformer(nn.Module):
         # returns transformed point and log Jacobian determinant of the transform
         raise NotImplementedError
 
+    @property
+    def n_parameters(self) -> int:
+        """
+        Number of parameters that parametrize this transformer. Example: rational quadratic splines require 3*b-1 where
+        b is the number of bins. An affine transformation requires 2 (typically corresponding to the unconstrained scale
+        and shift).
+        """
+        raise NotImplementedError
+
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        """
+        Set of parameters which ensures an identity transformation.
+        """
+        raise NotImplementedError
+
 
 class Inverse(Transformer):
     def __init__(self, transformer: Transformer):
