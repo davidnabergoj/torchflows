@@ -1,5 +1,3 @@
-import math
-
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
@@ -47,21 +45,18 @@ class AffineCoupling(AutoregressiveLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 scale_transform: callable = torch.exp,
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        default_log_scale = 0.0
-        default_shift = 0.0
-        conditioner = Coupling(constants=torch.tensor([default_log_scale, default_shift]), event_shape=event_shape)
+        transformer = Affine(event_shape=event_shape)
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=2,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = Affine(event_shape=event_shape, scale_transform=scale_transform)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -69,21 +64,18 @@ class InverseAffineCoupling(AutoregressiveLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 scale_transform: callable = torch.exp,
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        default_log_scale = 0.0
-        default_shift = 0.0
-        conditioner = Coupling(constants=torch.tensor([default_log_scale, default_shift]), event_shape=event_shape)
+        transformer = Inverse(Affine(event_shape=event_shape))
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=2,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = Inverse(Affine(event_shape=event_shape, scale_transform=scale_transform))
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -92,40 +84,34 @@ class ShiftCoupling(AutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        default_shift = 0.0
-        conditioner = Coupling(constants=torch.tensor([default_shift]), event_shape=event_shape)
+        transformer = Shift(event_shape=event_shape)
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=1,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = Shift(event_shape=event_shape)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
 class LRSCoupling(AutoregressiveLayer):
-    def __init__(self, event_shape, context_shape, n_bins: int = 8, **kwargs):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_bins: int = 8,
+                 **kwargs):
         assert n_bins >= 1
-        default_unconstrained_widths = torch.zeros(n_bins)
-        default_unconstrained_heights = torch.zeros(n_bins)
-        default_unconstrained_derivatives = torch.full(size=(n_bins - 1,), fill_value=math.log(math.expm1(1)))
-        constants = torch.cat([
-            default_unconstrained_widths,
-            default_unconstrained_heights,
-            default_unconstrained_derivatives
-        ])
-
-        conditioner = Coupling(constants=constants, event_shape=event_shape)
+        transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=3 * n_bins - 1,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -135,25 +121,15 @@ class RQSCoupling(AutoregressiveLayer):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
-        assert n_bins >= 1
-        default_unconstrained_widths = torch.zeros(n_bins)
-        default_unconstrained_heights = torch.zeros(n_bins)
-        default_unconstrained_derivatives = torch.full(size=(n_bins - 1,), fill_value=math.log(math.expm1(1)))
-        constants = torch.cat([
-            default_unconstrained_widths,
-            default_unconstrained_heights,
-            default_unconstrained_derivatives
-        ])
-
-        conditioner = Coupling(constants=constants, event_shape=event_shape)
+        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=3 * n_bins - 1,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -162,30 +138,18 @@ class DSCoupling(AutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_sigmoid_layers: int = 2,
-                 hidden_dim: int = 8,
                  **kwargs):
-        default_unconstrained_scale = torch.full(size=(hidden_dim,), fill_value=math.log(math.expm1(1.0)))
-        default_shift = torch.zeros(hidden_dim)
-        default_unconstrained_convex_weights = torch.ones(hidden_dim)
-        single_component_constants = torch.cat([
-            default_unconstrained_scale,
-            default_shift,
-            default_unconstrained_convex_weights
-        ])
-        conditioner = Coupling(
-            constants=torch.cat([single_component_constants for _ in range(n_sigmoid_layers)]),
-            event_shape=event_shape
-        )
+        transformer = DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers)
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=3 * hidden_dim * n_sigmoid_layers,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -194,30 +158,18 @@ class InverseDSCoupling(AutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_sigmoid_layers: int = 2,
-                 hidden_dim: int = 8,
                  **kwargs):
-        default_unconstrained_scale = torch.full(size=(hidden_dim,), fill_value=math.log(math.expm1(1.0)))
-        default_shift = torch.zeros(hidden_dim)
-        default_unconstrained_convex_weights = torch.ones(hidden_dim)
-        single_component_constants = torch.cat([
-            default_unconstrained_scale,
-            default_shift,
-            default_unconstrained_convex_weights
-        ])
-        conditioner = Coupling(
-            constants=torch.cat([single_component_constants for _ in range(n_sigmoid_layers)]),
-            event_shape=event_shape
-        )
+        transformer = Inverse(DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers))
+        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
             output_shape=conditioner.output_shape,
-            n_output_parameters=3 * hidden_dim * n_sigmoid_layers,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        transformer = Inverse(DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers))
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -245,13 +197,12 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 scale_transform: callable = torch.exp,
                  **kwargs):
-        transformer = Affine(event_shape=event_shape, scale_transform=scale_transform)
+        transformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
-            n_output_parameters=2,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -269,12 +220,11 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
-        assert n_bins >= 1
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
-            n_output_parameters=3 * n_bins - 1,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -290,13 +240,12 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 scale_transform: callable = torch.exp,
                  **kwargs):
-        transformer = Inverse(Affine(event_shape=event_shape, scale_transform=scale_transform))
+        transformer = Inverse(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
-            n_output_parameters=2,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -319,7 +268,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
-            n_output_parameters=3 * n_bins - 1,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -343,17 +292,10 @@ class UMNNForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
             n_hidden_layers=n_hidden_layers,
             hidden_dim=hidden_dim
         )
-        assert n_hidden_layers >= 1
-        n_output_parameters = (
-                2 * hidden_dim  # Input to h1 (W, b)
-                + n_hidden_layers * (hidden_dim ** 2 + hidden_dim)  # h1 to h2 (W, b) for all hidden layers
-                + hidden_dim + 1  # hn to output (W, b)
-        )
-
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
-            n_output_parameters=n_output_parameters,
+            n_output_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
