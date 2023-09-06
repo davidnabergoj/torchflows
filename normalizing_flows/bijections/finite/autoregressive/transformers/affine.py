@@ -20,6 +20,7 @@ class Affine(Transformer):
         super().__init__(event_shape=event_shape)
         self.m = min_scale
         self.identity_unconstrained_alpha = math.log(1 - self.m)
+        self.const = 2
 
     @property
     def n_parameters(self) -> int:
