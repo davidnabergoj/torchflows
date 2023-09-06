@@ -4,7 +4,7 @@ from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms i
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from normalizing_flows.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from normalizing_flows.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
-    ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
+    ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer, CouplingLayer
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
@@ -41,7 +41,7 @@ class ElementwiseRQSpline(ElementwiseLayer):
             self.conditioner_transform.theta[..., 2 * transformer.n_bins:] = transformer.boundary_u_delta
 
 
-class AffineCoupling(AutoregressiveLayer):
+class AffineCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -60,7 +60,7 @@ class AffineCoupling(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class InverseAffineCoupling(AutoregressiveLayer):
+class InverseAffineCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -79,7 +79,7 @@ class InverseAffineCoupling(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class ShiftCoupling(AutoregressiveLayer):
+class ShiftCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -96,7 +96,7 @@ class ShiftCoupling(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class LRSCoupling(AutoregressiveLayer):
+class LRSCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -115,7 +115,7 @@ class LRSCoupling(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class RQSCoupling(AutoregressiveLayer):
+class RQSCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -133,7 +133,7 @@ class RQSCoupling(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class DSCoupling(AutoregressiveLayer):
+class DSCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -153,7 +153,7 @@ class DSCoupling(AutoregressiveLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class InverseDSCoupling(AutoregressiveLayer):
+class InverseDSCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
