@@ -118,20 +118,23 @@ class Scale(Transformer):
     We use a minimum permitted scale m, 0 < m <= alpha, for numerical stability
     """
 
-    def __init__(self, event_shape: torch.Size, scale_transform: callable = torch.exp, min_scale: float = 1e-3):
+    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-3):
         super().__init__(event_shape=event_shape)
-        self.scale_transform = scale_transform
         self.m = min_scale
+        self.const = 2.0
+        self.u_alpha_1 = math.log(1 - self.m)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        alpha = self.scale_transform(h[..., 0]) + self.m
+        u_alpha = h[..., 0]
+        alpha = torch.exp(self.u_alpha_1 + u_alpha / self.const) + self.m
         log_alpha = torch.log(alpha)
 
         log_det = sum_except_batch(log_alpha, self.event_shape)
         return alpha * x, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        alpha = self.scale_transform(h[..., 0]) + self.m
+        u_alpha = h[..., 0]
+        alpha = torch.exp(self.u_alpha_1 + u_alpha / self.const) + self.m
         log_alpha = torch.log(alpha)
 
         log_det = -sum_except_batch(log_alpha, self.event_shape)
