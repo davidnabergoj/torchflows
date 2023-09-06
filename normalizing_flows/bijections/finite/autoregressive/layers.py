@@ -8,6 +8,7 @@ from normalizing_flows.bijections.finite.autoregressive.conditioners.masked impo
 from normalizing_flows.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
     ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
+from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination import (
@@ -101,6 +102,30 @@ class ShiftCoupling(AutoregressiveLayer):
             **kwargs
         )
         transformer = Shift(event_shape=event_shape)
+        super().__init__(conditioner, transformer, conditioner_transform)
+
+
+class LRSCoupling(AutoregressiveLayer):
+    def __init__(self, event_shape, context_shape, n_bins: int = 8, **kwargs):
+        assert n_bins >= 1
+        default_unconstrained_widths = torch.zeros(n_bins)
+        default_unconstrained_heights = torch.zeros(n_bins)
+        default_unconstrained_derivatives = torch.full(size=(n_bins - 1,), fill_value=math.log(math.expm1(1)))
+        constants = torch.cat([
+            default_unconstrained_widths,
+            default_unconstrained_heights,
+            default_unconstrained_derivatives
+        ])
+
+        conditioner = Coupling(constants=constants, event_shape=event_shape)
+        conditioner_transform = FeedForward(
+            input_shape=conditioner.input_shape,
+            output_shape=conditioner.output_shape,
+            n_output_parameters=3 * n_bins - 1,
+            context_shape=context_shape,
+            **kwargs
+        )
+        transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
@@ -202,6 +227,11 @@ class LinearAffineCoupling(AffineCoupling):
 
 
 class LinearRQSCoupling(RQSCoupling):
+    def __init__(self, event_shape: torch.Size, **kwargs):
+        super().__init__(event_shape, **kwargs, n_layers=1)
+
+
+class LinearLRSCoupling(LRSCoupling):
     def __init__(self, event_shape: torch.Size, **kwargs):
         super().__init__(event_shape, **kwargs, n_layers=1)
 
