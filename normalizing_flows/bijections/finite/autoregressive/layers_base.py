@@ -4,6 +4,7 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner, NullConditioner
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
+from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
 from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
@@ -24,6 +25,27 @@ class AutoregressiveLayer(Bijection):
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         h = self.conditioner(z, transform=self.conditioner_transform, context=context)
         x, log_det = self.transformer.inverse(z, h)
+        return x, log_det
+
+
+class CouplingLayer(AutoregressiveLayer):
+    def __init__(self, conditioner: Coupling, transformer: Transformer, conditioner_transform: ConditionerTransform, **kwargs):
+        super().__init__(conditioner, transformer, conditioner_transform, **kwargs)
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        batch_shape = get_batch_shape(x, self.event_shape)
+        z = x.clone()
+        log_det = torch.zeros(batch_shape)
+        h_masked, mask = self.conditioner(x, self.conditioner_transform, context, return_masked_only=True)
+        z[..., ~mask], log_det[~mask] = self.transformer.forward(x[..., ~mask], h_masked)
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        batch_shape = get_batch_shape(z, self.event_shape)
+        x = z.clone()
+        log_det = torch.zeros(batch_shape)
+        h_masked, mask = self.conditioner(z, self.conditioner_transform, context, return_masked_only=True)
+        x[..., ~mask], log_det[~mask] = self.transformer.inverse(z[..., ~mask], h_masked)
         return x, log_det
 
 
