@@ -63,17 +63,17 @@ class RationalQuadratic(MonotonicSpline):
 
     def rqs_forward_1d(self,
                        inputs: torch.Tensor,
-                       u_widths: torch.Tensor,
-                       u_heights: torch.Tensor,
-                       u_deltas: torch.Tensor):
+                       u_x: torch.Tensor,
+                       u_y: torch.Tensor,
+                       u_d: torch.Tensor):
         assert torch.all(torch.as_tensor(inputs >= self.min_input) & torch.as_tensor(inputs <= self.max_input))
-        assert len(u_widths.shape) == len(u_heights.shape) == len(u_deltas.shape) == 2
-        assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)
+        assert len(u_x.shape) == len(u_y.shape) == len(u_d.shape) == 2
+        assert u_x.shape[-1] == u_y.shape[-1] == self.n_bins == (u_d.shape[-1] - 1)
         # n_data, n_dim, n_transformer_parameters = widths.shape
 
-        bin_x, bin_widths = self.compute_bins(u_widths, self.min_input, self.max_input)
-        bin_y, bin_heights = self.compute_bins(u_heights, self.min_output, self.max_output)
-        deltas = self.min_delta + F.softplus(u_deltas)  # Derivatives
+        bin_x, bin_widths = self.compute_bins(u_x, self.min_input, self.max_input)
+        bin_y, bin_heights = self.compute_bins(u_x + u_y / 1000, self.min_output, self.max_output)
+        deltas = self.min_delta + F.softplus(u_d)  # Derivatives
 
         assert torch.all(deltas >= 0)
 
@@ -120,24 +120,24 @@ class RationalQuadratic(MonotonicSpline):
         assert h.shape[1] == self.n_bins * 3 - 1
 
         # Unconstrained spline parameters
-        u_widths = h[..., :self.n_bins]
-        u_heights = h[..., self.n_bins:2 * self.n_bins]
-        u_deltas = F.pad(h[..., 2 * self.n_bins:], pad=(1, 1), mode='constant', value=self.boundary_u_delta)
-        return self.rqs_forward_1d(x, u_widths, u_heights, u_deltas)
+        u_x = h[..., :self.n_bins]
+        u_y = h[..., self.n_bins:2 * self.n_bins]
+        u_d = F.pad(h[..., 2 * self.n_bins:], pad=(1, 1), mode='constant', value=self.boundary_u_delta)
+        return self.rqs_forward_1d(x, u_x, u_y, u_d)
 
     def rqs_inverse_1d(self,
                        inputs: torch.Tensor,
-                       u_widths: torch.Tensor,
-                       u_heights: torch.Tensor,
-                       u_deltas: torch.Tensor):
+                       u_x: torch.Tensor,
+                       u_y: torch.Tensor,
+                       u_d: torch.Tensor):
         assert torch.all(torch.as_tensor(inputs >= self.min_output) & torch.as_tensor(inputs <= self.max_output))
-        assert len(u_widths.shape) == len(u_heights.shape) == len(u_deltas.shape) == 2
-        assert u_widths.shape[-1] == u_heights.shape[-1] == self.n_bins == (u_deltas.shape[-1] - 1)
+        assert len(u_x.shape) == len(u_y.shape) == len(u_d.shape) == 2
+        assert u_x.shape[-1] == u_y.shape[-1] == self.n_bins == (u_d.shape[-1] - 1)
         # n_data, n_dim, n_transformer_parameters = widths.shape
 
-        bin_x, bin_widths = self.compute_bins(u_widths, self.min_input, self.max_input)
-        bin_y, bin_heights = self.compute_bins(u_heights, self.min_output, self.max_output)
-        deltas = self.min_delta + F.softplus(u_deltas)  # Derivatives
+        bin_x, bin_widths = self.compute_bins(u_x, self.min_input, self.max_input)
+        bin_y, bin_heights = self.compute_bins(u_x + u_y / 1000, self.min_output, self.max_output)
+        deltas = self.min_delta + F.softplus(u_d)  # Derivatives
 
         assert torch.all(deltas >= 0)
 
@@ -189,7 +189,7 @@ class RationalQuadratic(MonotonicSpline):
         assert h.shape[1] == self.n_bins * 3 - 1
 
         # Unconstrained spline parameters
-        u_widths = h[..., :self.n_bins]
-        u_heights = h[..., self.n_bins:2 * self.n_bins]
-        u_deltas = F.pad(h[..., 2 * self.n_bins:], pad=(1, 1), mode='constant', value=self.boundary_u_delta)
-        return self.rqs_inverse_1d(z, u_widths, u_heights, u_deltas)
+        u_x = h[..., :self.n_bins]
+        u_y = h[..., self.n_bins:2 * self.n_bins]
+        u_d = F.pad(h[..., 2 * self.n_bins:], pad=(1, 1), mode='constant', value=self.boundary_u_delta)
+        return self.rqs_inverse_1d(z, u_x, u_y, u_d)
