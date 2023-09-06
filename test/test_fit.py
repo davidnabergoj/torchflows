@@ -53,10 +53,29 @@ def test_diagonal_gaussian_elementwise_affine():
     assert relative_error < 0.1
 
 
+def test_diagonal_gaussian_elementwise_scale():
+    torch.manual_seed(0)
+
+    n_data = 10_000
+    n_dim = 3
+    sigma = torch.tensor([[0.1, 1.0, 10.0]])
+    x = torch.randn(size=(n_data, n_dim)) * sigma
+    bijection = ElementwiseScale(event_shape=(n_dim,))
+    flow = Flow(bijection)
+    flow.fit(x, n_epochs=250, lr=0.1)
+    x_flow = flow.sample(100_000)
+    x_std = torch.std(x_flow, dim=0)
+
+    print(x_std)
+
+    relative_error = max((x_std - sigma.ravel()).abs() / sigma.ravel())
+
+    assert relative_error < 0.1
+
+
 @pytest.mark.parametrize('bijection_class',
                          [
                              LowerTriangular,
-                             ElementwiseScale,
                              LU,
                              QR,
                              MaskedAutoregressiveRQNSF,
