@@ -41,6 +41,13 @@ class RationalQuadratic(MonotonicSpline):
     def n_parameters(self) -> int:
         return 3 * self.n_bins - 1
 
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        default_u_x = torch.zeros(size=(self.n_bins,))
+        default_u_y = torch.zeros(size=(self.n_bins,))
+        default_u_d = torch.zeros(size=(self.n_bins - 1,))
+        return torch.cat([default_u_x, default_u_y, default_u_d], dim=0)
+
     def compute_bins(self, u, minimum, maximum):
         bin_sizes = torch.softmax(u, dim=-1)
         bin_sizes = self.min_bin_size + (1 - self.min_bin_size * self.n_bins) * bin_sizes
@@ -73,7 +80,7 @@ class RationalQuadratic(MonotonicSpline):
 
         bin_x, bin_widths = self.compute_bins(u_x, self.min_input, self.max_input)
         bin_y, bin_heights = self.compute_bins(u_x + u_y / 1000, self.min_output, self.max_output)
-        deltas = self.min_delta + F.softplus(u_d)  # Derivatives
+        deltas = self.min_delta + F.softplus(self.boundary_u_delta + u_d / 1000)  # Derivatives
 
         assert torch.all(deltas >= 0)
 
@@ -137,7 +144,7 @@ class RationalQuadratic(MonotonicSpline):
 
         bin_x, bin_widths = self.compute_bins(u_x, self.min_input, self.max_input)
         bin_y, bin_heights = self.compute_bins(u_x + u_y / 1000, self.min_output, self.max_output)
-        deltas = self.min_delta + F.softplus(u_d)  # Derivatives
+        deltas = self.min_delta + F.softplus(self.boundary_u_delta + u_d / 1000)  # Derivatives
 
         assert torch.all(deltas >= 0)
 
