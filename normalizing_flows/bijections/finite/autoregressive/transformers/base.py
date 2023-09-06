@@ -44,3 +44,11 @@ class Inverse(Transformer):
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.base_transformer.forward(z, h)
+
+    @property
+    def n_parameters(self) -> int:
+        return self.base_transformer.n_parameters
+
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        return self.base_transformer.default_parameters
