@@ -88,6 +88,14 @@ class Inverse(Bijection):
         return self.base_bijection.forward(z, context)
 
 
+def invert(bijection_class: Bijection):
+    class InverseBijection(Inverse):
+        def __init__(self, *args, **kwargs):
+            super().__init__(bijection=bijection_class(*args, **kwargs))
+
+    return InverseBijection
+
+
 class BijectiveComposition(Bijection):
     def __init__(self, event_shape: torch.Size, layers: List[Bijection]):
         super().__init__(event_shape=event_shape)

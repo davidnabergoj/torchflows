@@ -3,14 +3,15 @@ import torch
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from normalizing_flows.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
-from normalizing_flows.bijections.finite.autoregressive.layers_base import AutoregressiveLayer, \
-    ForwardMaskedAutoregressiveLayer, InverseMaskedAutoregressiveLayer, ElementwiseLayer, CouplingLayer
+from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveLayer, \
+    InverseMaskedAutoregressiveLayer, ElementwiseLayer, CouplingLayer
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination import (
-    DeepSigmoidNetwork,
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
+    DeepSigmoid,
+    DeepDenseSigmoid,
     UnconstrainedMonotonicNeuralNetwork
 )
 
@@ -135,29 +136,9 @@ class DSCoupling(CouplingLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 n_sigmoid_layers: int = 2,
+                 n_hidden_layers: int = 2,
                  **kwargs):
-        transformer = DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers)
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
-        # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
-        # Each component has parameter order [a_unc, b, w_unc]
-        conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
-            context_shape=context_shape,
-            **kwargs
-        )
-        super().__init__(conditioner, transformer, conditioner_transform)
-
-
-class InverseDSCoupling(CouplingLayer):
-    def __init__(self,
-                 event_shape: torch.Size,
-                 context_shape: torch.Size = None,
-                 n_sigmoid_layers: int = 2,
-                 **kwargs):
-        transformer = Inverse(DeepSigmoidNetwork(event_shape=event_shape, n_layers=n_sigmoid_layers))
+        transformer = DeepSigmoid(event_shape=event_shape, n_hidden_layers=n_hidden_layers)
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]

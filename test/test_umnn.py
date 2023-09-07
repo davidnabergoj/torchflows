@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination import \
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import \
     UnconstrainedMonotonicNeuralNetwork
 
 

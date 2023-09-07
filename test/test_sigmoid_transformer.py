@@ -2,21 +2,23 @@ import pytest
 import torch
 
 from normalizing_flows import Flow
-from normalizing_flows.bijections import DSCoupling, CouplingDSF, InverseDSCoupling, InverseCouplingDSF
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination import SigmoidTransform, DeepSigmoidNetwork
-from normalizing_flows.bijections.finite.base import Inverse
+from normalizing_flows.bijections import DSCoupling, CouplingDSF
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse as InverseTransformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid, \
+    DeepDenseSigmoid
+from normalizing_flows.bijections.finite.base import Inverse as InverseBijection
 
 
 @pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
-@pytest.mark.parametrize('event_shape', [(1,), (5,), (100,), (3, 56, 2)])
-def test_basic(event_shape, batch_shape):
+@pytest.mark.parametrize('event_shape', [(5,), (1,), (100,), (3, 56, 2)])
+def test_sigmoid_transformer(event_shape, batch_shape):
     torch.manual_seed(0)
 
-    forward_transformer = SigmoidTransform(event_shape=torch.Size(event_shape))
-    inverse_transformer = Inverse(SigmoidTransform(event_shape=torch.Size(event_shape)))
+    forward_transformer = Sigmoid(event_shape=torch.Size(event_shape))
+    inverse_transformer = InverseTransformer(Sigmoid(event_shape=torch.Size(event_shape)))
 
     x = torch.randn(size=(*batch_shape, *event_shape))
-    h = torch.randn(size=(*batch_shape, *event_shape, forward_transformer.hidden_dim * 3))
+    h = torch.randn(size=(*batch_shape, *event_shape, forward_transformer.n_parameters))
 
     y, log_det_forward = forward_transformer.forward(x, h)
 
@@ -41,14 +43,14 @@ def test_basic(event_shape, batch_shape):
 @pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
 @pytest.mark.parametrize('event_shape', [(1,), (5,), (100,), (3, 56, 2)])
 @pytest.mark.parametrize('hidden_dim', [1, 2, 4, 8, 16, 32])
-def test_deep_sigmoid_network(event_shape, batch_shape, hidden_dim):
+def test_deep_sigmoid_transformer(event_shape, batch_shape, hidden_dim):
     torch.manual_seed(0)
 
-    forward_transformer = DeepSigmoidNetwork(torch.Size(event_shape), hidden_dim=hidden_dim)
-    inverse_transformer = Inverse(DeepSigmoidNetwork(torch.Size(event_shape), hidden_dim=hidden_dim))
+    forward_transformer = DeepSigmoid(torch.Size(event_shape), hidden_dim=hidden_dim)
+    inverse_transformer = InverseTransformer(DeepSigmoid(torch.Size(event_shape), hidden_dim=hidden_dim))
 
     x = torch.randn(size=(*batch_shape, *event_shape))
-    h = torch.randn(size=(*batch_shape, *event_shape, hidden_dim * len(forward_transformer.components) * 3))
+    h = torch.randn(size=(*batch_shape, *event_shape, forward_transformer.n_parameters))
 
     y, log_det_forward = forward_transformer.forward(x, h)
 
@@ -71,12 +73,12 @@ def test_deep_sigmoid_network(event_shape, batch_shape, hidden_dim):
 
 
 @pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
-@pytest.mark.parametrize('event_shape', [(2,), (5,), (100,), (3, 56, 2)])
-def test_ds_coupling(event_shape, batch_shape):
+@pytest.mark.parametrize('event_shape', [(3, 56, 2), (2,), (5,), (100,)])
+def test_deep_sigmoid_coupling(event_shape, batch_shape):
     torch.manual_seed(0)
 
     forward_layer = DSCoupling(torch.Size(event_shape))
-    inverse_layer = InverseDSCoupling(torch.Size(event_shape))
+    inverse_layer = InverseBijection(DSCoupling(torch.Size(event_shape)))
 
     x = torch.randn(size=(*batch_shape, *event_shape))
     y, log_det_forward = forward_layer.forward(x)
@@ -101,10 +103,12 @@ def test_ds_coupling(event_shape, batch_shape):
 
 @pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
 @pytest.mark.parametrize('n_dim', [2, 5, 100, 1000])
-def test_coupling_dsf(n_dim, batch_shape):
+def test_deep_sigmoid_coupling_flow(n_dim, batch_shape):
     torch.manual_seed(0)
 
-    forward_flow = Flow(CouplingDSF(n_dim))
+    event_shape = torch.Size((n_dim,))
+
+    forward_flow = Flow(CouplingDSF(event_shape))
     x = torch.randn(size=(*batch_shape, n_dim))
     log_prob = forward_flow.log_prob(x)
 
@@ -112,7 +116,7 @@ def test_coupling_dsf(n_dim, batch_shape):
     assert torch.all(~torch.isnan(log_prob))
     assert torch.all(~torch.isinf(log_prob))
 
-    inverse_flow = Flow(InverseCouplingDSF(n_dim))
+    inverse_flow = Flow(InverseBijection(CouplingDSF(event_shape)))
     x_new = inverse_flow.sample(len(x))
 
     assert x_new.shape == (len(x), *inverse_flow.bijection.event_shape)

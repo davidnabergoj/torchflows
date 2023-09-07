@@ -10,26 +10,6 @@ from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
 
 
-class Inverse(Bijection):
-    def __init__(self, bijection: Bijection):
-        super().__init__(bijection.event_shape)
-        self.base_bijection = bijection
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.base_bijection.inverse(x, context)
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.base_bijection.forward(z, context)
-
-
-def invert(bijection_class: Bijection):
-    class InverseBijection(Inverse):
-        def __init__(self, *args, **kwargs):
-            super().__init__(bijection=bijection_class(*args, **kwargs))
-
-    return InverseBijection
-
-
 class AutoregressiveLayer(Bijection):
     def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
         super().__init__(event_shape=transformer.event_shape)
