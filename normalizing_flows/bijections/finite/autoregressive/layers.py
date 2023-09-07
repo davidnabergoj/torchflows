@@ -281,7 +281,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
         )
 
 
-class UMNNForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
