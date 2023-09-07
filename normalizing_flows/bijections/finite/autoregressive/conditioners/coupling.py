@@ -1,3 +1,5 @@
+from typing import Union, Tuple
+
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner
@@ -34,7 +36,11 @@ class Coupling(Conditioner):
     def output_shape(self):
         return (int(torch.sum(~self.constant_mask)),)
 
-    def forward(self, x: torch.Tensor, transform: ConditionerTransform, context: torch.Tensor = None) -> torch.Tensor:
+    def forward(self,
+                x: torch.Tensor,
+                transform: ConditionerTransform,
+                context: torch.Tensor = None,
+                return_mask: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         # Predict transformer parameters for output dimensions
         batch_shape = get_batch_shape(x, self.event_shape)
         x_const = x.view(*batch_shape, *self.event_shape)[..., self.constant_mask]
@@ -47,5 +53,9 @@ class Coupling(Conditioner):
         # Fill the parameter tensor with predicted values
         h[..., ~self.constant_mask, :] = tmp
         h[..., self.constant_mask, :] = self.constants
+
+        if return_mask:
+            # Return the parameters for the to-be-transformed partition and the partition mask itself
+            return h, self.constant_mask
 
         return h
