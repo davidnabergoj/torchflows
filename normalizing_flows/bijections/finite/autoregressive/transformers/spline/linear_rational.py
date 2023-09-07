@@ -57,7 +57,7 @@ class LinearRational(MonotonicSpline):
         x_m = torch.divide(
             lambda_k * w_k * x_k + (1 - lambda_k) * w_kp1 * x_kp1,
             lambda_k * w_k + (1 - lambda_k) * w_kp1
-        )  # TODO check that this is correct
+        )
         y_m = torch.divide(
             (1 - lambda_k) * w_k * y_k + lambda_k * w_kp1 * y_kp1,
             (1 - lambda_k) * w_k + lambda_k * w_kp1
