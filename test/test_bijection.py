@@ -92,6 +92,14 @@ def test_maf_nontrivial_event_shape():
     assert log_det_forward.shape == log_det_inverse.shape
 
 
+def test_coupling_nontrivial_event_and_batch_shape():
+    event_shape = torch.Size((2, 4))
+    batch_shape = torch.Size((3, 5))
+    torch.manual_seed(0)
+    x = torch.randn(size=(*batch_shape, *event_shape))
+    bijection = NICE(event_shape)
+    bijection.forward(x)
+
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
 @pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
 @pytest.mark.parametrize('bijection_class', [

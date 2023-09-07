@@ -22,8 +22,11 @@ class Coupling(Conditioner):
         self.event_shape = event_shape
 
         # TODO add support for other kinds of masks
-        n_constant_dims = int(torch.prod(torch.tensor(event_shape)))
-        self.constant_mask = torch.less(torch.arange(n_constant_dims).view(*event_shape), (n_constant_dims // 2))
+        n_total_dims = int(torch.prod(torch.tensor(event_shape)))
+        self.n_constant_dims = n_total_dims // 2
+        self.n_changed_dims = n_total_dims - self.n_constant_dims
+
+        self.constant_mask = torch.less(torch.arange(n_total_dims).view(*event_shape), self.n_constant_dims)
         self.register_buffer('constants', constants)  # Takes care of torch devices
 
     @property

@@ -49,8 +49,13 @@ class AutoregressiveLayer(Bijection):
 
 
 class CouplingLayer(AutoregressiveLayer):
-    def __init__(self, conditioner: Coupling, transformer: Transformer, conditioner_transform: ConditionerTransform, **kwargs):
+    def __init__(self, conditioner: Coupling, transformer: Transformer, conditioner_transform: ConditionerTransform,
+                 **kwargs):
         super().__init__(conditioner, transformer, conditioner_transform, **kwargs)
+
+        # We need to change the transformer event shape because it will no longer accept full-shaped events, but only
+        # a flattened selection of event dimensions.
+        self.transformer.event_shape = torch.Size((self.conditioner.n_changed_dims,))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         z = x.clone()
