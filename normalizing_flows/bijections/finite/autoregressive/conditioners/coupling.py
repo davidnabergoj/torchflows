@@ -40,14 +40,11 @@ class Coupling(Conditioner):
                 x: torch.Tensor,
                 transform: ConditionerTransform,
                 context: torch.Tensor = None,
-                return_masked_only: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+                return_mask: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         # Predict transformer parameters for output dimensions
         batch_shape = get_batch_shape(x, self.event_shape)
         x_const = x.view(*batch_shape, *self.event_shape)[..., self.constant_mask]
         tmp = transform(x_const, context=context)
-        if return_masked_only:
-            # Return the parameters for the to-be-transformed partition and the partition mask itself
-            return tmp, self.constant_mask
         n_parameters = tmp.shape[-1]
 
         # Create full parameter tensor
@@ -56,5 +53,9 @@ class Coupling(Conditioner):
         # Fill the parameter tensor with predicted values
         h[..., ~self.constant_mask, :] = tmp
         h[..., self.constant_mask, :] = self.constants
+
+        if return_mask:
+            # Return the parameters for the to-be-transformed partition and the partition mask itself
+            return h, self.constant_mask
 
         return h
