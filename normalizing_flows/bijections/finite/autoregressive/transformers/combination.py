@@ -125,11 +125,12 @@ class DenseSigmoidTransform(Transformer):
         :param hidden_dim: hidden layer dimensionality. Authors recommend 8 or 16.
         """
         super().__init__(event_shape)
+        n_event_dims = int(torch.prod(torch.as_tensor(event_shape)))
         self.hidden_dim = hidden_dim
         self.eps = epsilon
 
-        self.u_ = nn.Parameter(torch.Tensor(hidden_dim, in_dim))
-        self.w_ = nn.Parameter(torch.Tensor(out_dim, hidden_dim))
+        self.u_ = nn.Parameter(torch.Tensor(hidden_dim, n_event_dims))
+        self.w_ = nn.Parameter(torch.Tensor(n_event_dims, hidden_dim))
         self.u_.data.uniform_(-0.001, 0.001)
         self.w_.data.uniform_(-0.001, 0.001)
 
