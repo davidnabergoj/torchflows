@@ -25,6 +25,15 @@ class LinearRational(MonotonicSpline):
     def n_parameters(self) -> int:
         return 4 * self.n_bins
 
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        default_u_x = torch.zeros(size=(self.n_bins,))
+        default_u_y = torch.zeros(size=(self.n_bins,))
+        default_u_lambda = torch.zeros(size=(self.n_bins,))
+        default_u_d = torch.zeros(size=(self.n_bins - 1,))
+        default_u_w0 = torch.zeros(size=(1,))
+        return torch.cat([default_u_x, default_u_y, default_u_lambda, default_u_d, default_u_w0], dim=0)
+
     def compute_parameters(self, idx, knots_x, knots_y, knots_d, knots_lambda, u_w0):
         assert knots_x.shape == knots_y.shape == knots_d.shape
         assert len(knots_x.shape) == 2
