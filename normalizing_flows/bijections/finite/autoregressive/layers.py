@@ -17,29 +17,26 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
 
 class ElementwiseAffine(ElementwiseLayer):
     def __init__(self, event_shape, **kwargs):
-        super().__init__(Affine(event_shape, **kwargs), n_transformer_parameters=2)
+        transformer = Affine(event_shape, **kwargs)
+        super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
 class ElementwiseScale(ElementwiseLayer):
     def __init__(self, event_shape, **kwargs):
-        super().__init__(Scale(event_shape, **kwargs), n_transformer_parameters=1)
+        transformer = Scale(event_shape, **kwargs)
+        super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
 class ElementwiseShift(ElementwiseLayer):
     def __init__(self, event_shape):
-        super().__init__(Shift(event_shape), n_transformer_parameters=1)
+        transformer = Shift(event_shape)
+        super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
 class ElementwiseRQSpline(ElementwiseLayer):
     def __init__(self, event_shape, **kwargs):
         transformer = RationalQuadratic(event_shape, **kwargs)
-        super().__init__(transformer, n_transformer_parameters=transformer.n_bins * 3 - 1)
-
-        # Initialize spline parameters to define a linear transform
-        # TODO remove this
-        with torch.no_grad():
-            self.conditioner_transform.theta[..., :2 * transformer.n_bins] = 0.0
-            self.conditioner_transform.theta[..., 2 * transformer.n_bins:] = transformer.boundary_u_delta
+        super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
 class AffineCoupling(CouplingLayer):
