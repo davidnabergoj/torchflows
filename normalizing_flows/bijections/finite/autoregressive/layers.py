@@ -36,6 +36,7 @@ class ElementwiseRQSpline(ElementwiseLayer):
         super().__init__(transformer, n_transformer_parameters=transformer.n_bins * 3 - 1)
 
         # Initialize spline parameters to define a linear transform
+        # TODO remove this
         with torch.no_grad():
             self.conditioner_transform.theta[..., :2 * transformer.n_bins] = 0.0
             self.conditioner_transform.theta[..., 2 * transformer.n_bins:] = transformer.boundary_u_delta
