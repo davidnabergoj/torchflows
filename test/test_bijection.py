@@ -134,7 +134,8 @@ def test_autoregressive_reconstruction(batch_shape: Tuple, event_shape: Tuple, b
 @pytest.mark.parametrize('n_dim', [2, 3, 10, 20])
 def test_autoregressive_backward(architecture_class, n_dim):
     torch.manual_seed(0)
-    bijection = architecture_class(n_dim)
+    event_shape = torch.Size((n_dim,))
+    bijection = architecture_class(event_shape=event_shape)
     flow = Flow(bijection=bijection)
     x = torch.randn(size=(125, n_dim)) * 5
     loss = -flow.log_prob(x).mean()
