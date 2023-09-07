@@ -9,7 +9,8 @@ from normalizing_flows.bijections.finite.autoregressive.layers import (
     InverseAffineCoupling,
     DSCoupling,
     InverseDSCoupling,
-    ElementwiseAffine
+    ElementwiseAffine,
+    UMNNMaskedAutoregressive
 )
 from normalizing_flows.bijections.finite.base import BijectiveComposition
 from normalizing_flows.bijections.finite.linear import ReversePermutation
@@ -61,6 +62,7 @@ class MAF(BijectiveComposition):
     """
     Expressive bijection with slightly unstable inverse due to autoregressive formulation.
     """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -106,6 +108,7 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
     """
     Expressive bijection with unstable inverse due to autoregressive formulation.
     """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
