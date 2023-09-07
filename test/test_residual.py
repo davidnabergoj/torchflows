@@ -14,9 +14,9 @@ def test_invertible_resnet():
     z, log_det_forward = bijection.forward(x)
     x_reconstructed, log_det_inverse = bijection.inverse(z)
 
-    print(f'{x = }')
-    print(f'{z = }')
-    print(f'{log_det_forward = }')
+    # print(f'{x = }')
+    # print(f'{z = }')
+    # print(f'{log_det_forward = }')
 
     assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(x_reconstructed))
