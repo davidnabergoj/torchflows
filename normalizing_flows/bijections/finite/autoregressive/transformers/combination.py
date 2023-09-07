@@ -7,6 +7,86 @@ from normalizing_flows.bijections.finite.autoregressive.util import gauss_legend
 from normalizing_flows.utils import get_batch_shape, softmax_nd, sum_except_batch, log_softmax_nd, log_sigmoid
 
 
+class DeepSigmoid(Transformer):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 n_hidden_layers: int = 2,
+                 hidden_dim: int = None,
+                 min_scale: float = 1e-3):
+        assert n_hidden_layers >= 1
+        n_event_dims = int(torch.prod(torch.as_tensor(event_shape)))
+        if hidden_dim is None:
+            hidden_dim = max(4, 5 * int(math.log10(n_event_dims)))
+        self.n_hidden_layers = n_hidden_layers
+        self.hidden_dim = hidden_dim
+
+        self.min_scale = min_scale
+        self.const = 1000
+        self.default_u_a = math.log(math.e - 1 - self.min_scale)
+        super().__init__(event_shape)
+
+    @property
+    def n_parameters(self) -> int:
+        return 3 * self.n_hidden_layers * self.hidden_dim
+
+    @property
+    def default_parameters(self):
+        return torch.zeros(size=(self.n_parameters,))
+
+    def extract_parameters(self, h: torch.Tensor):
+        """
+        h.shape = (*b, *e, self.n_parameters)
+        """
+        chunked = torch.chunk(h, self.n_hidden_layers, dim=-1)
+        output = []
+        for c in chunked:
+            da = c[..., :self.hidden_dim]
+            db = c[..., self.hidden_dim:self.hidden_dim * 2]
+            dw = c[..., self.hidden_dim * 2:self.hidden_dim * 3]
+
+            a = torch.nn.functional.softplus(self.default_u_a + da / self.const) + self.min_scale
+            b = db / self.const
+            w = torch.softmax(0.0 + dw / self.const, dim=-1)
+
+            output.append({"a": a, "b": b, "w": w})
+        return output
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # x.shape = (*b, *e)
+        # h.shape = (*b, *e, self.n_parameters)
+        network_params = self.extract_parameters(h)
+        x = x[..., None]  # Unsqueeze last dimension for easier operations
+        for layer_params in network_params:
+            a = layer_params["a"]
+            b = layer_params["b"]
+            w = layer_params["w"]
+            # a.shape == (*b, *e, n_hidden)
+            # b.shape == (*b, *e, n_hidden)
+            # w.shape == (*b, *e, n_hidden)
+            s = torch.sigmoid(a * x + b)  # (*b, *e, n_hidden)
+            p = torch.einsum('...i,...i->...', w, s)  # Softmax weighing -> (*b, *e)
+            x = torch.log(p / (1 - p))  # Inverse sigmoid
+            x = x[..., None]  # Keep the last dimension unsqueezed
+        # Squeeze the last dimension again
+        x = x[..., 0]
+        log_det = ...
+        return x, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+
+class DeepDenseSigmoid(Transformer):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+        super().__init__(event_shape)
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+
 class Combination(Transformer):
     def __init__(self, event_shape: torch.Size, components: list[Transformer]):
         super().__init__(event_shape)
@@ -59,6 +139,9 @@ class Combination(Transformer):
 class SigmoidTransform(Transformer):
     """
     Smallest invertible component of the deep sigmoidal networks.
+
+    Applies the transformation f(x) = neural_network(x) elementwise. The neural network consists of positive weights
+    and sigmoid transformations.
     """
 
     def __init__(self, event_shape: torch.Size, hidden_dim: int = 8, epsilon: float = 1e-8):
