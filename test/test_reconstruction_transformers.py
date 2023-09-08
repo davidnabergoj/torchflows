@@ -16,6 +16,7 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
     DenseSigmoid, DeepDenseSigmoid
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
+from normalizing_flows.utils import get_batch_shape
 from test.constants import __test_constants
 
 
@@ -32,22 +33,25 @@ def assert_valid_reconstruction(transformer: Transformer,
                                 h: torch.Tensor,
                                 reconstruction_eps=1e-3,
                                 log_det_eps=1e-3):
+    batch_shape = get_batch_shape(x, transformer.event_shape)
+
     z, log_det_forward = transformer.forward(x, h)
+    assert x.shape == z.shape
+    assert torch.all(~torch.isnan(z))
+    assert torch.all(~torch.isinf(z))
+    assert torch.all(~torch.isnan(log_det_forward))
+    assert torch.all(~torch.isinf(log_det_forward))
+    assert log_det_forward.shape == batch_shape
+
     xr, log_det_inverse = transformer.inverse(z, h)
 
-    assert x.shape == z.shape
-    assert log_det_forward.shape == log_det_inverse.shape
-
-    assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(xr))
-    assert torch.all(~torch.isnan(log_det_forward))
     assert torch.all(~torch.isnan(log_det_inverse))
-
-    assert torch.all(~torch.isinf(z))
     assert torch.all(~torch.isinf(xr))
-    assert torch.all(~torch.isinf(log_det_forward))
     assert torch.all(~torch.isinf(log_det_inverse))
+    assert log_det_inverse.shape == batch_shape
 
+    assert log_det_forward.shape == log_det_inverse.shape
     assert torch.allclose(x, xr, atol=reconstruction_eps), \
         f"E: {(x - xr).abs().max()[0]:.16f}"
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=log_det_eps), \
