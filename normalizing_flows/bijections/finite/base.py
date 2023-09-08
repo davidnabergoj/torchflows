@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Tuple, List, Union
 
 import torch
@@ -76,24 +77,12 @@ class Bijection(nn.Module):
         return outputs, log_dets
 
 
-class Inverse(Bijection):
-    def __init__(self, bijection: Bijection):
-        super().__init__(event_shape=bijection.event_shape)
-        self.base_bijection = bijection
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.base_bijection.inverse(x, context)
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.base_bijection.forward(z, context)
-
-
-def invert(bijection_class: Bijection):
-    class InverseBijection(Inverse):
-        def __init__(self, *args, **kwargs):
-            super().__init__(bijection=bijection_class(*args, **kwargs))
-
-    return InverseBijection
+def invert(bijection: Bijection):
+    """
+    Swap the forward and inverse methods of the input bijection.
+    """
+    bijection.forward, bijection.inverse = bijection.inverse, bijection.forward
+    return bijection
 
 
 class BijectiveComposition(Bijection):

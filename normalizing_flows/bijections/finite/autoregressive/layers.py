@@ -10,11 +10,11 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.integration
     UnconstrainedMonotonicNeuralNetwork
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
     DeepSigmoid,
     DeepDenseSigmoid
 )
+from normalizing_flows.bijections.finite.base import invert
 
 
 class ElementwiseAffine(ElementwiseLayer):
@@ -67,7 +67,7 @@ class InverseAffineCoupling(CouplingLayer):
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        transformer = Inverse(Affine(event_shape=event_shape))
+        transformer = Affine(event_shape=event_shape).invert()
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_shape=conditioner.input_shape,
@@ -221,7 +221,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        transformer = Inverse(Affine(event_shape=event_shape))
+        transformer = invert(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
             input_shape=event_shape,
             output_shape=event_shape,
