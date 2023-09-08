@@ -17,7 +17,7 @@ class UnconstrainedMonotonicTransformer(Integration):
     def integral(self, x: torch.Tensor, h: List[torch.Tensor]) -> torch.Tensor:
         return gauss_legendre(f=self.g, a=torch.zeros_like(x), b=x, n=self.n, h=h) + self.c
 
-    def base_forward(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def base_forward_1d(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.integral(x, params), self.g(x, params).log()
 
 
@@ -106,27 +106,27 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         return out
 
     @staticmethod
-    def flatten_tensors(x: torch.Tensor, h: List[torch.Tensor]):
+    def reshape_tensors(x: torch.Tensor, h: List[torch.Tensor]):
         # batch_shape = get_batch_shape(x, self.event_shape)
         # batch_dims = int(torch.as_tensor(batch_shape).prod())
         # event_dims = int(torch.as_tensor(self.event_shape).prod())
         flattened_dim = int(torch.as_tensor(x.shape).prod())
-        x_flat = x.view(flattened_dim, 1, 1)
-        h_flat = [h[i].view(flattened_dim, *h[i].shape[-2:]) for i in range(len(h))]
-        return x_flat, h_flat
+        x_r = x.view(flattened_dim, 1, 1)
+        h_r = [p.view(flattened_dim, *p.shape[-2:]) for p in h]
+        return x_r, h_r
 
-    def base_forward(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
-        x_flat, params_flat = self.flatten_tensors(x, params)
-        integral_flat = self.integral(x_flat, params_flat)
-        log_det_flat = self.g(x_flat, params_flat).log()  # We can apply log since g is always positive
+    def base_forward_1d(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        x_r, p_r = self.reshape_tensors(x, params)
+        integral_flat = self.integral(x_r, p_r)
+        log_det_flat = self.g(x_r, p_r).log()  # We can apply log since g is always positive
         output = integral_flat.view_as(x)
-        log_det = sum_except_batch(log_det_flat.view_as(x), self.event_shape)
+        log_det = log_det_flat.view_as(x)
         return output, log_det
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse_1d(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         params = self.compute_parameters(h)
-        z_flat, params_flat = self.flatten_tensors(z, params)
-        x_flat = self.inverse_without_log_det(z_flat, params_flat)
+        z_r, p_r = self.reshape_tensors(z, params)
+        x_flat = self.inverse_1d_without_log_det(z_r, p_r)
         outputs = x_flat.view_as(z)
-        log_det = sum_except_batch(-self.g(x_flat, params_flat).log().view_as(z), self.event_shape)
+        log_det = -self.g(x_flat, p_r).log().view_as(z)
         return outputs, log_det

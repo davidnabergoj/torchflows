@@ -5,6 +5,7 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
 from normalizing_flows.bijections.finite.autoregressive.util import bisection
+from normalizing_flows.utils import get_batch_shape, sum_except_batch
 
 
 class Integration(Transformer):
@@ -22,7 +23,7 @@ class Integration(Transformer):
     def compute_parameters(self, h: torch.Tensor) -> List[torch.Tensor]:
         raise NotImplementedError
 
-    def base_forward(self, x: torch.Tensor, params: List[torch.Tensor]):
+    def base_forward_1d(self, x: torch.Tensor, params: List[torch.Tensor]):
         with torch.enable_grad():
             x = x.requires_grad_()
             z = self.integral(x, params)
@@ -30,11 +31,15 @@ class Integration(Transformer):
         log_det = jac.log()
         return z, log_det
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward_1d(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        x.shape = (n,)
+        h.shape = (n, n_parameters)
+        """
         params = self.compute_parameters(h)
-        return self.base_forward(x, params)
+        return self.base_forward_1d(x, params)
 
-    def inverse_without_log_det(self, z: torch.Tensor, params: List[torch.Tensor]) -> torch.Tensor:
+    def inverse_1d_without_log_det(self, z: torch.Tensor, params: List[torch.Tensor]) -> torch.Tensor:
         return bisection(
             f=self.integral,
             y=z,
@@ -44,7 +49,29 @@ class Integration(Transformer):
             h=params
         )
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse_1d(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        z.shape = (n,)
+        h.shape = (n, n_parameters)
+        """
         params = self.compute_parameters(h)
         x = self.inverse_without_log_det(z, params)
-        return x, -self.base_forward(x, params)[1]
+        return x, -self.base_forward_1d(x, params)[1]
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        x.shape = (*batch_shape, *event_shape)
+        h.shape = (*batch_shape, *event_shape, n_parameters)
+        """
+        z_flat, log_det_flat = self.forward_1d(x.view(-1), h.view(-1, self.n_parameters))
+        z = z_flat.view_as(x)
+        batch_shape = get_batch_shape(x, self.event_shape)
+        log_det = sum_except_batch(log_det_flat.view(*batch_shape, *self.event_shape), self.event_shape)
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        x_flat, log_det_flat = self.inverse_1d(z.view(-1), h.view(-1, self.n_parameters))
+        x = x_flat.view_as(z)
+        batch_shape = get_batch_shape(z, self.event_shape)
+        log_det = sum_except_batch(log_det_flat.view(*batch_shape, *self.event_shape), self.event_shape)
+        return x, log_det
