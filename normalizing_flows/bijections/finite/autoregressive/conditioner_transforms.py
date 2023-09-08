@@ -38,7 +38,6 @@ class ConditionerTransform(nn.Module):
 
 
 class Constant(ConditionerTransform):
-    # TODO handle context
     def __init__(self, output_event_shape, n_parameters: int, fill_value: float = None):
         super().__init__(
             input_event_shape=None,
@@ -175,8 +174,7 @@ class FeedForward(ConditionerTransform):
         if context_shape is not None:
             self.n_input_event_dims += self.n_context_dims
 
-        # TODO remove the initial flatten layer
-        layers = [nn.Flatten(start_dim=-len(input_event_shape))]  # First layer flattens the input
+        layers = []
 
         # Check the one layer special case
         if n_layers == 1:
@@ -225,8 +223,7 @@ class ResidualFeedForward(ConditionerTransform):
         if context_shape is not None:
             self.n_input_event_dims += self.n_context_dims
 
-        # TODO remove the initial flatten layer
-        layers = [nn.Flatten(start_dim=-len(input_event_shape))]  # First layer flattens the input
+        layers = []
 
         # Check the one layer special case
         if n_layers == 1:
