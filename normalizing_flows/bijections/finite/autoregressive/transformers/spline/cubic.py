@@ -69,9 +69,7 @@ class Cubic(MonotonicSpline):
         x_k, a0, a1, a2, a3 = self.compute_spline_parameters(knots_x, knots_y, idx)
         xi = x - x_k
         z = a0 + a1 * xi + a2 * xi ** 2 + a3 * xi ** 3
-
-        log_det = ...
-
+        log_det = torch.log(a1 + 2 * a2 * xi + 3 * a3 * xi ** 2)
         return z, log_det
 
     def inverse_1d(self, z, h):
