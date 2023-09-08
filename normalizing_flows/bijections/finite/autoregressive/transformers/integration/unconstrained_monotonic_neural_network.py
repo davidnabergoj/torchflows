@@ -19,8 +19,7 @@ class UnconstrainedMonotonicTransformer(Integration):
     def integral(self, x: torch.Tensor, h: List[torch.Tensor]) -> torch.Tensor:
         return gauss_legendre(f=self.g, a=torch.zeros_like(x), b=x, n=self.n, h=h) + self.c
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        params = self.split_h(h)
+    def base_forward(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.integral(x, params), self.g(x, params).log()
 
 
@@ -33,7 +32,7 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         self.n_hidden_layers = n_hidden_layers
         self.hidden_dim = hidden_dim
 
-    def split_h(self, h: torch.Tensor):
+    def compute_parameters(self, h: torch.Tensor):
         batch_shape = h.shape[:-1]
         input_layer_params = h[..., :2 * self.hidden_dim].view(*batch_shape, self.hidden_dim, 2)
         output_layer_params = h[..., -(self.hidden_dim + 1):].view(*batch_shape, 1, self.hidden_dim + 1)
@@ -86,21 +85,17 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         h_flat = [h[i].view(flattened_dim, *h[i].shape[-2:]) for i in range(len(h))]
         return x_flat, h_flat
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.split_h(h)
-        x_reshaped, h_reshaped = self.flatten_tensors(x, h)
-
-        integral_flat = self.integral(x_reshaped, h_reshaped)
-        log_det_flat = self.g(x_reshaped, h_reshaped).log()  # We can apply log since g is always positive
-
+    def base_forward(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        x_flat, params_flat = self.flatten_tensors(x, params)
+        integral_flat = self.integral(x_flat, params_flat)
+        log_det_flat = self.g(x_flat, params_flat).log()  # We can apply log since g is always positive
         output = integral_flat.view_as(x)
         log_det = sum_except_batch(log_det_flat.view_as(x), self.event_shape)
-
         return output, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.split_h(h)
-        z_flat, h_flat = self.flatten_tensors(z, h)
+        params = self.compute_parameters(h)
+        z_flat, params_flat = self.flatten_tensors(z, params)
 
         x_flat = bisection(
             f=self.integral,
@@ -108,10 +103,8 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
             a=torch.full_like(z_flat, -self.bound),
             b=torch.full_like(z_flat, self.bound),
             n=math.ceil(math.log2(2 * self.bound / self.eps)),
-            h=h_flat
+            h=params_flat
         )
-
         outputs = x_flat.view_as(z)
-        log_det = sum_except_batch(-self.g(x_flat, h_flat).log().view_as(z), self.event_shape)
-
+        log_det = sum_except_batch(-self.g(x_flat, params_flat).log().view_as(z), self.event_shape)
         return outputs, log_det
