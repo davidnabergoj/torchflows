@@ -150,7 +150,7 @@ class CouplingDSF(BijectiveComposition):
 
 
 # class InverseCouplingDSF(BijectiveComposition):
-#     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+#     def __init__.py(self, event_shape, n_layers: int = 2, **kwargs):
 #         if isinstance(event_shape, int):
 #             event_shape = (event_shape,)
 #         bijections = [ElementwiseAffine(event_shape=event_shape)]
@@ -160,7 +160,7 @@ class CouplingDSF(BijectiveComposition):
 #                 InverseDSCoupling(event_shape=event_shape, **kwargs)
 #             ])
 #         bijections.append(ElementwiseAffine(event_shape=event_shape))
-#         super().__init__(event_shape, bijections)
+#         super().__init__.py(event_shape, bijections)
 
 
 class UMNNMAF(BijectiveComposition):

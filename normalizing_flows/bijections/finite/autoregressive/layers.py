@@ -6,13 +6,14 @@ from normalizing_flows.bijections.finite.autoregressive.conditioners.masked impo
 from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveLayer, \
     InverseMaskedAutoregressiveLayer, ElementwiseLayer, CouplingLayer
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
+from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
+    UnconstrainedMonotonicNeuralNetwork
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Inverse
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
     DeepSigmoid,
-    DeepDenseSigmoid,
-    UnconstrainedMonotonicNeuralNetwork
+    DeepDenseSigmoid
 )
 
 
