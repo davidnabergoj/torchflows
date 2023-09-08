@@ -9,6 +9,9 @@ from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAuto
     InvertibleResNet, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
 from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.finite.residual.planar import Planar
+from normalizing_flows.bijections.finite.residual.radial import Radial
+from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
 from test.constants import __test_constants
 
 
@@ -107,6 +110,9 @@ def test_masked_autoregressive(bijection_class: ConditionalBijection, batch_shap
 @pytest.mark.parametrize('bijection_class', [
     InvertibleResNet,
     ResFlow,
+    Planar,
+    Radial,
+    Sylvester
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
