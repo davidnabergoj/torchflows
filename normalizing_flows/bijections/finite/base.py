@@ -47,7 +47,7 @@ class ConditionalBijection(Bijection):
         super().__init__(event_shape)
         self.context_shape = context_shape
 
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward bijection map.
         Returns the output vector and the log Jacobian determinant of the forward transform.
@@ -59,7 +59,7 @@ class ConditionalBijection(Bijection):
         """
         raise NotImplementedError
 
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Inverse bijection map.
         Returns the output vector and the log Jacobian determinant of the inverse transform.
