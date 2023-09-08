@@ -5,7 +5,6 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
-from normalizing_flows.utils import pad_leading_dims
 
 
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
@@ -15,21 +14,10 @@ def test_umnn(batch_shape: Tuple, event_shape: Tuple):
     torch.manual_seed(0)
     x = torch.randn(*batch_shape, *event_shape) / 100
 
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = pad_leading_dims(bij.default_parameters, len(batch_shape) + len(event_shape))
-    h = h.repeat(*batch_shape, *event_shape, 1)
-    # h = [
-    #     torch.randn(*batch_shape, *event_shape, 20, 1 + 1),
-    #     torch.randn(*batch_shape, *event_shape, 20, 20 + 1),
-    #     torch.randn(*batch_shape, *event_shape, 20, 20 + 1),
-    #     torch.randn(*batch_shape, *event_shape, 1, 20 + 1),
-    # ]
-    # h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    z, log_det_forward = bij.forward(x, h)
-    xr, log_det_inverse = bij.inverse(z, h)
-
-    # FIXME h is reshaped incorrectly
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*batch_shape, *event_shape, len(transformer.default_parameters))
+    z, log_det_forward = transformer.forward(x, h)
+    xr, log_det_inverse = transformer.inverse(z, h)
 
     assert x.shape == z.shape == xr.shape
     assert log_det_forward.shape == batch_shape
@@ -47,18 +35,12 @@ def test_umnn_forward():
     x1 = torch.tensor([1.0]).view(1, 1)
     x = torch.cat([x0, x1]).view(2, 1)
 
-    h = [
-        torch.randn(*event_shape, 20, 1 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*event_shape, len(transformer.default_parameters))
 
-    z0, log_det_forward0 = bij.forward(x0, h)
-    z1, log_det_forward1 = bij.forward(x1, h)
-    z, log_det_forward = bij.forward(x, h.repeat(2, 1))
+    z0, log_det_forward0 = transformer.forward(x0, h)
+    z1, log_det_forward1 = transformer.forward(x1, h)
+    z, log_det_forward = transformer.forward(x, h.repeat(2, 1))
 
     assert torch.allclose(torch.cat([z0, z1]), z)
     assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward)
@@ -72,18 +54,12 @@ def test_umnn_inverse():
     x1 = torch.tensor([1.0]).view(1, 1)
     x = torch.cat([x0, x1]).view(2, 1)
 
-    h = [
-        torch.randn(*event_shape, 20, 1 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*event_shape, len(transformer.default_parameters))
 
-    z0, log_det_inverse0 = bij.inverse(x0, h)
-    z1, log_det_inverse1 = bij.inverse(x1, h)
-    z, log_det_inverse = bij.inverse(x, h.repeat(2, 1))
+    z0, log_det_inverse0 = transformer.inverse(x0, h)
+    z1, log_det_inverse1 = transformer.inverse(x1, h)
+    z, log_det_inverse = transformer.inverse(x, h.repeat(2, 1))
 
     assert torch.allclose(torch.cat([z0, z1]), z)
     assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1]), log_det_inverse)
@@ -97,25 +73,19 @@ def test_umnn_reconstruction():
     x1 = torch.tensor([1.0]).view(1, 1)
     x = torch.cat([x0, x1]).view(2, 1)
 
-    h = [
-        torch.randn(*event_shape, 20, 1 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*event_shape, len(transformer.default_parameters))
 
-    z0, log_det_forward0 = bij.forward(x0, h)
-    z1, log_det_forward1 = bij.forward(x1, h)
-    z, log_det_forward = bij.forward(x, h.repeat(2, 1))
+    z0, log_det_forward0 = transformer.forward(x0, h)
+    z1, log_det_forward1 = transformer.forward(x1, h)
+    z, log_det_forward = transformer.forward(x, h.repeat(2, 1))
 
     assert torch.allclose(torch.cat([z0, z1]), z)
     assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward)
 
-    x0r, log_det_inverse0 = bij.inverse(z0, h)
-    x1r, log_det_inverse1 = bij.inverse(z1, h)
-    xr, log_det_inverse = bij.inverse(z, h.repeat(2, 1))
+    x0r, log_det_inverse0 = transformer.inverse(z0, h)
+    x1r, log_det_inverse1 = transformer.inverse(z1, h)
+    xr, log_det_inverse = transformer.inverse(z, h.repeat(2, 1))
 
     assert torch.allclose(x0r, x0, atol=1e-4)
     assert torch.allclose(x1r, x1, atol=1e-4)
@@ -135,19 +105,13 @@ def test_umnn_forward_large_event():
     x2 = torch.tensor([5.0, 6.0]).view(1, 2)
     x = torch.cat([x0, x1, x2]).view(3, 2)
 
-    h = [
-        torch.randn(*event_shape, 20, 1 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*event_shape, len(transformer.default_parameters))
 
-    z0, log_det_forward0 = bij.forward(x0, h)
-    z1, log_det_forward1 = bij.forward(x1, h)
-    z2, log_det_forward2 = bij.forward(x2, h)
-    z, log_det_forward = bij.forward(x, h.repeat(3, 1))
+    z0, log_det_forward0 = transformer.forward(x0, h)
+    z1, log_det_forward1 = transformer.forward(x1, h)
+    z2, log_det_forward2 = transformer.forward(x2, h)
+    z, log_det_forward = transformer.forward(x, h.repeat(3, 1))
 
     assert torch.allclose(torch.cat([z0, z1, z2]), z)
     assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1, log_det_forward2]), log_det_forward)
@@ -162,19 +126,13 @@ def test_umnn_inverse_large_event():
     x2 = torch.tensor([5.0, 6.0]).view(1, 2)
     x = torch.cat([x0, x1, x2]).view(3, 2)
 
-    h = [
-        torch.randn(*event_shape, 20, 1 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*event_shape, len(transformer.default_parameters))
 
-    z0, log_det_inverse0 = bij.inverse(x0, h)
-    z1, log_det_inverse1 = bij.inverse(x1, h)
-    z2, log_det_inverse2 = bij.inverse(x2, h)
-    z, log_det_inverse = bij.inverse(x, h.repeat(3, 1))
+    z0, log_det_inverse0 = transformer.inverse(x0, h)
+    z1, log_det_inverse1 = transformer.inverse(x1, h)
+    z2, log_det_inverse2 = transformer.inverse(x2, h)
+    z, log_det_inverse = transformer.inverse(x, h.repeat(3, 1))
 
     assert torch.allclose(torch.cat([z0, z1, z2]), z)
     assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1, log_det_inverse2]), log_det_inverse)
@@ -189,24 +147,18 @@ def test_umnn_reconstruction_large_event():
     x2 = torch.tensor([5.0, 6.0]).view(1, 2) / 10
     x = torch.cat([x0, x1, x2]).view(3, 2)
 
-    h = [
-        torch.randn(*event_shape, 20, 1 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 20, 20 + 1),
-        torch.randn(*event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
-    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    h = torch.randn(*event_shape, len(transformer.default_parameters))
 
-    z0, log_det_forward0 = bij.forward(x0, h)
-    z1, log_det_forward1 = bij.forward(x1, h)
-    z2, log_det_forward2 = bij.forward(x2, h)
-    z, log_det_forward = bij.forward(x, h.repeat(3, 1))
+    z0, log_det_forward0 = transformer.forward(x0, h)
+    z1, log_det_forward1 = transformer.forward(x1, h)
+    z2, log_det_forward2 = transformer.forward(x2, h)
+    z, log_det_forward = transformer.forward(x, h.repeat(3, 1))
 
-    x0r, log_det_inverse0 = bij.inverse(z0, h)
-    x1r, log_det_inverse1 = bij.inverse(z1, h)
-    x2r, log_det_inverse2 = bij.inverse(z2, h)
-    xr, log_det_inverse = bij.inverse(z, h.repeat(3, 1))
+    x0r, log_det_inverse0 = transformer.inverse(z0, h)
+    x1r, log_det_inverse1 = transformer.inverse(z1, h)
+    x2r, log_det_inverse2 = transformer.inverse(z2, h)
+    xr, log_det_inverse = transformer.inverse(z, h.repeat(3, 1))
 
     assert torch.allclose(x0r, x0, atol=1e-3)
     assert torch.allclose(x1r, x1, atol=1e-3)
