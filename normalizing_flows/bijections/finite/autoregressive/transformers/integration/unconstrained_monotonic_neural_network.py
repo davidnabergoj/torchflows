@@ -2,7 +2,7 @@ import torch
 from typing import Union, Tuple, Callable, List
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.base import Integration
-from normalizing_flows.bijections.finite.autoregressive.util import gauss_legendre, bisection
+from normalizing_flows.bijections.finite.autoregressive.util import gauss_legendre
 from normalizing_flows.utils import sum_except_batch, pad_leading_dims
 
 
