@@ -32,7 +32,7 @@ class MonotonicSpline(Transformer):
     def inverse_inputs_inside_bounds_mask(self, z):
         return (z > self.min_output) & (z < self.max_output)
 
-    def compute_knot_single(self, u, min_size: float, minimum: float, maximum: float) -> torch.Tensor:
+    def compute_knots_single(self, u, min_size: float, minimum: float, maximum: float) -> torch.Tensor:
         sm = torch.softmax(u, dim=-1)
         spread = min_size + (1 - min_size * self.n_bins) * sm
         knots = torch.cumsum(spread, dim=-1)
