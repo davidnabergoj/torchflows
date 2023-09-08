@@ -95,7 +95,7 @@ class MADE(ConditionerTransform):
         # Create autoencoder masks
         masks = self.create_masks(n_layers, ms)
 
-        layers = [nn.Flatten(start_dim=-len(input_event_shape))]  # First layer flattens the input
+        layers = []
         for mask in masks[:-1]:
             n_layer_outputs, n_layer_inputs = mask.shape
             layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Tanh()])
@@ -175,6 +175,7 @@ class FeedForward(ConditionerTransform):
         if context_shape is not None:
             self.n_input_event_dims += self.n_context_dims
 
+        # TODO remove the initial flatten layer
         layers = [nn.Flatten(start_dim=-len(input_event_shape))]  # First layer flattens the input
 
         # Check the one layer special case
@@ -224,6 +225,7 @@ class ResidualFeedForward(ConditionerTransform):
         if context_shape is not None:
             self.n_input_event_dims += self.n_context_dims
 
+        # TODO remove the initial flatten layer
         layers = [nn.Flatten(start_dim=-len(input_event_shape))]  # First layer flattens the input
 
         # Check the one layer special case
