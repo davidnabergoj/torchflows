@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
-from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.bijections.finite.base import ConditionalBijection
 from normalizing_flows.utils import flatten_event, get_batch_shape
 
 
 class Flow(nn.Module):
-    def __init__(self, bijection: Bijection):
+    def __init__(self, bijection: ConditionalBijection):
         super().__init__()
         self.register_module('bijection', bijection)
         self.register_buffer('loc', torch.zeros(self.bijection.n_dim))

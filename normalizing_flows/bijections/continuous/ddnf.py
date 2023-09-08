@@ -1,5 +1,5 @@
-from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.bijections.finite.base import ConditionalBijection
 
 
-class DDNF(Bijection):
+class DDNF(ConditionalBijection):
     pass

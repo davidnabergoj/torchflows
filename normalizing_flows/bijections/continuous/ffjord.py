@@ -3,13 +3,13 @@ from typing import Union, Tuple
 import torch
 from torchdiffeq import odeint_adjoint as odeint
 
-from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.bijections.finite.base import ConditionalBijection
 from normalizing_flows.utils import get_batch_shape
 
 
 # https://github.com/rtqichen/ffjord/blob/master/lib/layers/cnf.py
 
-class FFJORD(Bijection):
+class FFJORD(ConditionalBijection):
     def __init__(self, g: callable, event_shape: Union[torch.Size, Tuple[int, ...]], integration_time: float = 1.0):
         super().__init__(event_shape)
         self.g = g

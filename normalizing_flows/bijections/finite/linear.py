@@ -2,7 +2,7 @@ import torch
 
 from typing import Tuple, Union
 
-from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.bijections.finite.base import ConditionalBijection
 from normalizing_flows.bijections.matrices import (
     LowerTriangularInvertibleMatrix,
     HouseholderOrthogonalMatrix,
@@ -14,7 +14,7 @@ from normalizing_flows.bijections.matrices import (
 from normalizing_flows.utils import get_batch_shape, flatten_event, unflatten_event, flatten_batch, unflatten_batch
 
 
-class LinearBijection(Bijection):
+class LinearBijection(ConditionalBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], matrix: InvertibleMatrix):
         super().__init__(event_shape)
         self.matrix = matrix

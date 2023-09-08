@@ -3,13 +3,13 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.bijections.finite.base import ConditionalBijection
 from normalizing_flows.bijections.matrices import UpperTriangularInvertibleMatrix, HouseholderOrthogonalMatrix, \
     IdentityMatrix, PermutationMatrix
 from normalizing_flows.utils import get_batch_shape
 
 
-class BaseSylvester(Bijection):
+class BaseSylvester(ConditionalBijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  m: int = None):
