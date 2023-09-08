@@ -16,6 +16,7 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
     DenseSigmoid, DeepDenseSigmoid
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
+from test.constants import __test_constants
 
 
 def setup_transformer_data(transformer_class: Transformer, batch_shape, event_shape):
@@ -58,8 +59,8 @@ def assert_valid_reconstruction(transformer: Transformer,
     Scale,
     Shift
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_affine(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
@@ -72,8 +73,8 @@ def test_affine(transformer_class: Transformer, batch_shape: Tuple, event_shape:
     CubicSpline,
     BasisSpline
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_spline(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
@@ -82,8 +83,8 @@ def test_spline(transformer_class: Transformer, batch_shape: Tuple, event_shape:
 @pytest.mark.parametrize('transformer_class', [
     UnconstrainedMonotonicNeuralNetwork
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_integration(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
@@ -92,8 +93,8 @@ def test_integration(transformer_class: Transformer, batch_shape: Tuple, event_s
 @pytest.mark.parametrize('transformer_class', [
     Sigmoid, DeepSigmoid, DenseSigmoid, DeepDenseSigmoid
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_combination(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)

@@ -11,6 +11,7 @@ from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAuto
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
 from normalizing_flows.bijections.finite.base import Bijection
 from normalizing_flows.utils import get_batch_shape
+from test.constants import __test_constants
 
 
 def setup_data(bijection_class, batch_shape, event_shape, context_shape):
@@ -50,9 +51,9 @@ def assert_valid_log_probability_gradient(bijection: Bijection, x: torch.Tensor,
     ElementwiseAffine,
     ElementwiseShift
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
-@pytest.mark.parametrize('context_shape', [None, (2,), (3,), (2, 4), (5,)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_log_probability_gradient(bijection, x, context)
@@ -65,9 +66,9 @@ def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tup
     LRSCoupling,
     LinearRQSCoupling
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
-@pytest.mark.parametrize('context_shape', [None, (2,), (3,), (2, 4), (5,)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_coupling(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_log_probability_gradient(bijection, x, context)
@@ -79,9 +80,9 @@ def test_coupling(bijection_class: Bijection, batch_shape: Tuple, event_shape: T
     InverseAutoregressiveRQNSF,
     MaskedAutoregressiveRQNSF
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (5, 2, 3, 2)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,), (3, 7, 2)])
-@pytest.mark.parametrize('context_shape', [None, (2,), (3,), (2, 4), (5,)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple,
                                context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
@@ -93,9 +94,9 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
     InvertibleResNet,
     ResFlow,
 ])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (100,)])
-@pytest.mark.parametrize('context_shape', [None, (2,), (3,), (2, 4), (5,)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_log_probability_gradient(bijection, x, context)
