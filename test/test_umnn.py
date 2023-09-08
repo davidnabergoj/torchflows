@@ -5,6 +5,7 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
+from normalizing_flows.utils import pad_leading_dims
 
 
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
@@ -13,16 +14,20 @@ def test_umnn(batch_shape: Tuple, event_shape: Tuple):
     # Event shape cannot be too big, otherwise
     torch.manual_seed(0)
     x = torch.randn(*batch_shape, *event_shape) / 100
-    h = [
-        torch.randn(*batch_shape, *event_shape, 20, 1 + 1),
-        torch.randn(*batch_shape, *event_shape, 20, 20 + 1),
-        torch.randn(*batch_shape, *event_shape, 20, 20 + 1),
-        torch.randn(*batch_shape, *event_shape, 1, 20 + 1),
-    ]
-    h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
+
     bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    z, log_det_forward = bij.forward(x, h.repeat(batch_shape[0] * event_shape[0], 1))
-    xr, log_det_inverse = bij.inverse(z, h.repeat(batch_shape[0] * event_shape[0], 1))
+    h = pad_leading_dims(bij.default_parameters, len(batch_shape) + len(event_shape))
+    h = h.repeat(*batch_shape, *event_shape, 1)
+    # h = [
+    #     torch.randn(*batch_shape, *event_shape, 20, 1 + 1),
+    #     torch.randn(*batch_shape, *event_shape, 20, 20 + 1),
+    #     torch.randn(*batch_shape, *event_shape, 20, 20 + 1),
+    #     torch.randn(*batch_shape, *event_shape, 1, 20 + 1),
+    # ]
+    # h = torch.cat([torch.flatten(e, start_dim=len(event_shape)) for e in h], dim=1)
+    bij = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
+    z, log_det_forward = bij.forward(x, h)
+    xr, log_det_inverse = bij.inverse(z, h)
 
     # FIXME h is reshaped incorrectly
 
