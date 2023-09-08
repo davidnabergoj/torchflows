@@ -16,25 +16,28 @@ class Integration(Transformer):
         self.bound = bound
         self.eps = eps
 
-    def integral(self, x, h) -> torch.Tensor:
+    def integral(self, x, h: List[torch.Tensor]) -> torch.Tensor:
         raise NotImplementedError
 
-    def forward(self, x: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
-        # TODO recieve h as a torch.Tensor, not a list of tensors
+    def split_h(self, h: torch.Tensor) -> List[torch.Tensor]:
+        raise NotImplementedError
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.enable_grad():
+            params = self.split_h(h)
             x = x.requires_grad_()
-            z = self.integral(x, h)
+            z = self.integral(x, params)
         jac = torch.autograd.grad(z, x, torch.ones_like(z), create_graph=True)[0]
         log_det = jac.log()
         return z, log_det
 
-    def inverse(self, z: torch.Tensor, h: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x = bisection(
             f=self.integral,
             y=z,
             a=torch.full_like(z, -self.bound),
             b=torch.full_like(z, self.bound),
             n=math.ceil(math.log2(2 * self.bound / self.eps)),
-            h=h
+            h=self.split_h(h)
         )
         return x, -self.forward(x, h)[1]
