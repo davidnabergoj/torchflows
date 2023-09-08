@@ -96,15 +96,7 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         params = self.compute_parameters(h)
         z_flat, params_flat = self.flatten_tensors(z, params)
-
-        x_flat = bisection(
-            f=self.integral,
-            y=z_flat,
-            a=torch.full_like(z_flat, -self.bound),
-            b=torch.full_like(z_flat, self.bound),
-            n=math.ceil(math.log2(2 * self.bound / self.eps)),
-            h=params_flat
-        )
+        x_flat = self.inverse_without_log_det(z_flat, params_flat)
         outputs = x_flat.view_as(z)
         log_det = sum_except_batch(-self.g(x_flat, params_flat).log().view_as(z), self.event_shape)
         return outputs, log_det

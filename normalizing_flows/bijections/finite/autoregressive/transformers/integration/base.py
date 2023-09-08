@@ -34,9 +34,8 @@ class Integration(Transformer):
         params = self.compute_parameters(h)
         return self.base_forward(x, params)
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        params = self.compute_parameters(h)
-        x = bisection(
+    def inverse_without_log_det(self, z: torch.Tensor, params: List[torch.Tensor]) -> torch.Tensor:
+        return bisection(
             f=self.integral,
             y=z,
             a=torch.full_like(z, -self.bound),
@@ -44,4 +43,8 @@ class Integration(Transformer):
             n=math.ceil(math.log2(2 * self.bound / self.eps)),
             h=params
         )
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        params = self.compute_parameters(h)
+        x = self.inverse_without_log_det(z, params)
         return x, -self.base_forward(x, params)[1]
