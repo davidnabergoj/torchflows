@@ -1,11 +1,9 @@
-import math
-
 import torch
 from typing import Union, Tuple, Callable, List
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.base import Integration
 from normalizing_flows.bijections.finite.autoregressive.util import gauss_legendre, bisection
-from normalizing_flows.utils import sum_except_batch
+from normalizing_flows.utils import sum_except_batch, unsqueeze_leading_dims
 
 
 class UnconstrainedMonotonicTransformer(Integration):
@@ -24,23 +22,55 @@ class UnconstrainedMonotonicTransformer(Integration):
 
 
 class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
-
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_hidden_layers: int, hidden_dim: int):
-        # TODO make it so that predicted parameters only affect the final linear layer instead of the entire neural
-        #  network. That is much more easily optimized. The rest of the NN are globally trainable parameters.
         super().__init__(event_shape, g=self.neural_network_forward, c=torch.tensor(-100.0))
         self.n_hidden_layers = n_hidden_layers
         self.hidden_dim = hidden_dim
+        self.const = 1000  # for stability
+
+        # weight, bias have self.hidden_dim elements
+        self.n_input_params = 2 * self.hidden_dim
+
+        # weight has self.hidden_dim elements, bias has just 1
+        self.n_output_params = self.hidden_dim + 1
+
+        # weight is a square matrix, bias is a vector
+        self.n_hidden_params = (self.hidden_dim ** 2 + self.hidden_dim) * self.n_hidden_layers
+
+        self._sampled_default_params = torch.randn(size=(self.n_parameters,)) / 1000
+
+    @property
+    def n_parameters(self) -> int:
+        return self.n_input_params + self.n_output_params + self.n_hidden_params
+
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        return self._sampled_default_params
 
     def compute_parameters(self, h: torch.Tensor):
         batch_shape = h.shape[:-1]
-        input_layer_params = h[..., :2 * self.hidden_dim].view(*batch_shape, self.hidden_dim, 2)
-        output_layer_params = h[..., -(self.hidden_dim + 1):].view(*batch_shape, 1, self.hidden_dim + 1)
-        hidden_layer_params = torch.chunk(
-            h[..., 2 * self.hidden_dim:(h.shape[-1] - (self.hidden_dim + 1))],
-            chunks=self.n_hidden_layers,
-            dim=-1
+        p0 = self.default_parameters
+
+        # Input layer
+        input_layer_defaults = unsqueeze_leading_dims(p0[:self.n_input_params], len(h.shape) - 1)
+        input_layer_deltas = h[..., :self.n_input_params] / self.const
+        input_layer_params = input_layer_defaults + input_layer_deltas
+        input_layer_params = input_layer_params.view(*batch_shape, self.hidden_dim, 2)
+
+        # Output layer
+        output_layer_defaults = unsqueeze_leading_dims(p0[-self.n_output_params:], len(h.shape) - 1)
+        output_layer_deltas = h[..., -self.n_output_params:] / self.const
+        output_layer_params = output_layer_defaults + output_layer_deltas
+        output_layer_params = output_layer_params.view(*batch_shape, 1, self.hidden_dim + 1)
+
+        # Hidden layers
+        hidden_layer_defaults = unsqueeze_leading_dims(
+            p0[self.n_input_params:self.n_input_params + self.n_hidden_params],
+            len(h.shape) - 1
         )
+        hidden_layer_deltas = h[..., self.n_input_params:self.n_input_params + self.n_hidden_params] / self.const
+        hidden_layer_params = hidden_layer_defaults + hidden_layer_deltas
+        hidden_layer_params = torch.chunk(hidden_layer_params, chunks=self.n_hidden_layers, dim=-1)
         hidden_layer_params = [
             layer.view(*batch_shape, self.hidden_dim, self.hidden_dim + 1)
             for layer in hidden_layer_params

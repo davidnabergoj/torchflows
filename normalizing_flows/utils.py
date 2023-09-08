@@ -3,6 +3,16 @@ from typing import Tuple, Union
 import torch
 
 
+def unsqueeze_leading_dims(x: torch.Tensor, n_dims: int):
+    """
+    Adds n_dims empty dimensions at the start of the input tensor.
+    """
+    assert n_dims >= 0
+    if n_dims == 0:
+        return x
+    return x[[None] * n_dims]
+
+
 def vjp_tensor(v: torch.Tensor, y: torch.Tensor, x: torch.Tensor, **kwargs):
     """
     Compute the vector-Jacobian product v.T @ J where v is an input tensor and J is the Jacobian of y = f(x) at x.
