@@ -3,7 +3,7 @@ from typing import Tuple, Union
 import torch
 
 
-def unsqueeze_leading_dims(x: torch.Tensor, n_dims: int):
+def pad_leading_dims(x: torch.Tensor, n_dims: int):
     """
     Adds n_dims empty dimensions at the start of the input tensor.
     """

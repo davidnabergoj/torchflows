@@ -3,7 +3,7 @@ from typing import Union, Tuple, Callable, List
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.base import Integration
 from normalizing_flows.bijections.finite.autoregressive.util import gauss_legendre, bisection
-from normalizing_flows.utils import sum_except_batch, unsqueeze_leading_dims
+from normalizing_flows.utils import sum_except_batch, pad_leading_dims
 
 
 class UnconstrainedMonotonicTransformer(Integration):
@@ -52,19 +52,19 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         p0 = self.default_parameters
 
         # Input layer
-        input_layer_defaults = unsqueeze_leading_dims(p0[:self.n_input_params], len(h.shape) - 1)
+        input_layer_defaults = pad_leading_dims(p0[:self.n_input_params], len(h.shape) - 1)
         input_layer_deltas = h[..., :self.n_input_params] / self.const
         input_layer_params = input_layer_defaults + input_layer_deltas
         input_layer_params = input_layer_params.view(*batch_shape, self.hidden_dim, 2)
 
         # Output layer
-        output_layer_defaults = unsqueeze_leading_dims(p0[-self.n_output_params:], len(h.shape) - 1)
+        output_layer_defaults = pad_leading_dims(p0[-self.n_output_params:], len(h.shape) - 1)
         output_layer_deltas = h[..., -self.n_output_params:] / self.const
         output_layer_params = output_layer_defaults + output_layer_deltas
         output_layer_params = output_layer_params.view(*batch_shape, 1, self.hidden_dim + 1)
 
         # Hidden layers
-        hidden_layer_defaults = unsqueeze_leading_dims(
+        hidden_layer_defaults = pad_leading_dims(
             p0[self.n_input_params:self.n_input_params + self.n_hidden_params],
             len(h.shape) - 1
         )
