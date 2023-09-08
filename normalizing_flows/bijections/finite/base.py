@@ -10,12 +10,15 @@ from normalizing_flows.utils import get_batch_shape
 
 
 class Bijection(nn.Module):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None):
         """
         Bijection class.
         """
         super().__init__()
         self.event_shape = event_shape
+        self.context_shape = context_shape
         self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -24,7 +27,7 @@ class Bijection(nn.Module):
         Returns the output vector and the log Jacobian determinant of the forward transform.
 
         :param x: input array with shape (*batch_shape, *event_shape).
-        :param context: context array with shape (*batch_shape, context_dim).
+        :param context: context array with shape (*batch_shape, *context_shape).
         :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
             determinant has shape (*batch_shape,).
         """
@@ -36,7 +39,7 @@ class Bijection(nn.Module):
         Returns the output vector and the log Jacobian determinant of the inverse transform.
 
         :param z: input array with shape (*batch_shape, *event_shape).
-        :param context: context array with shape (*batch_shape, context_dim).
+        :param context: context array with shape (*batch_shape, *context_shape).
         :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
             determinant has shape (*batch_shape,).
         """
@@ -57,6 +60,7 @@ class Bijection(nn.Module):
         return outputs, log_dets
 
     def batch_forward(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
+        # TODO remove the if statement, context=None is the default anyway
         if context:
             outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
         else:
@@ -67,6 +71,7 @@ class Bijection(nn.Module):
         return outputs, log_dets
 
     def batch_inverse(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
+        # TODO remove the if statement, context=None is the default anyway
         if context:
             outputs, log_dets = self.batch_apply(self.inverse, batch_size, x, context)
         else:
@@ -86,8 +91,10 @@ def invert(bijection: Bijection):
 
 
 class BijectiveComposition(Bijection):
-    def __init__(self, event_shape: torch.Size, layers: List[Bijection]):
-        super().__init__(event_shape=event_shape)
+    def __init__(self,
+                 event_shape: torch.Size, layers: List[Bijection],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None):
+        super().__init__(event_shape=event_shape, context_shape=context_shape)
         self.layers = nn.ModuleList(layers)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:

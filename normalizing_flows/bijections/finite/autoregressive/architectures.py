@@ -23,10 +23,10 @@ class NICE(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                ShiftCoupling(event_shape=event_shape, **kwargs)
+                ShiftCoupling(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class RealNVP(BijectiveComposition):
@@ -37,10 +37,10 @@ class RealNVP(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                AffineCoupling(event_shape=event_shape, **kwargs)
+                AffineCoupling(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class InverseRealNVP(BijectiveComposition):
@@ -51,10 +51,10 @@ class InverseRealNVP(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                InverseAffineCoupling(event_shape=event_shape, **kwargs)
+                InverseAffineCoupling(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class MAF(BijectiveComposition):
@@ -69,10 +69,10 @@ class MAF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                AffineForwardMaskedAutoregressive(event_shape=event_shape, **kwargs)
+                AffineForwardMaskedAutoregressive(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class IAF(BijectiveComposition):
@@ -83,10 +83,10 @@ class IAF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                AffineInverseMaskedAutoregressive(event_shape=event_shape, **kwargs)
+                AffineInverseMaskedAutoregressive(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class CouplingRQNSF(BijectiveComposition):
@@ -97,10 +97,10 @@ class CouplingRQNSF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                RQSCoupling(event_shape=event_shape, **kwargs)
+                RQSCoupling(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class MaskedAutoregressiveRQNSF(BijectiveComposition):
@@ -115,10 +115,10 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                RQSForwardMaskedAutoregressive(event_shape=event_shape, **kwargs)
+                RQSForwardMaskedAutoregressive(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class InverseAutoregressiveRQNSF(BijectiveComposition):
@@ -129,10 +129,10 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                RQSInverseMaskedAutoregressive(event_shape=event_shape, **kwargs)
+                RQSInverseMaskedAutoregressive(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class CouplingDSF(BijectiveComposition):
@@ -143,24 +143,10 @@ class CouplingDSF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                DSCoupling(event_shape=event_shape, **kwargs)
+                DSCoupling(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
-
-
-# class InverseCouplingDSF(BijectiveComposition):
-#     def __init__.py(self, event_shape, n_layers: int = 2, **kwargs):
-#         if isinstance(event_shape, int):
-#             event_shape = (event_shape,)
-#         bijections = [ElementwiseAffine(event_shape=event_shape)]
-#         for _ in range(n_layers):
-#             bijections.extend([
-#                 ReversePermutation(event_shape=event_shape),
-#                 InverseDSCoupling(event_shape=event_shape, **kwargs)
-#             ])
-#         bijections.append(ElementwiseAffine(event_shape=event_shape))
-#         super().__init__.py(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
 
 
 class UMNNMAF(BijectiveComposition):
@@ -171,7 +157,7 @@ class UMNNMAF(BijectiveComposition):
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                UMNNMaskedAutoregressive(event_shape=event_shape, **kwargs)
+                UMNNMaskedAutoregressive(event_shape=event_shape)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(event_shape, bijections, **kwargs)
