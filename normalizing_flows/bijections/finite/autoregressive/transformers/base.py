@@ -9,6 +9,12 @@ class Transformer(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape=event_shape)
 
+    def forward(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        return super().forward(x, context=None)
+
+    def inverse(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        return super().inverse(x, context=None)
+
     @property
     def n_parameters(self) -> int:
         """
