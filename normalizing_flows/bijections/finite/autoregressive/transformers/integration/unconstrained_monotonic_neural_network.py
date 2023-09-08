@@ -1,3 +1,5 @@
+import math
+
 import torch
 from typing import Union, Tuple, Callable, List
 
@@ -22,9 +24,14 @@ class UnconstrainedMonotonicTransformer(Integration):
 
 
 class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_hidden_layers: int, hidden_dim: int):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 n_hidden_layers: int = 2,
+                 hidden_dim: int = None):
         super().__init__(event_shape, g=self.neural_network_forward, c=torch.tensor(-100.0))
         self.n_hidden_layers = n_hidden_layers
+        if hidden_dim is None:
+            hidden_dim = max(5 * int(math.log(self.n_dim)), 4)
         self.hidden_dim = hidden_dim
         self.const = 1000  # for stability
 
