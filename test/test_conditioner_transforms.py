@@ -22,7 +22,7 @@ def test_nontrivial_shape(transform_class):
     torch.manual_seed(0)
     x = torch.randn(size=(*batch_shape, *event_shape))
 
-    transform = transform_class(input_shape=event_shape, output_shape=event_shape, n_output_parameters=n_parameters)
+    transform = transform_class(input_event_shape=event_shape, output_event_shape=event_shape, n_predicted_parameters=n_parameters)
     out = transform(x)
 
     assert out.shape == (*batch_shape, *event_shape, n_parameters)

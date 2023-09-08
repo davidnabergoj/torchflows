@@ -51,9 +51,9 @@ class AffineCoupling(CouplingLayer):
         transformer = Affine(event_shape=event_shape)
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=conditioner.input_shape,
+            output_event_shape=conditioner.output_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -70,9 +70,9 @@ class InverseAffineCoupling(CouplingLayer):
         transformer = Affine(event_shape=event_shape).invert()
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=conditioner.input_shape,
+            output_event_shape=conditioner.output_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -87,9 +87,9 @@ class ShiftCoupling(CouplingLayer):
         transformer = Shift(event_shape=event_shape)
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=conditioner.input_shape,
+            output_event_shape=conditioner.output_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -106,9 +106,9 @@ class LRSCoupling(CouplingLayer):
         transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=conditioner.input_shape,
+            output_event_shape=conditioner.output_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -124,9 +124,9 @@ class RQSCoupling(CouplingLayer):
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=conditioner.input_shape,
+            output_event_shape=conditioner.output_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -144,9 +144,9 @@ class DSCoupling(CouplingLayer):
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
-            input_shape=conditioner.input_shape,
-            output_shape=conditioner.output_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=conditioner.input_shape,
+            output_event_shape=conditioner.output_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -180,9 +180,9 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  **kwargs):
         transformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
-            input_shape=event_shape,
-            output_shape=event_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -202,9 +202,9 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
                  **kwargs):
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
-            input_shape=event_shape,
-            output_shape=event_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -223,9 +223,9 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
                  **kwargs):
         transformer = invert(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
-            input_shape=event_shape,
-            output_shape=event_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -246,9 +246,9 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
         assert n_bins >= 1
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
-            input_shape=event_shape,
-            output_shape=event_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
@@ -273,9 +273,9 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
             hidden_dim=hidden_dim
         )
         conditioner_transform = MADE(
-            input_shape=event_shape,
-            output_shape=event_shape,
-            n_output_parameters=transformer.n_parameters,
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            n_predicted_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
