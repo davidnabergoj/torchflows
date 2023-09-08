@@ -50,6 +50,7 @@ We implement the following NF transformations:
 | IAF                    |    Exact    |         Exact          |         Yes         |
 | Rational quadratic NSF |    Exact    |         Exact          |         Yes         |
 | Linear rational NSF    |    Exact    |         Exact          |         Yes         |
+| UMNN flows             |             |                        |                     |
 | Planar                 | Approximate |         Exact          |         No          |
 | Radial                 | Approximate |         Exact          |         No          |
 | Sylvester              | Approximate |         Exact          |         No          |
