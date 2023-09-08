@@ -32,6 +32,21 @@ class MonotonicSpline(Transformer):
     def inverse_inputs_inside_bounds_mask(self, z):
         return (z > self.min_output) & (z < self.max_output)
 
+    def compute_knot_single(self, u, min_size: float, minimum: float, maximum: float) -> torch.Tensor:
+        sm = torch.softmax(u, dim=-1)
+        spread = min_size + (1 - min_size * self.n_bins) * sm
+        knots = torch.cumsum(spread, dim=-1)
+        knots = torch.nn.functional.pad(knots, pad=(1, 0), mode='constant', value=0.0)
+        knots = (maximum - minimum) * knots + minimum
+        knots[..., 0] = minimum
+        knots[..., -1] = maximum
+        return knots
+
+    def compute_knots(self, u_x, u_y):
+        knots_x = self.compute_knots_single(u_x, self.min_width, self.min_input, self.max_input)
+        knots_y = self.compute_knots_single(u_y, self.min_height, self.min_output, self.max_output)
+        return knots_x, knots_y
+
     def forward_1d(self, x, h):
         raise NotImplementedError
 
