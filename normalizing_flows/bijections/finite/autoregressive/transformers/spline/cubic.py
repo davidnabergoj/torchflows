@@ -65,7 +65,7 @@ class Cubic(MonotonicSpline):
         d_y = h[:, self.n_bins:2 * self.n_bins]
         u_y = u_x + d_y / self.const
         knots_x, knots_y = self.compute_knots(u_x, u_y)
-        idx = torch.searchsorted(knots_x, x) - 1
+        idx = torch.searchsorted(knots_x, x[:, None]) - 1
         x_k, a0, a1, a2, a3 = self.compute_spline_parameters(knots_x, knots_y, idx)
         xi = x - x_k
         z = a0 + a1 * xi + a2 * xi ** 2 + a3 * xi ** 3
@@ -77,3 +77,4 @@ class Cubic(MonotonicSpline):
         d_y = h[:, self.n_bins:2 * self.n_bins]
         u_y = u_x + d_y / self.const
         knots_x, knots_y = self.compute_knots(u_x, u_y)
+        raise NotImplementedError
