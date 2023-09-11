@@ -8,6 +8,7 @@ from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular
 from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, \
     InvertibleResNet, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
+from normalizing_flows.bijections import FFJORD
 from normalizing_flows.bijections.finite.base import ConditionalBijection
 from normalizing_flows.bijections.finite.residual.planar import Planar
 from normalizing_flows.bijections.finite.residual.radial import Radial
@@ -118,5 +119,17 @@ def test_masked_autoregressive(bijection_class: ConditionalBijection, batch_shap
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_residual(bijection_class: ConditionalBijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    assert_valid_reconstruction(bijection, x, context)
+
+
+@pytest.mark.parametrize('bijection_class', [
+    FFJORD
+])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
+def test_continuous(bijection_class: ConditionalBijection, batch_shape: Tuple, event_shape: Tuple,
+                    context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
