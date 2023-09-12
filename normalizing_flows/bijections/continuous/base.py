@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List, Optional
+from typing import Union, Tuple, List, Optional, Dict
 
 import torch
 import torch.nn as nn
@@ -136,7 +136,22 @@ class RegularizedODEFunction(nn.Module):
         self.diffeq = diffeq
         self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
         self.hutch_noise: Optional[torch.Tensor] = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
-        self.sqjacnorm: Optional[torch.Tensor] = None
+
+        self.reg_coef: Dict[str, float] = {
+            'sq_jac_norm': 1.0
+        }
+
+        self.reg_data: Dict[str, Optional[torch.Tensor]] = {
+            'sq_jac_norm': None,  # shape = (n, 1)
+        }
+
+    def regularization(self):
+        total = 0.0
+        for key, val in self.reg_data.items():
+            coef = self.reg_coef['key']
+            if val is not None:
+                total += coef * torch.mean(val)
+        return total
 
     def before_odeint(self, noise: torch.Tensor = None):
         self.hutch_noise = noise
@@ -165,8 +180,12 @@ class RegularizedODEFunction(nn.Module):
             for s_ in states[2:]:
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
-            divergence, sqjacnorm = divergence_approx_extended(dy, y, e=self.hutch_noise).view(batch_size, 1)
-            self.sqjacnorm = sqjacnorm
+            divergence, sq_jac_norm = divergence_approx_extended(
+                dy, y, e=self.hutch_noise
+            )
+            divergence = divergence.view(batch_size, 1)
+            sq_jac_norm = sq_jac_norm.view(batch_size, 1)
+            self.reg_data['sq_jac_norm'] = sq_jac_norm
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
