@@ -3,9 +3,8 @@ import torch
 
 from normalizing_flows import Flow
 from normalizing_flows.bijections import DSCoupling, CouplingDSF
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid, \
-    DeepDenseSigmoid
-from normalizing_flows.bijections.finite.base import invert
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid
+from normalizing_flows.bijections.base import invert
 
 
 @pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])

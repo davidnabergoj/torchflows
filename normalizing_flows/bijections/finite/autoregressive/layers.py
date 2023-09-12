@@ -11,10 +11,9 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.integration
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
-    DeepSigmoid,
-    DeepDenseSigmoid
+    DeepSigmoid
 )
-from normalizing_flows.bijections.finite.base import invert
+from normalizing_flows.bijections.base import invert
 
 
 class ElementwiseAffine(ElementwiseLayer):

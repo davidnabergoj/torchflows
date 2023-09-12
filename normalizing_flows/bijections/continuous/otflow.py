@@ -1,5 +1,5 @@
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 
 
-class OTFlow(ConditionalBijection):
+class OTFlow(Bijection):
     pass

@@ -2,11 +2,11 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import get_batch_shape
 
 
-class Planar(ConditionalBijection):
+class Planar(Bijection):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.inv_planar = InversePlanar(*args, **kwargs)
@@ -18,7 +18,7 @@ class Planar(ConditionalBijection):
         return self.inv_planar.forward(x=z, context=context)
 
 
-class InversePlanar(ConditionalBijection):
+class InversePlanar(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         super().__init__(event_shape)
         self.w = nn.Parameter(torch.randn(size=(self.n_dim,)))

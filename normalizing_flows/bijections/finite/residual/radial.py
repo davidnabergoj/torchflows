@@ -4,11 +4,11 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import softplus
 
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import get_batch_shape
 
 
-class Radial(ConditionalBijection):
+class Radial(Bijection):
     # as per Rezende, Mohamed (2015)
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):

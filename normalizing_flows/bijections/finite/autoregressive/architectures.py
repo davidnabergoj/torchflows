@@ -11,7 +11,7 @@ from normalizing_flows.bijections.finite.autoregressive.layers import (
     ElementwiseAffine,
     UMNNMaskedAutoregressive
 )
-from normalizing_flows.bijections.finite.base import BijectiveComposition
+from normalizing_flows.bijections.base import BijectiveComposition
 from normalizing_flows.bijections.finite.linear import ReversePermutation
 
 

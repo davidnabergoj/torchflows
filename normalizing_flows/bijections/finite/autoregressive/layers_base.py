@@ -6,11 +6,11 @@ from normalizing_flows.bijections.finite.autoregressive.conditioners.base import
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
 
 
-class AutoregressiveLayer(ConditionalBijection):
+class AutoregressiveLayer(Bijection):
     def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
         super().__init__(event_shape=transformer.event_shape)
         self.conditioner = conditioner

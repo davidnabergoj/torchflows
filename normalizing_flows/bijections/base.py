@@ -9,42 +9,15 @@ from normalizing_flows.utils import get_batch_shape
 
 
 class Bijection(nn.Module):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.event_shape = event_shape
-        self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-
-    def forward(self, x: torch.Tensor, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward bijection map.
-        Returns the output vector and the log Jacobian determinant of the forward transform.
-
-        :param x: input array with shape (*batch_shape, *event_shape).
-        :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
-            determinant has shape (*batch_shape,).
-        """
-        raise NotImplementedError
-
-    def inverse(self, z: torch.Tensor, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Inverse bijection map.
-        Returns the output vector and the log Jacobian determinant of the inverse transform.
-
-        :param z: input array with shape (*batch_shape, *event_shape).
-        :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
-            determinant has shape (*batch_shape,).
-        """
-        raise NotImplementedError
-
-
-class ConditionalBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None):
         """
         Bijection class.
         """
-        super().__init__(event_shape)
+        super().__init__()
+        self.event_shape = event_shape
+        self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         self.context_shape = context_shape
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -108,7 +81,7 @@ class ConditionalBijection(Bijection):
         return outputs, log_dets
 
 
-def invert(bijection: ConditionalBijection) -> ConditionalBijection:
+def invert(bijection: Bijection) -> Bijection:
     """
     Swap the forward and inverse methods of the input bijection.
     """
@@ -116,9 +89,9 @@ def invert(bijection: ConditionalBijection) -> ConditionalBijection:
     return bijection
 
 
-class BijectiveComposition(ConditionalBijection):
+class BijectiveComposition(Bijection):
     def __init__(self,
-                 event_shape: torch.Size, layers: List[ConditionalBijection],
+                 event_shape: torch.Size, layers: List[Bijection],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None):
         super().__init__(event_shape=event_shape, context_shape=context_shape)
         self.layers = nn.ModuleList(layers)
