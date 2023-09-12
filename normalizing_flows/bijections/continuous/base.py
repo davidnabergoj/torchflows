@@ -65,10 +65,10 @@ class ODEFunction(nn.Module):
         super().__init__()
         self.diffeq = diffeq
         self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
-        self._e = None
+        self.hutch_noise = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
 
-    def before_odeint(self, e=None):
-        self._e = e  # What is e?
+    def before_odeint(self, noise: torch.Tensor = None):
+        self.hutch_noise = noise
         self._n_evals.fill_(0)
 
     def forward(self, t, states):
@@ -85,8 +85,8 @@ class ODEFunction(nn.Module):
         t = torch.tensor(t).type_as(y)
         batch_size = y.shape[0]
 
-        if self._e is None:
-            self._e = torch.randn_like(y)
+        if self.hutch_noise is None:
+            self.hutch_noise = torch.randn_like(y)
 
         with torch.enable_grad():
             y.requires_grad_(True)
@@ -94,7 +94,7 @@ class ODEFunction(nn.Module):
             for s_ in states[2:]:
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
-            divergence = divergence_approx(dy, y, e=self._e).view(batch_size, 1)
+            divergence = divergence_approx(dy, y, e=self.hutch_noise).view(batch_size, 1)
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
@@ -131,6 +131,7 @@ class ContinuousBijection(nn.Module):
     def inverse(self,
                 z: torch.Tensor,
                 integration_times: torch.Tensor = None,
+                noise: torch.Tensor = None,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
 
@@ -148,7 +149,7 @@ class ContinuousBijection(nn.Module):
             integration_times = self.make_integrations_times(z_flat)
 
         # Refresh odefunc statistics
-        self.f.before_odeint()
+        self.f.before_odeint(noise=noise)
 
         log_det_initial = torch.zeros(size=(batch_size, 1)).to(z_flat)
         state_t = odeint(
@@ -174,11 +175,13 @@ class ContinuousBijection(nn.Module):
     def forward(self,
                 x: torch.Tensor,
                 integration_times: torch.Tensor = None,
+                noise: torch.Tensor = None,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         if integration_times is None:
             integration_times = self.make_integrations_times(x)
         return self.inverse(
             x,
             integration_times=_flip(integration_times, 0),
+            noise=noise,
             **kwargs
         )

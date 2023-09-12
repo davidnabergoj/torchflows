@@ -64,6 +64,41 @@ def assert_valid_reconstruction(bijection: ConditionalBijection,
         f"E: {(log_det_forward + log_det_inverse).abs().max():.16f}"
 
 
+def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
+                                           x: torch.Tensor,
+                                           context: torch.Tensor,
+                                           reconstruction_eps=1e-3,
+                                           log_det_eps=1e-3):
+    if context is None:
+        # We need this check for transformers, as they do not receive context as an input.
+        z, log_det_forward = bijection.forward(x)
+        xr, log_det_inverse = bijection.inverse(z, noise=bijection.f.hutch_noise)
+    else:
+        z, log_det_forward = bijection.forward(x, context=context)
+        xr, log_det_inverse = bijection.inverse(z, context=context, noise=bijection.f.hutch_noise)
+
+    batch_shape = get_batch_shape(x, bijection.event_shape)
+
+    assert x.shape == z.shape
+    assert log_det_forward.shape == log_det_inverse.shape
+    assert log_det_forward.shape == batch_shape
+
+    assert torch.all(~torch.isnan(z))
+    assert torch.all(~torch.isnan(xr))
+    assert torch.all(~torch.isnan(log_det_forward))
+    assert torch.all(~torch.isnan(log_det_inverse))
+
+    assert torch.all(~torch.isinf(z))
+    assert torch.all(~torch.isinf(xr))
+    assert torch.all(~torch.isinf(log_det_forward))
+    assert torch.all(~torch.isinf(log_det_inverse))
+
+    assert torch.allclose(x, xr, atol=reconstruction_eps), \
+        f"E: {(x - xr).abs().max():.16f}"
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=log_det_eps), \
+        f"E: {(log_det_forward + log_det_inverse).abs().max():.16f}"
+
+
 @pytest.mark.parametrize('bijection_class', [
     LU,
     ReversePermutation,
@@ -137,4 +172,4 @@ def test_residual(bijection_class: ConditionalBijection, batch_shape: Tuple, eve
 def test_continuous(bijection_class: ContinuousBijection, batch_shape: Tuple, event_shape: Tuple,
                     context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
-    assert_valid_reconstruction(bijection, x, context)
+    assert_valid_reconstruction_continuous(bijection, x, context)
