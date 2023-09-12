@@ -5,10 +5,8 @@ import torch
 import torch.nn as nn
 from torchdiffeq import odeint
 
-from normalizing_flows import Flow
 
-
-# Similar to: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
+# Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
 
 def _flip(x, dim):
     indices = [slice(None)] * x.dim()
