@@ -1,4 +1,3 @@
-from normalizing_flows.bijections.continuous.base import ContinuousBijection
 from typing import Union, Tuple
 
 import torch
