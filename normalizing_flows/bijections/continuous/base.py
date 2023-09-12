@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Optional
 
 import torch
 import torch.nn as nn
@@ -16,11 +16,35 @@ def _flip(x, dim):
     return x[tuple(indices)]
 
 
-def divergence_approx(f, y, e=None):
+def divergence_approx_basic(f, y, e: torch.Tensor = None):
     e_dzdx = torch.autograd.grad(f, y, e, create_graph=True)[0]
     e_dzdx_e = e_dzdx * e
     approx_tr_dzdx = e_dzdx_e.view(y.shape[0], -1).sum(dim=1)
     return approx_tr_dzdx
+
+
+def divergence_approx_extended(f, y, e: Union[torch.Tensor, Tuple[torch.Tensor]] = None):
+    """
+
+    :param e: tuple of noise samples for hutchinson trace estimation.
+              One noise tensor may be enough for unbiased estimates.
+    :return: divergence and frobenius norms of jacobians.
+    """
+    if isinstance(e, torch.Tensor):
+        e = (e,)  # Convert to tuple
+
+    samples = []
+    sqnorms = []
+    for e_ in e:
+        e_dzdx = torch.autograd.grad(f, y, e_, create_graph=True)[0]
+        n = e_dzdx.view(y.size(0), -1).pow(2).mean(dim=1, keepdim=True)
+        sqnorms.append(n)
+        e_dzdx_e = e_dzdx * e_
+        samples.append(e_dzdx_e.view(y.shape[0], -1).sum(dim=1, keepdim=True))
+    S = torch.cat(samples, dim=1)
+    approx_tr_dzdx = S.mean(dim=1)
+    N = torch.cat(sqnorms, dim=1).mean(dim=1)
+    return approx_tr_dzdx, N
 
 
 def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
@@ -94,7 +118,47 @@ class ODEFunction(nn.Module):
             for s_ in states[2:]:
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
-            divergence = divergence_approx(dy, y, e=self.hutch_noise).view(batch_size, 1)
+            divergence = divergence_approx_basic(dy, y, e=self.hutch_noise).view(batch_size, 1)
+        return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
+
+
+class RegularizedODEFunction(nn.Module):
+    def __init__(self, diffeq: DifferentialEquationNeuralNetwork):
+        super().__init__()
+        self.diffeq = diffeq
+        self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
+        self.hutch_noise: Optional[torch.Tensor] = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
+        self.sqjacnorm: Optional[torch.Tensor] = None
+
+    def before_odeint(self, noise: torch.Tensor = None):
+        self.hutch_noise = noise
+        self._n_evals.fill_(0)
+
+    def forward(self, t, states):
+        """
+
+        :param t: shape ()
+        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
+        :return:
+        """
+        assert len(states) >= 2
+        y = states[0]
+        self._n_evals += 1
+
+        t = torch.tensor(t).type_as(y)
+        batch_size = y.shape[0]
+
+        if self.hutch_noise is None:
+            self.hutch_noise = torch.randn_like(y)
+
+        with torch.enable_grad():
+            y.requires_grad_(True)
+            t.requires_grad_(True)
+            for s_ in states[2:]:
+                s_.requires_grad_(True)
+            dy = self.diffeq(t, y, *states[2:])
+            divergence, sqjacnorm = divergence_approx_extended(dy, y, e=self.hutch_noise).view(batch_size, 1)
+            self.sqjacnorm = sqjacnorm
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
