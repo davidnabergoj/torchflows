@@ -1,5 +1,5 @@
-from normalizing_flows.bijections.base import Bijection
+from normalizing_flows.bijections.continuous.base import ContinuousBijection
 
 
-class OTFlow(Bijection):
+class OTFlow(ContinuousBijection):
     pass
