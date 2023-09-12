@@ -102,6 +102,10 @@ class Flow(nn.Module):
                 w = batch_w.to(self.loc)
                 assert log_prob.shape == w.shape
                 loss = -torch.mean(log_prob * w) / n_event_dims
+
+                if hasattr(self.bijection, 'regularization'):
+                    loss += self.bijection.regularization()
+
                 loss.backward()
                 optimizer.step()
 

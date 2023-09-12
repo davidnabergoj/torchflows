@@ -1,7 +1,7 @@
 from normalizing_flows.bijections.finite.autoregressive.architectures import *
 from normalizing_flows.bijections.finite.autoregressive.layers import *
 from normalizing_flows.bijections.continuous.ffjord import FFJORD
-from normalizing_flows.bijections.continuous.rnode import RNode
+from normalizing_flows.bijections.continuous.rnode import RNODE
 from normalizing_flows.bijections.continuous.otflow import OTFlow
 from normalizing_flows.bijections.continuous.ddnf import DDNF
 from normalizing_flows.bijections.finite.residual.planar import Planar, InversePlanar
