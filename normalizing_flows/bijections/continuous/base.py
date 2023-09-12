@@ -7,6 +7,11 @@ from normalizing_flows.bijections.continuous.layers import DiffEqLayer
 import normalizing_flows.bijections.continuous.layers as diff_eq_layers
 from normalizing_flows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
+# TODO: have ODEFunction and RegularizedODEFunction return reg_states as the third output.
+#       This should be an expected output in tests.
+#       We should create a ContinuousFlow class which handles the third output and uses it in the fit method
+#       Alternatively: store reg_states as an attribute of the bijection. Make it so that the base bijection class
+#       contains a reg_states attribute, which is accessed during Flow.fit.
 
 # Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
 
