@@ -3,9 +3,12 @@ from typing import Union, Tuple, List, Optional
 import torch
 import torch.nn as nn
 from torchdiffeq import odeint
+
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.layers import DiffEqLayer
 import normalizing_flows.bijections.continuous.layers as diff_eq_layers
 from normalizing_flows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
+
 
 # TODO: have ODEFunction and RegularizedODEFunction return reg_states as the third output.
 #       This should be an expected output in tests.
@@ -167,10 +170,11 @@ class RegularizedODEFunction(nn.Module):
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
-class ContinuousBijection(nn.Module):
+class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
                  solver: str = 'dopri5',
                  atol: float = 1e-5,
@@ -184,9 +188,7 @@ class ContinuousBijection(nn.Module):
         :param solver: which solver to use.
         :param kwargs:
         """
-        super().__init__()
-        self.event_shape = event_shape
-        self.n_dim = int(torch.prod(torch.as_tensor(self.event_shape)))
+        super().__init__(event_shape, context_shape)
         self.f = f
         self.register_buffer("sqrt_end_time", torch.sqrt(torch.tensor(end_time)))
         self.end_time = end_time
