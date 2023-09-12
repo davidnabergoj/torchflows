@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from torchdiffeq import odeint
 from normalizing_flows.bijections.continuous.layers import DiffEqLayer
+import normalizing_flows.bijections.continuous.layers as diff_eq_layers
 
 
 # Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
@@ -14,7 +15,28 @@ def _flip(x, dim):
     return x[tuple(indices)]
 
 
+def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
+    assert n_hidden_layers >= 0
+    if n_hidden_layers == 0:
+        layers = [diff_eq_layers.ConcatLinear(event_size, event_size)]
+    else:
+        layers = [
+            diff_eq_layers.ConcatLinear(event_size, hidden_size),
+            *[diff_eq_layers.ConcatLinear(hidden_size, hidden_size) for _ in range(n_hidden_layers)],
+            diff_eq_layers.ConcatLinear(hidden_size, event_size)
+        ]
+
+    return DifferentialEquationNeuralNetwork(layers)
+
+
 class DifferentialEquationNeuralNetwork(nn.Module):
+    """
+    Neural network that takes as input a scalar t and a tuple of state tensors (y0, y1, ... yn).
+    It outputs a predicted tuple of derivatives (dy0/dt, dy1/dt, ... dyn/dt).
+    These derivatives determine the ODE system in FFJORD.
+    To use time information, t is concatenated to each layer input in this neural network.
+    """
+
     def __init__(self, layers: List[DiffEqLayer]):
         super().__init__()
         self.layers = nn.ModuleList(layers)
@@ -87,7 +109,8 @@ class ContinuousFlow(nn.Module):
         :param solver: which solver to use.
         :param kwargs:
         """
-        # self.event_shape = event_shape
+        self.event_shape = event_shape
+        self.n_dim = int(torch.prod(torch.as_tensor(self.event_shape)))
         self.f = f
         self.register_buffer("sqrt_end_time", torch.sqrt(torch.tensor(end_time)))
         self.end_time = end_time
