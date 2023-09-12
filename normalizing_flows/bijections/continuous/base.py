@@ -1,9 +1,9 @@
-import math
-from typing import Union, Tuple
+from typing import Union, Tuple, List
 
 import torch
 import torch.nn as nn
 from torchdiffeq import odeint
+from normalizing_flows.bijections.continuous.layers import DiffEqLayer
 
 
 # Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
@@ -15,23 +15,21 @@ def _flip(x, dim):
 
 
 class DifferentialEquationNeuralNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, layers: List[DiffEqLayer]):
         super().__init__()
+        self.layers = nn.ModuleList(layers)
 
+    def forward(self, t, x):
+        # Reshape t and x
+        dx = x
+        for i, layer in self.layers:
+            dx = layer(t, dx)
 
-class ConcatenationDiffEq(DifferentialEquationNeuralNetwork):
-    # Concatenate t to every layer input
-    def __init__(self, event_size: int, hidden_size: int = None, n_hidden_layers: int = 2):
-        super().__init__()
-        if hidden_size is None:
-            hidden_size = max(4, int(3 * math.log10(event_size)))
-
-        self.event_size = event_size
-        self.hidden_size = hidden_size
-        self.n_hidden_layers = n_hidden_layers
-
-    def forward(self, t, y):
-        pass
+            # Apply nonlinearity
+            if i < len(self.layers) - 1:
+                dx = torch.tanh(dx)
+        # Reshape back
+        return dx
 
 
 class ODEFunction(nn.Module):
