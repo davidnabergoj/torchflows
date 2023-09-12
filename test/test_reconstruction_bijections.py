@@ -58,9 +58,9 @@ def assert_valid_reconstruction(bijection: ConditionalBijection,
     assert torch.all(~torch.isinf(log_det_inverse))
 
     assert torch.allclose(x, xr, atol=reconstruction_eps), \
-        f"E: {(x - xr).abs().max()[0]:.16f}"
+        f"E: {(x - xr).abs().max():.16f}"
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=log_det_eps), \
-        f"E: {(log_det_forward + log_det_inverse).abs().max()[0]:.16f}"
+        f"E: {(log_det_forward + log_det_inverse).abs().max():.16f}"
 
 
 @pytest.mark.parametrize('bijection_class', [
