@@ -1,4 +1,4 @@
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Any
 
 import torch
 
@@ -19,6 +19,7 @@ class Bijection(nn.Module):
         self.event_shape = event_shape
         self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         self.context_shape = context_shape
+        self._aux_data: Any = None  # Auxiliary data
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
