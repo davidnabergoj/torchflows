@@ -3,45 +3,44 @@ import torch
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from normalizing_flows.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
-from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveLayer, \
-    InverseMaskedAutoregressiveLayer, ElementwiseLayer, CouplingLayer
+from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveBijection, \
+    InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
-    DeepSigmoid,
-    DeepDenseSigmoid
+    DeepSigmoid
 )
-from normalizing_flows.bijections.finite.base import invert
+from normalizing_flows.bijections.base import invert
 
 
-class ElementwiseAffine(ElementwiseLayer):
+class ElementwiseAffine(ElementwiseBijection):
     def __init__(self, event_shape, **kwargs):
         transformer = Affine(event_shape, **kwargs)
         super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
-class ElementwiseScale(ElementwiseLayer):
+class ElementwiseScale(ElementwiseBijection):
     def __init__(self, event_shape, **kwargs):
         transformer = Scale(event_shape, **kwargs)
         super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
-class ElementwiseShift(ElementwiseLayer):
+class ElementwiseShift(ElementwiseBijection):
     def __init__(self, event_shape):
         transformer = Shift(event_shape)
         super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
-class ElementwiseRQSpline(ElementwiseLayer):
+class ElementwiseRQSpline(ElementwiseBijection):
     def __init__(self, event_shape, **kwargs):
         transformer = RationalQuadratic(event_shape, **kwargs)
         super().__init__(transformer, n_transformer_parameters=transformer.n_parameters)
 
 
-class AffineCoupling(CouplingLayer):
+class AffineCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -60,7 +59,7 @@ class AffineCoupling(CouplingLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class InverseAffineCoupling(CouplingLayer):
+class InverseAffineCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -79,7 +78,7 @@ class InverseAffineCoupling(CouplingLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class ShiftCoupling(CouplingLayer):
+class ShiftCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -96,7 +95,7 @@ class ShiftCoupling(CouplingLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class LRSCoupling(CouplingLayer):
+class LRSCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -115,7 +114,7 @@ class LRSCoupling(CouplingLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class RQSCoupling(CouplingLayer):
+class RQSCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -133,7 +132,7 @@ class RQSCoupling(CouplingLayer):
         super().__init__(conditioner, transformer, conditioner_transform)
 
 
-class DSCoupling(CouplingLayer):
+class DSCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -173,7 +172,7 @@ class LinearShiftCoupling(ShiftCoupling):
         super().__init__(event_shape, **kwargs, n_layers=1)
 
 
-class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -194,7 +193,7 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
         )
 
 
-class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -216,7 +215,7 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
         )
 
 
-class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
+class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -237,7 +236,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
         )
 
 
-class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
+class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -260,7 +259,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveLayer):
         )
 
 
-class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveLayer):
+class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,

@@ -2,11 +2,11 @@ from typing import Union, Tuple
 
 import torch
 
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import get_batch_shape, unflatten_event, flatten_event
 
 
-class ResidualBijection(ConditionalBijection):
+class ResidualBijection(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
         """
 

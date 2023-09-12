@@ -6,11 +6,11 @@ from normalizing_flows.bijections.finite.autoregressive.conditioners.base import
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
 
 
-class AutoregressiveLayer(ConditionalBijection):
+class AutoregressiveBijection(Bijection):
     def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
         super().__init__(event_shape=transformer.event_shape)
         self.conditioner = conditioner
@@ -28,7 +28,7 @@ class AutoregressiveLayer(ConditionalBijection):
         return x, log_det
 
 
-class CouplingLayer(AutoregressiveLayer):
+class CouplingBijection(AutoregressiveBijection):
     def __init__(self, conditioner: Coupling, transformer: Transformer, conditioner_transform: ConditionerTransform,
                  **kwargs):
         super().__init__(conditioner, transformer, conditioner_transform, **kwargs)
@@ -50,7 +50,7 @@ class CouplingLayer(AutoregressiveLayer):
         return x, log_det
 
 
-class ForwardMaskedAutoregressiveLayer(AutoregressiveLayer):
+class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
     def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
         super().__init__(conditioner, transformer, conditioner_transform)
 
@@ -72,10 +72,10 @@ class ForwardMaskedAutoregressiveLayer(AutoregressiveLayer):
         return x, log_det
 
 
-class InverseMaskedAutoregressiveLayer(AutoregressiveLayer):
+class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
     def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
         super().__init__(conditioner, transformer, conditioner_transform)
-        self.forward_layer = ForwardMaskedAutoregressiveLayer(
+        self.forward_layer = ForwardMaskedAutoregressiveBijection(
             conditioner,
             transformer,
             conditioner_transform
@@ -88,7 +88,7 @@ class InverseMaskedAutoregressiveLayer(AutoregressiveLayer):
         return self.forward_layer.forward(z, context=context)
 
 
-class ElementwiseLayer(AutoregressiveLayer):
+class ElementwiseBijection(AutoregressiveBijection):
     def __init__(self, transformer: Transformer, n_transformer_parameters: int):
         super().__init__(NullConditioner(), transformer, Constant(transformer.event_shape, n_transformer_parameters))
         # TODO override forward and inverse to save on space

@@ -11,7 +11,7 @@ from normalizing_flows.bijections import (
     FFJORD,
     DDNF,
     OTFlow,
-    RNode,
+    RNODE,
     InvertibleResNet,
     ResFlow,
     ProximalResidualFlow,

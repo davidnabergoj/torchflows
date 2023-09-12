@@ -10,7 +10,8 @@ from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAuto
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
 from normalizing_flows.bijections import FFJORD
 from normalizing_flows.bijections.continuous.base import ContinuousBijection
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
+from normalizing_flows.bijections.continuous.rnode import RNODE
 from normalizing_flows.bijections.finite.residual.planar import Planar
 from normalizing_flows.bijections.finite.residual.radial import Radial
 from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
@@ -29,7 +30,7 @@ def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     return bijection, x, context
 
 
-def assert_valid_reconstruction(bijection: ConditionalBijection,
+def assert_valid_reconstruction(bijection: Bijection,
                                 x: torch.Tensor,
                                 context: torch.Tensor,
                                 reconstruction_eps=1e-3,
@@ -79,19 +80,23 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
 
     batch_shape = get_batch_shape(x, bijection.event_shape)
 
+    # Check shapes
     assert x.shape == z.shape
     assert log_det_forward.shape == log_det_inverse.shape
     assert log_det_forward.shape == batch_shape
+    assert bijection.regularization().shape == ()
 
     assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(xr))
     assert torch.all(~torch.isnan(log_det_forward))
     assert torch.all(~torch.isnan(log_det_inverse))
+    assert torch.all(~torch.isnan(bijection.regularization()))
 
     assert torch.all(~torch.isinf(z))
     assert torch.all(~torch.isinf(xr))
     assert torch.all(~torch.isinf(log_det_forward))
     assert torch.all(~torch.isinf(log_det_inverse))
+    assert torch.all(~torch.isinf(bijection.regularization()))
 
     assert torch.allclose(x, xr, atol=reconstruction_eps), \
         f"E: {(x - xr).abs().max():.16f}"
@@ -112,7 +117,7 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
-def test_linear(bijection_class: ConditionalBijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
@@ -127,7 +132,7 @@ def test_linear(bijection_class: ConditionalBijection, batch_shape: Tuple, event
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
-def test_coupling(bijection_class: ConditionalBijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+def test_coupling(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
@@ -141,7 +146,7 @@ def test_coupling(bijection_class: ConditionalBijection, batch_shape: Tuple, eve
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
-def test_masked_autoregressive(bijection_class: ConditionalBijection, batch_shape: Tuple, event_shape: Tuple,
+def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple,
                                context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
@@ -158,13 +163,14 @@ def test_masked_autoregressive(bijection_class: ConditionalBijection, batch_shap
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
-def test_residual(bijection_class: ConditionalBijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
 
 @pytest.mark.parametrize('bijection_class', [
-    FFJORD
+    FFJORD,
+    RNODE
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])

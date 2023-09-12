@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, get_batch_shape
 
 
 class Flow(nn.Module):
-    def __init__(self, bijection: ConditionalBijection):
+    def __init__(self, bijection: Bijection):
         super().__init__()
         self.register_module('bijection', bijection)
         self.register_buffer('loc', torch.zeros(self.bijection.n_dim))
@@ -102,6 +102,10 @@ class Flow(nn.Module):
                 w = batch_w.to(self.loc)
                 assert log_prob.shape == w.shape
                 loss = -torch.mean(log_prob * w) / n_event_dims
+
+                if hasattr(self.bijection, 'regularization'):
+                    loss += self.bijection.regularization()
+
                 loss.backward()
                 optimizer.step()
 

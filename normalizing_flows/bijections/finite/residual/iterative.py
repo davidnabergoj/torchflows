@@ -3,7 +3,7 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.base import ConditionalBijection
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.finite.residual.base import ResidualBijection
 from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
 
@@ -84,7 +84,7 @@ class ResFlow(InvertibleResNet):
         return log_det_roulette(self.g, x)[1]
 
 
-class QuasiAutoregressiveFlow(ConditionalBijection):
+class QuasiAutoregressiveFlow(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], sigma: float = 0.7):
         super().__init__(event_shape)
         self.log_theta = nn.Parameter(torch.randn())

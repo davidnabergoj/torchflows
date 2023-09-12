@@ -1,11 +1,14 @@
-from typing import Union, Tuple, List, Optional
+from typing import Union, Tuple, List, Optional, Dict
 
 import torch
 import torch.nn as nn
 from torchdiffeq import odeint
+
+from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.layers import DiffEqLayer
 import normalizing_flows.bijections.continuous.layers as diff_eq_layers
 from normalizing_flows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
+
 
 # TODO: have ODEFunction and RegularizedODEFunction return reg_states as the third output.
 #       This should be an expected output in tests.
@@ -90,15 +93,25 @@ class DifferentialEquationNeuralNetwork(nn.Module):
 
 
 class ODEFunction(nn.Module):
-    def __init__(self, diffeq: DifferentialEquationNeuralNetwork):
+    def __init__(self,
+                 network: DifferentialEquationNeuralNetwork):
         super().__init__()
-        self.diffeq = diffeq
+        self.diffeq = network
         self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
         self.hutch_noise = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
 
+    def regularization(self):
+        return torch.tensor(0.0)
+
     def before_odeint(self, noise: torch.Tensor = None):
         self.hutch_noise = noise
         self._n_evals.fill_(0)
+
+    def divergence_step(self, dy, y) -> torch.Tensor:
+        """
+        Compute divergence and store auxiliary data as attributes.
+        """
+        pass
 
     def forward(self, t, states):
         """
@@ -112,7 +125,6 @@ class ODEFunction(nn.Module):
         self._n_evals += 1
 
         t = torch.tensor(t).type_as(y)
-        batch_size = y.shape[0]
 
         if self.hutch_noise is None:
             self.hutch_noise = torch.randn_like(y)
@@ -123,54 +135,56 @@ class ODEFunction(nn.Module):
             for s_ in states[2:]:
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
-            divergence = divergence_approx_basic(dy, y, e=self.hutch_noise).view(batch_size, 1)
+            divergence = self.divergence_step(dy, y)
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
-class RegularizedODEFunction(nn.Module):
-    def __init__(self, diffeq: DifferentialEquationNeuralNetwork):
-        super().__init__()
-        self.diffeq = diffeq
-        self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
-        self.hutch_noise: Optional[torch.Tensor] = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
-        self.sqjacnorm: Optional[torch.Tensor] = None
+class ODEFunctionBasic(ODEFunction):
+    def __init__(self, network: DifferentialEquationNeuralNetwork):
+        super().__init__(network=network)
 
-    def before_odeint(self, noise: torch.Tensor = None):
-        self.hutch_noise = noise
-        self._n_evals.fill_(0)
-
-    def forward(self, t, states):
-        """
-
-        :param t: shape ()
-        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
-        :return:
-        """
-        assert len(states) >= 2
-        y = states[0]
-        self._n_evals += 1
-
-        t = torch.tensor(t).type_as(y)
+    def divergence_step(self, dy, y) -> torch.Tensor:
         batch_size = y.shape[0]
-
-        if self.hutch_noise is None:
-            self.hutch_noise = torch.randn_like(y)
-
-        with torch.enable_grad():
-            y.requires_grad_(True)
-            t.requires_grad_(True)
-            for s_ in states[2:]:
-                s_.requires_grad_(True)
-            dy = self.diffeq(t, y, *states[2:])
-            divergence, sqjacnorm = divergence_approx_extended(dy, y, e=self.hutch_noise).view(batch_size, 1)
-            self.sqjacnorm = sqjacnorm
-        return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
+        return divergence_approx_basic(dy, y, e=self.hutch_noise).view(batch_size, 1)
 
 
-class ContinuousBijection(nn.Module):
+class RegularizedODEFunction(ODEFunction):
+    def __init__(self, network: DifferentialEquationNeuralNetwork):
+        super().__init__(network)
+        self.reg_coef: Dict[str, float] = {
+            'sq_jac_norm': 1.0
+        }
+        self.reg_data: Dict[str, Optional[torch.Tensor]] = {
+            'sq_jac_norm': None,  # shape = (n, 1)
+        }
+
+    def regularization(self):
+        total = torch.tensor(0.0)
+        for key, val in self.reg_data.items():
+            coef = self.reg_coef[key]
+            if val is not None:
+                total += coef * torch.mean(val)
+        return total
+
+    def divergence_step(self, dy, y) -> torch.Tensor:
+        batch_size = y.shape[0]
+        divergence, sq_jac_norm = divergence_approx_extended(
+            dy, y, e=self.hutch_noise
+        )
+        divergence = divergence.view(batch_size, 1)
+
+        # Compute and store regularization data
+        sq_jac_norm = sq_jac_norm.view(batch_size, 1)
+        self.reg_data['sq_jac_norm'] = sq_jac_norm
+
+        return divergence
+
+
+class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
                  solver: str = 'dopri5',
                  atol: float = 1e-5,
@@ -184,9 +198,7 @@ class ContinuousBijection(nn.Module):
         :param solver: which solver to use.
         :param kwargs:
         """
-        super().__init__()
-        self.event_shape = event_shape
-        self.n_dim = int(torch.prod(torch.as_tensor(self.event_shape)))
+        super().__init__(event_shape, context_shape)
         self.f = f
         self.register_buffer("sqrt_end_time", torch.sqrt(torch.tensor(end_time)))
         self.end_time = end_time
@@ -254,3 +266,6 @@ class ContinuousBijection(nn.Module):
             noise=noise,
             **kwargs
         )
+
+    def regularization(self):
+        return self.f.regularization()

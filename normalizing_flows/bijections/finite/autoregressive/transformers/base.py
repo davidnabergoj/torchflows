@@ -2,7 +2,7 @@ from typing import Tuple, Union
 
 import torch
 
-from normalizing_flows.bijections.finite.base import Bijection
+from normalizing_flows.bijections.base import Bijection
 
 
 class Transformer(Bijection):
