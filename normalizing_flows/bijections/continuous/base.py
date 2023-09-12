@@ -5,6 +5,7 @@ import torch.nn as nn
 from torchdiffeq import odeint
 from normalizing_flows.bijections.continuous.layers import DiffEqLayer
 import normalizing_flows.bijections.continuous.layers as diff_eq_layers
+from normalizing_flows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
 
 # Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
@@ -49,15 +50,13 @@ class DifferentialEquationNeuralNetwork(nn.Module):
         self.layers = nn.ModuleList(layers)
 
     def forward(self, t, x):
-        # Reshape t and x
         dx = x
         for i, layer in enumerate(self.layers):
             dx = layer(t, dx)
-
             # Apply nonlinearity
             if i < len(self.layers) - 1:
                 dx = torch.tanh(dx)
-        # Reshape back
+        assert dx.shape == x.shape
         return dx
 
 
@@ -99,7 +98,7 @@ class ODEFunction(nn.Module):
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
-class ContinuousFlow(nn.Module):
+class ContinuousBijection(nn.Module):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
@@ -135,22 +134,26 @@ class ContinuousFlow(nn.Module):
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
 
-        :param z: tensor with shape (batch_size, event_size), i.e. len(x.shape) == 2.
+        :param z: tensor with shape (*batch_shape, *event_shape).
         :param integration_times:
         :param kwargs:
         :return:
         """
+        # Flatten everything to facilitate computations
+        batch_shape = get_batch_shape(z, self.event_shape)
+        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
+        z_flat = flatten_batch(flatten_event(z, self.event_shape), batch_shape)
 
         if integration_times is None:
-            integration_times = self.make_integrations_times(z)
+            integration_times = self.make_integrations_times(z_flat)
 
         # Refresh odefunc statistics
         self.f.before_odeint()
 
-        log_det_initial = torch.zeros(size=(z.shape[0], 1)).to(z)
+        log_det_initial = torch.zeros(size=(batch_size, 1)).to(z_flat)
         state_t = odeint(
             self.f,
-            (z, log_det_initial),
+            (z_flat, log_det_initial),
             integration_times,
             atol=self.atol,
             rtol=self.rtol,
@@ -160,10 +163,13 @@ class ContinuousFlow(nn.Module):
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
 
-        z_final, log_det_final = state_t[:2]
+        z_final_flat, log_det_final_flat = state_t[:2]
 
-        x = z_final
-        return x, log_det_final
+        # Reshape back to original shape
+        x = unflatten_event(unflatten_batch(z_final_flat, batch_shape), self.event_shape)
+        log_det = log_det_final_flat.view(*batch_shape)
+
+        return x, log_det
 
     def forward(self,
                 x: torch.Tensor,
