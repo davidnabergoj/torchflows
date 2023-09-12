@@ -13,6 +13,7 @@ from normalizing_flows.bijections.finite.base import ConditionalBijection
 from normalizing_flows.bijections.finite.residual.planar import Planar
 from normalizing_flows.bijections.finite.residual.radial import Radial
 from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
+from normalizing_flows.utils import get_batch_shape
 from test.constants import __test_constants
 
 
@@ -40,8 +41,11 @@ def assert_valid_reconstruction(bijection: ConditionalBijection,
         z, log_det_forward = bijection.forward(x, context=context)
         xr, log_det_inverse = bijection.inverse(z, context=context)
 
+    batch_shape = get_batch_shape(x, bijection.event_shape)
+
     assert x.shape == z.shape
     assert log_det_forward.shape == log_det_inverse.shape
+    assert log_det_forward.shape == batch_shape
 
     assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(xr))

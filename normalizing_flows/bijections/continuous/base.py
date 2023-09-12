@@ -126,39 +126,20 @@ class ContinuousFlow(nn.Module):
         self.atol = atol
         self.rtol = rtol
 
-    @staticmethod
-    def make_default_logpz(z):
-        return torch.zeros(size=(z.shape[0], 1)).to(z)
-
     def make_integrations_times(self, z):
         return torch.tensor([0.0, self.sqrt_end_time * self.sqrt_end_time]).to(z)
 
-    def forward(self,
-                x: torch.Tensor,
-                logpx=None,
-                integration_times=None,
-                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        if integration_times is None:
-            integration_times = self.make_integrations_times(x)
-        return self.inverse(x, logpx, _flip(integration_times, 0), **kwargs)
-
     def inverse(self,
                 z: torch.Tensor,
-                logpz=None,
-                integration_times=None,
+                integration_times: torch.Tensor = None,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
 
         :param z: tensor with shape (batch_size, event_size), i.e. len(x.shape) == 2.
-        :param logpz: accumulated log determinant of the jacobian of df/dz.
         :param integration_times:
         :param kwargs:
         :return:
         """
-        if logpz is None:
-            _logpz = self.make_default_logpz(z)
-        else:
-            _logpz = logpz
 
         if integration_times is None:
             integration_times = self.make_integrations_times(z)
@@ -166,9 +147,10 @@ class ContinuousFlow(nn.Module):
         # Refresh odefunc statistics
         self.f.before_odeint()
 
+        log_det_initial = torch.zeros(size=(z.shape[0], 1)).to(z)
         state_t = odeint(
             self.f,
-            (z, _logpz),
+            (z, log_det_initial),
             integration_times,
             atol=self.atol,
             rtol=self.rtol,
@@ -178,9 +160,19 @@ class ContinuousFlow(nn.Module):
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
 
-        z_t, logpz_t = state_t[:2]
+        z_final, log_det_final = state_t[:2]
 
-        if logpz is not None:
-            return z_t, logpz_t
-        else:
-            return z_t
+        x = z_final
+        return x, log_det_final
+
+    def forward(self,
+                x: torch.Tensor,
+                integration_times: torch.Tensor = None,
+                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        if integration_times is None:
+            integration_times = self.make_integrations_times(x)
+        return self.inverse(
+            x,
+            integration_times=_flip(integration_times, 0),
+            **kwargs
+        )
