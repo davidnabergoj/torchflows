@@ -15,6 +15,13 @@ def _flip(x, dim):
     return x[tuple(indices)]
 
 
+def divergence_approx(f, y, e=None):
+    e_dzdx = torch.autograd.grad(f, y, e, create_graph=True)[0]
+    e_dzdx_e = e_dzdx * e
+    approx_tr_dzdx = e_dzdx_e.view(y.shape[0], -1).sum(dim=1)
+    return approx_tr_dzdx
+
+
 def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
     assert n_hidden_layers >= 0
     if n_hidden_layers == 0:
@@ -44,7 +51,7 @@ class DifferentialEquationNeuralNetwork(nn.Module):
     def forward(self, t, x):
         # Reshape t and x
         dx = x
-        for i, layer in self.layers:
+        for i, layer in enumerate(self.layers):
             dx = layer(t, dx)
 
             # Apply nonlinearity
@@ -88,7 +95,7 @@ class ODEFunction(nn.Module):
             for s_ in states[2:]:
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
-            divergence = self.divergence_fn(dy, y, e=self._e).view(batch_size, 1)
+            divergence = divergence_approx(dy, y, e=self._e).view(batch_size, 1)
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
@@ -109,6 +116,7 @@ class ContinuousFlow(nn.Module):
         :param solver: which solver to use.
         :param kwargs:
         """
+        super().__init__()
         self.event_shape = event_shape
         self.n_dim = int(torch.prod(torch.as_tensor(self.event_shape)))
         self.f = f
@@ -117,7 +125,6 @@ class ContinuousFlow(nn.Module):
         self.solver = solver
         self.atol = atol
         self.rtol = rtol
-        super().__init__()
 
     @staticmethod
     def make_default_logpz(z):
