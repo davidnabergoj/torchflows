@@ -9,7 +9,7 @@ from normalizing_flows.bijections import (
     InverseAutoregressiveRQNSF,
     MaskedAutoregressiveRQNSF,
     FFJORD,
-    DDNF,
+    DeepDiffeomorphicBijection,
     OTFlow,
     RNODE,
     InvertibleResNet,

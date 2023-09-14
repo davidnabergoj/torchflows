@@ -11,6 +11,7 @@ from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAuto
 from normalizing_flows.bijections import FFJORD
 from normalizing_flows.bijections.continuous.base import ContinuousBijection
 from normalizing_flows.bijections.base import Bijection
+from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
 from normalizing_flows.bijections.continuous.rnode import RNODE
 from normalizing_flows.bijections.finite.residual.planar import Planar
 from normalizing_flows.bijections.finite.residual.radial import Radial
@@ -170,7 +171,8 @@ def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: T
 
 @pytest.mark.parametrize('bijection_class', [
     FFJORD,
-    RNODE
+    RNODE,
+    DeepDiffeomorphicBijection
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])

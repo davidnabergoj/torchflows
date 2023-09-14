@@ -58,7 +58,7 @@ class IgnoreLinear(DiffEqLayer):
     """
 
     def __init__(self, dim_in, dim_out):
-        super(DiffEqLayer).__init__()
+        super().__init__()
         self._layer = nn.Linear(dim_in, dim_out)
 
     def forward(self, t, x):

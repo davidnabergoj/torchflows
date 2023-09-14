@@ -55,6 +55,20 @@ def divergence_approx_extended(f, y, e: Union[torch.Tensor, Tuple[torch.Tensor]]
     return approx_tr_dzdx, N
 
 
+def create_nn_time_independent(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
+    assert n_hidden_layers >= 0
+    if n_hidden_layers == 0:
+        layers = [diff_eq_layers.IgnoreLinear(event_size, event_size)]
+    else:
+        layers = [
+            diff_eq_layers.IgnoreLinear(event_size, hidden_size),
+            *[diff_eq_layers.IgnoreLinear(hidden_size, hidden_size) for _ in range(n_hidden_layers)],
+            diff_eq_layers.IgnoreLinear(hidden_size, event_size)
+        ]
+
+    return DifferentialEquationNeuralNetwork(layers)
+
+
 def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
     assert n_hidden_layers >= 0
     if n_hidden_layers == 0:
@@ -148,7 +162,7 @@ class ODEFunction(ODEFunctionBase):
         if isinstance(regularization, str):
             regularization = (regularization,)
 
-        supported_regularization_types = ["geodesic", "reconstruction", "sq_jac_norm"]
+        supported_regularization_types = ["geodesic", "sq_jac_norm"]
         for rt in regularization:
             assert rt in supported_regularization_types
 
@@ -157,12 +171,10 @@ class ODEFunction(ODEFunctionBase):
         self.reg_coef: Dict[str, float] = {
             'sq_jac_norm': 1.0,
             'geodesic': 1.0,
-            'reconstruction': 1.0,
         }
         self.reg_data: Dict[str, Optional[torch.Tensor]] = {
             'sq_jac_norm': None,  # shape = (n, 1)
             'geodesic': None,
-            'reconstruction': None,
         }
 
     def regularization(self):
