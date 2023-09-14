@@ -92,7 +92,7 @@ class DifferentialEquationNeuralNetwork(nn.Module):
         return dx
 
 
-class ODEFunction(nn.Module):
+class ODEFunctionBase(nn.Module):
     def __init__(self,
                  network: DifferentialEquationNeuralNetwork):
         super().__init__()
@@ -139,23 +139,30 @@ class ODEFunction(nn.Module):
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
-class ODEFunctionBasic(ODEFunction):
-    def __init__(self, network: DifferentialEquationNeuralNetwork):
-        super().__init__(network=network)
-
-    def divergence_step(self, dy, y) -> torch.Tensor:
-        batch_size = y.shape[0]
-        return divergence_approx_basic(dy, y, e=self.hutch_noise).view(batch_size, 1)
-
-
-class RegularizedODEFunction(ODEFunction):
-    def __init__(self, network: DifferentialEquationNeuralNetwork):
+class ODEFunction(ODEFunctionBase):
+    def __init__(self,
+                 network: DifferentialEquationNeuralNetwork,
+                 regularization: Union[str, Tuple[str, ...]] = ()):
         super().__init__(network)
+
+        if isinstance(regularization, str):
+            regularization = (regularization,)
+
+        supported_regularization_types = ["geodesic", "reconstruction", "sq_jac_norm"]
+        for rt in regularization:
+            assert rt in supported_regularization_types
+
+        self.reg_types = regularization
+
         self.reg_coef: Dict[str, float] = {
-            'sq_jac_norm': 1.0
+            'sq_jac_norm': 1.0,
+            'geodesic': 1.0,
+            'reconstruction': 1.0,
         }
         self.reg_data: Dict[str, Optional[torch.Tensor]] = {
             'sq_jac_norm': None,  # shape = (n, 1)
+            'geodesic': None,
+            'reconstruction': None,
         }
 
     def regularization(self):
@@ -168,14 +175,18 @@ class RegularizedODEFunction(ODEFunction):
 
     def divergence_step(self, dy, y) -> torch.Tensor:
         batch_size = y.shape[0]
-        divergence, sq_jac_norm = divergence_approx_extended(
-            dy, y, e=self.hutch_noise
-        )
+
+        if "sq_jac_norm" in self.reg_types:
+            divergence, sq_jac_norm = divergence_approx_extended(dy, y, e=self.hutch_noise)
+
+            # Store regularization data
+            sq_jac_norm = sq_jac_norm.view(batch_size, 1)
+            self.reg_data['sq_jac_norm'] = sq_jac_norm
+        else:
+            divergence = divergence_approx_basic(dy, y, e=self.hutch_noise)
         divergence = divergence.view(batch_size, 1)
 
-        # Compute and store regularization data
-        sq_jac_norm = sq_jac_norm.view(batch_size, 1)
-        self.reg_data['sq_jac_norm'] = sq_jac_norm
+        # TODO add other regularization terms
 
         return divergence
 
@@ -183,7 +194,7 @@ class RegularizedODEFunction(ODEFunction):
 class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 f: ODEFunction,
+                 f: ODEFunctionBase,
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
                  solver: str = 'dopri5',
