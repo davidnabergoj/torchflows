@@ -127,8 +127,7 @@ class OTPotential(TimeDerivative):
 
 
 class OTFlow(ContinuousBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], f: ApproximateODEFunction, **kwargs):
-        super().__init__(event_shape, f, **kwargs)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         diff_eq = ExactODEFunction(OTPotential(n_dim, hidden_size=30))
         super().__init__(event_shape, diff_eq, **kwargs)
