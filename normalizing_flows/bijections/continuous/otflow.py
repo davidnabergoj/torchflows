@@ -2,8 +2,12 @@ from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
-from normalizing_flows.bijections.continuous.base import ContinuousBijection, ApproximateODEFunction, ExactODEFunction, \
-    DifferentialEquationNeuralNetwork
+from normalizing_flows.bijections.continuous.base import (
+    ContinuousBijection,
+    ApproximateODEFunction,
+    ExactODEFunction,
+    TimeDerivative
+)
 
 
 class OTResNet(nn.Module):
@@ -92,11 +96,11 @@ class OTResNet(nn.Module):
         return t0 + self.step_size * t1
 
 
-class OTPotential(DifferentialEquationNeuralNetwork):
+class OTPotential(TimeDerivative):
     # TODO introduce a new superclass which OTNetwork and DifferentialEquationNeuralNetwork both inherit.
     def __init__(self, event_size: int, hidden_size: int, **kwargs):
+        super().__init__()
         # hidden_size = m
-        super().__init__([])
         r = min(10, event_size)
         self.w = nn.Parameter(torch.randn(size=(hidden_size,)))
         self.A = nn.Parameter(torch.randn(size=(r, event_size)))

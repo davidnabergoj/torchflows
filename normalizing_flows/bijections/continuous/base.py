@@ -66,7 +66,7 @@ def create_nn_time_independent(event_size: int, hidden_size: int = 30, n_hidden_
             diff_eq_layers.IgnoreLinear(hidden_size, event_size)
         ]
 
-    return DifferentialEquationNeuralNetwork(layers)
+    return TimeDerivativeDNN(layers)
 
 
 def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
@@ -80,10 +80,19 @@ def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
             diff_eq_layers.ConcatLinear(hidden_size, event_size)
         ]
 
-    return DifferentialEquationNeuralNetwork(layers)
+    return TimeDerivativeDNN(layers)
 
 
-class DifferentialEquationNeuralNetwork(nn.Module):
+class TimeDerivative(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, t, x):
+        # return dx/ dt
+        raise NotImplementedError
+
+
+class TimeDerivativeDNN(TimeDerivative):
     """
     Neural network that takes as input a scalar t and a tuple of state tensors (y0, y1, ... yn).
     It outputs a predicted tuple of derivatives (dy0/dt, dy1/dt, ... dyn/dt).
@@ -168,7 +177,7 @@ class ApproximateODEFunction(ODEFunction):
     Function that computes dx/dt with an approximation for the log determinant of the Jacobian.
     """
 
-    def __init__(self, network: DifferentialEquationNeuralNetwork):
+    def __init__(self, network: TimeDerivativeDNN):
         super().__init__(diffeq=network)
         self.hutch_noise = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
 
@@ -204,7 +213,7 @@ class ApproximateODEFunction(ODEFunction):
 
 class RegularizedApproximateODEFunction(ApproximateODEFunction):
     def __init__(self,
-                 network: DifferentialEquationNeuralNetwork,
+                 network: TimeDerivativeDNN,
                  regularization: Union[str, Tuple[str, ...]] = ()):
         super().__init__(network)
 
