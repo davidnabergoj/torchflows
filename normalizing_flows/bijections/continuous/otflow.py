@@ -5,6 +5,13 @@ import torch.nn as nn
 from normalizing_flows.bijections.continuous.base import ExactODEFunction, TimeDerivative, ExactContinuousBijection
 
 
+def concatenate_x_t(x, t):
+    # Concatenate t to the end of x
+    s = torch.nn.functional.pad(torch.clone(x), pad=(0, 1), value=1.0)
+    s[..., -1] = t
+    return s
+
+
 class OTResNet(nn.Module):
     """
     Two-layer ResNet as described in the original OTFlow paper.
@@ -50,10 +57,10 @@ class OTResNet(nn.Module):
         u1 = u0 + self.step_size * self.sigma(torch.nn.functional.linear(u0, self.K1, self.b1))
         return u1
 
-    def compute_z1(self, s, w, u0: torch.Tensor = None):
+    def compute_z1(self, s, w: torch.Tensor, u0: torch.Tensor = None):
         if u0 is None:
             u0 = self.compute_u0(s)
-        linear_in = torch.diag(self.sigma_prime(torch.nn.functional.linear(u0, self.K1, self.b1))) * w[None]
+        linear_in = self.sigma_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * w[None]
         z1 = w[None] + self.step_size * torch.nn.functional.linear(linear_in, self.K1.T)
         return z1
 
@@ -67,8 +74,8 @@ class OTResNet(nn.Module):
         return z0
 
     def hessian_trace(self,
-                      s: torch.Tensor = None,
-                      w: torch.Tensor = None,
+                      s: torch.Tensor,
+                      w: torch.Tensor,
                       u0: torch.Tensor = None,
                       z1: torch.Tensor = None):
         if u0 is None:
@@ -76,16 +83,37 @@ class OTResNet(nn.Module):
         if z1 is None:
             z1 = self.compute_z1(s, w, u0=u0)
         # Compute the first term in Equation 14
-        t0 = torch.matmul(
-            (self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1).T,
-            self.K0[:, :-1] ** 2 @ torch.ones(size=(self.K0.shape[0] - 1,))
+
+        ones = torch.ones(size=(self.K0.shape[1] - 1,))
+
+        t0 = torch.sum(
+            torch.multiply(
+                (self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1),
+                torch.nn.functional.linear(ones, self.K0[:, :-1] ** 2)
+            ),
+            dim=1
         )
 
-        K1J = self.K0.T @ self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))
-        t1 = torch.matmul(
-            (self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * z1).T,
-            K1J ** 2 @ torch.ones(size=(self.K0.shape[0] - 1,))
+        # K1J = self.K1 @ self.K0.T @ self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))
+        K1J = torch.nn.functional.linear(
+            torch.nn.functional.linear(
+                self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0)),
+                self.K0.T
+            ),
+            self.K1
         )
+
+        t1 = torch.sum(
+            torch.multiply(
+                (self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * z1),
+                torch.nn.functional.linear(ones, K1J[:, :-1] ** 2)
+            ),
+            dim=1
+        )
+        # t1 = torch.matmul(
+        #     (self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * z1).T,
+        #     torch.nn.functional.linear(ones, K1J[:, :-1].T ** 2)
+        # )
 
         return t0 + self.step_size * t1
 
@@ -101,18 +129,15 @@ class OTPotential(TimeDerivative):
         self.resnet = OTResNet(event_size + 1, hidden_size, **kwargs)  # (x, t) has d+1 elements
 
     def forward(self, t, x):
-        # Concatenate t to the end of x
-        s = torch.nn.functional.pad(torch.clone(x), pad=(0, 1), value=1.0)
-        s[..., -1] = t
-        return -self.gradient(s)
+        return -self.gradient(concatenate_x_t(x, t))
 
     def gradient(self, s):
         # Equation 12
         return self.resnet.jvp(s, self.w) + torch.nn.functional.linear(s, self.A.T @ self.A, self.b)
 
-    def hessian_trace(self, s: torch.Tensor, w: torch.Tensor, u0: torch.Tensor = None, z1: torch.Tensor = None):
+    def hessian_trace(self, s: torch.Tensor, u0: torch.Tensor = None, z1: torch.Tensor = None):
         # Equation 14
-        tr_first_term = self.resnet.hessian_trace(s, w, u0, z1)
+        tr_first_term = self.resnet.hessian_trace(s, self.w, u0, z1)
 
         # E.T @ A ... remove last row (assuming E has d of d+1 standard basis vectors)
         # A @ E ... remove last column (assuming E has d of d+1 standard basis vectors)
@@ -121,8 +146,16 @@ class OTPotential(TimeDerivative):
         return tr_first_term + tr_second_term
 
 
+class OTFlowODEFunction(ExactODEFunction):
+    def __init__(self, n_dim):
+        super().__init__(OTPotential(n_dim, hidden_size=30))
+
+    def compute_log_det(self, t, x):
+        return self.diffeq.hessian_trace(concatenate_x_t(x, t))
+
+
 class OTFlow(ExactContinuousBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = ExactODEFunction(OTPotential(n_dim, hidden_size=30))
+        diff_eq = OTFlowODEFunction(n_dim)
         super().__init__(event_shape, diff_eq, **kwargs)

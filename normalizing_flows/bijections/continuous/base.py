@@ -142,10 +142,10 @@ class ExactODEFunction(ODEFunction):
     Function that computes dx/dt with an exact log determinant of the Jacobian.
     """
 
-    def __init__(self, diffeq: callable):
+    def __init__(self, diffeq: TimeDerivative):
         super().__init__(diffeq)
 
-    def compute_log_det(self, *args, **kwargs):
+    def compute_log_det(self, t, x):
         raise NotImplementedError
 
     def forward(self, t, states):
@@ -168,7 +168,7 @@ class ExactODEFunction(ODEFunction):
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
 
-        log_det = self.compute_log_det()  # TODO add appropriate args, kwargs
+        log_det = self.compute_log_det(t, y)  # TODO add appropriate args, kwargs
         return tuple([dy, log_det] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
