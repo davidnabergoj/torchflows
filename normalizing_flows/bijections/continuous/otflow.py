@@ -50,7 +50,6 @@ class OTResNet(nn.Module):
     def forward(self, s):
         """
         x.shape = (batch_size, event_size)
-        TODO flatten the inputs as they come in or require that they come in flatten. Choose one.
         """
         u0 = self.compute_u0(s)
         u1 = u0 + self.step_size * self.sigma(torch.nn.functional.linear(u0, self.K1, self.b1))
@@ -97,7 +96,6 @@ class OTResNet(nn.Module):
 
 
 class OTPotential(TimeDerivative):
-    # TODO introduce a new superclass which OTNetwork and DifferentialEquationNeuralNetwork both inherit.
     def __init__(self, event_size: int, hidden_size: int, **kwargs):
         super().__init__()
         # hidden_size = m
