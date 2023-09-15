@@ -106,7 +106,9 @@ class OTPotential(TimeDerivative):
         self.resnet = OTResNet(event_size, hidden_size, **kwargs)
 
     def forward(self, t, x):
-        s = ...  # TODO concatentate x and t. x goes first, t is at the end.
+        # Concatenate t to the end of x
+        s = torch.nn.functional.pad(torch.clone(x), pad=(0, 1), value=1.0)
+        s[..., -1] = t
         return -self.gradient(s)
 
     def gradient(self, s):
