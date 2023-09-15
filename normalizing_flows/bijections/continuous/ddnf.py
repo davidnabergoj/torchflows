@@ -2,10 +2,10 @@ from typing import Union, Tuple
 
 import torch
 
-from normalizing_flows.bijections.continuous.base import ContinuousBijection, RegularizedApproximateODEFunction, create_nn_time_independent
+from normalizing_flows.bijections.continuous.base import ApproximateContinuousBijection, RegularizedApproximateODEFunction, create_nn_time_independent
 
 
-class DeepDiffeomorphicBijection(ContinuousBijection):
+class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
     """
     Base bijection for the DDNF model.
     Note that this model is implemented WITHOUT Geodesic regularization.

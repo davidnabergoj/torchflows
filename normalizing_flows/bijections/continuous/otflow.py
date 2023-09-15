@@ -2,12 +2,7 @@ from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
-from normalizing_flows.bijections.continuous.base import (
-    ContinuousBijection,
-    ApproximateODEFunction,
-    ExactODEFunction,
-    TimeDerivative
-)
+from normalizing_flows.bijections.continuous.base import ExactODEFunction, TimeDerivative, ExactContinuousBijection
 
 
 class OTResNet(nn.Module):
@@ -126,7 +121,7 @@ class OTPotential(TimeDerivative):
         return tr_first_term + tr_second_term
 
 
-class OTFlow(ContinuousBijection):
+class OTFlow(ExactContinuousBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         diff_eq = ExactODEFunction(OTPotential(n_dim, hidden_size=30))
