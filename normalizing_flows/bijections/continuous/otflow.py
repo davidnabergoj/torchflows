@@ -53,8 +53,8 @@ class OTResNet(nn.Module):
     def compute_z1(self, s, w, u0: torch.Tensor = None):
         if u0 is None:
             u0 = self.compute_u0(s)
-        linear_in = torch.matmul(torch.diag(self.sigma_prime(torch.nn.functional.linear(u0, self.K1, self.b1))), w)
-        z1 = w + self.step_size * torch.nn.functional.linear(linear_in, self.K1.T)
+        linear_in = torch.diag(self.sigma_prime(torch.nn.functional.linear(u0, self.K1, self.b1))) * w[None]
+        z1 = w[None] + self.step_size * torch.nn.functional.linear(linear_in, self.K1.T)
         return z1
 
     def jvp(self, s, w):
@@ -62,7 +62,7 @@ class OTResNet(nn.Module):
         Compute grad_ResNet_wrt_s * w. The first term is the jacobian matrix.
         """
         z1 = self.compute_z1(s, w)
-        linear_in_2 = torch.matmul(torch.diag(self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))), z1)
+        linear_in_2 = torch.diag(self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))) * z1
         z0 = torch.nn.functional.linear(linear_in_2, self.K0.T)
         return z0
 
@@ -96,9 +96,9 @@ class OTPotential(TimeDerivative):
         # hidden_size = m
         r = min(10, event_size)
         self.w = nn.Parameter(torch.randn(size=(hidden_size,)))
-        self.A = nn.Parameter(torch.randn(size=(r, event_size)))
-        self.b = nn.Parameter(torch.randn(size=(event_size,)))
-        self.resnet = OTResNet(event_size, hidden_size, **kwargs)
+        self.A = nn.Parameter(torch.randn(size=(r, event_size + 1)))
+        self.b = nn.Parameter(torch.randn(size=(event_size + 1,)))
+        self.resnet = OTResNet(event_size + 1, hidden_size, **kwargs)  # (x, t) has d+1 elements
 
     def forward(self, t, x):
         # Concatenate t to the end of x
@@ -108,7 +108,7 @@ class OTPotential(TimeDerivative):
 
     def gradient(self, s):
         # Equation 12
-        return self.resnet.jvp(s, self.w) + self.A.T @ self.A @ s + self.b
+        return self.resnet.jvp(s, self.w) + torch.nn.functional.linear(s, self.A.T @ self.A, self.b)
 
     def hessian_trace(self, s: torch.Tensor, w: torch.Tensor, u0: torch.Tensor = None, z1: torch.Tensor = None):
         # Equation 14
