@@ -2,7 +2,7 @@ from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
-from normalizing_flows.bijections.continuous.base import ContinuousBijection, ODEFunctionBase, ODEFunction, \
+from normalizing_flows.bijections.continuous.base import ContinuousBijection, ApproximateODEFunction, ExactODEFunction, \
     DifferentialEquationNeuralNetwork
 
 
@@ -111,13 +111,9 @@ class OTPotential(DifferentialEquationNeuralNetwork):
         # Equation 12
         return self.resnet.jvp(s, self.w) + self.A.T @ self.A @ s + self.b
 
-    def hessian_trace(self):
+    def hessian_trace(self, s: torch.Tensor, w: torch.Tensor, u0: torch.Tensor = None, z1: torch.Tensor = None):
         # Equation 14
-
-        K0E = self.resnet.K0[:, :-1]
-
-        t0 = self.resnet.sigma_prime_prime(self.resnet)
-        tr_first_term = t0 + self.resnet.step_size * t1
+        tr_first_term = self.resnet.hessian_trace(s, w, u0, z1)
 
         # E.T @ A ... remove last row (assuming E has d of d+1 standard basis vectors)
         # A @ E ... remove last column (assuming E has d of d+1 standard basis vectors)
@@ -127,8 +123,8 @@ class OTPotential(DifferentialEquationNeuralNetwork):
 
 
 class OTFlow(ContinuousBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], f: ODEFunctionBase, **kwargs):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], f: ApproximateODEFunction, **kwargs):
         super().__init__(event_shape, f, **kwargs)
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = ODEFunction(create_nn(n_dim))
+        diff_eq = ExactODEFunction(OTPotential(n_dim, hidden_size=30))
         super().__init__(event_shape, diff_eq, **kwargs)

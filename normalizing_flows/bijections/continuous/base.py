@@ -106,26 +106,75 @@ class DifferentialEquationNeuralNetwork(nn.Module):
         return dx
 
 
-class ODEFunctionBase(nn.Module):
-    def __init__(self,
-                 network: DifferentialEquationNeuralNetwork):
+class ODEFunction(nn.Module):
+    def __init__(self, diffeq: callable):
         super().__init__()
-        self.diffeq = network
+        self.diffeq = diffeq
         self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
-        self.hutch_noise = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
 
     def regularization(self):
         return torch.tensor(0.0)
 
-    def before_odeint(self, noise: torch.Tensor = None):
-        self.hutch_noise = noise
+    def before_odeint(self):
         self._n_evals.fill_(0)
 
-    def divergence_step(self, dy, y) -> torch.Tensor:
+    def forward(self, t, states):
         """
-        Compute divergence and store auxiliary data as attributes.
+
+        :param t: shape ()
+        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
+        :return:
         """
-        pass
+        raise NotImplementedError
+
+
+class ExactODEFunction(ODEFunction):
+    """
+    Function that computes dx/dt with an exact log determinant of the Jacobian.
+    """
+
+    def __init__(self, diffeq: callable):
+        super().__init__(diffeq)
+
+    def compute_log_det(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def forward(self, t, states):
+        """
+
+        :param t: shape ()
+        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
+        :return:
+        """
+        assert len(states) >= 2
+        y = states[0]
+        self._n_evals += 1
+
+        t = torch.tensor(t).type_as(y)
+
+        with torch.enable_grad():
+            y.requires_grad_(True)
+            t.requires_grad_(True)
+            for s_ in states[2:]:
+                s_.requires_grad_(True)
+            dy = self.diffeq(t, y, *states[2:])
+
+        log_det = self.compute_log_det()  # TODO add appropriate args, kwargs
+        return tuple([dy, log_det] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
+
+
+class ApproximateODEFunction(ODEFunction):
+    """
+    Function that computes dx/dt with an approximation for the log determinant of the Jacobian.
+    """
+
+    def __init__(self, network: DifferentialEquationNeuralNetwork):
+        super().__init__(diffeq=network)
+        self.hutch_noise = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
+
+    def before_odeint(self, noise: torch.Tensor = None):
+        super().before_odeint()
+        self.hutch_noise = noise
 
     def forward(self, t, states):
         """
@@ -153,7 +202,7 @@ class ODEFunctionBase(nn.Module):
         return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
-class ODEFunction(ODEFunctionBase):
+class RegularizedApproximateODEFunction(ApproximateODEFunction):
     def __init__(self,
                  network: DifferentialEquationNeuralNetwork,
                  regularization: Union[str, Tuple[str, ...]] = ()):
@@ -206,7 +255,7 @@ class ODEFunction(ODEFunctionBase):
 class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 f: ODEFunctionBase,
+                 f: ODEFunction,
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
                  solver: str = 'dopri5',

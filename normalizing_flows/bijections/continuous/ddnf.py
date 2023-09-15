@@ -2,7 +2,7 @@ from typing import Union, Tuple
 
 import torch
 
-from normalizing_flows.bijections.continuous.base import ContinuousBijection, ODEFunction, create_nn_time_independent
+from normalizing_flows.bijections.continuous.base import ContinuousBijection, RegularizedApproximateODEFunction, create_nn_time_independent
 
 
 class DeepDiffeomorphicBijection(ContinuousBijection):
@@ -21,6 +21,6 @@ class DeepDiffeomorphicBijection(ContinuousBijection):
         :param n_steps: parameter T in the paper, i.e. the number of ResNet cells.
         """
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = ODEFunction(create_nn_time_independent(n_dim))
+        diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(n_dim))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver="euler", **kwargs)
