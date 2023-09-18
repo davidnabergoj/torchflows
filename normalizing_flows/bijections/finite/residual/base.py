@@ -1,8 +1,8 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, List
 
 import torch
 
-from normalizing_flows.bijections.base import Bijection
+from normalizing_flows.bijections.base import Bijection, BijectiveComposition
 from normalizing_flows.utils import get_batch_shape, unflatten_event, flatten_event
 
 
@@ -50,3 +50,13 @@ class ResidualBijection(Bijection):
             log_det = -self.log_det(flatten_event(x, self.event_shape))
 
         return x, log_det
+
+
+class ResidualComposition(BijectiveComposition):
+    def __init__(self, blocks: List[ResidualBijection]):
+        assert len(blocks) > 0
+        super().__init__(
+            event_shape=blocks[0].event_shape,
+            layers=blocks,
+            context_shape=blocks[0].context_shape
+        )

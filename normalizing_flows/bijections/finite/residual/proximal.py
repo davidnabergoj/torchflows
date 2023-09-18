@@ -116,7 +116,7 @@ class PNN(nn.Sequential):
         return self.n_layers / (self.n_layers + 1)
 
 
-class ProximalResFlowIncrement(nn.Module):
+class ProximalResFlowBlockIncrement(nn.Module):
     def __init__(self, pnn: PNN, gamma: float):
         super().__init__()
         self.gamma = gamma
@@ -140,13 +140,13 @@ class ProximalResFlowIncrement(nn.Module):
         return torch.sum(log_derivatives, dim=-1)
 
 
-class ProximalResFlow(ResidualBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1e-5, **kwargs):
+class ProximalResFlowBlock(ResidualBijection):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, gamma: float = 1e-5, **kwargs):
         # Check: setting low gamma means doing basically nothing to the input. Find a reasonable setting which is still
         # numerically stable.
         super().__init__(event_shape)
         assert gamma > 0
-        self.g = ProximalResFlowIncrement(
+        self.g = ProximalResFlowBlockIncrement(
             pnn=PNN(event_size=self.n_dim, **kwargs),
             gamma=gamma
         )

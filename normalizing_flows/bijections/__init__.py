@@ -8,7 +8,8 @@ from normalizing_flows.bijections.finite.residual.planar import Planar, InverseP
 from normalizing_flows.bijections.finite.residual.radial import Radial
 from normalizing_flows.bijections.finite.residual.sylvester import IdentitySylvester, PermutationSylvester, \
     HouseholderSylvester, Sylvester
-from normalizing_flows.bijections.finite.residual.iterative import InvertibleResNet, ResFlow, \
-    QuasiAutoregressiveFlow
-from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlow
+from normalizing_flows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock, \
+    QuasiAutoregressiveFlowBlock
+from normalizing_flows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
+from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from normalizing_flows.bijections.finite.linear import LowerTriangular, Orthogonal, LU, QR

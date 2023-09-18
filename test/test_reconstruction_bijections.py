@@ -5,8 +5,8 @@ import torch
 
 from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular, \
     Orthogonal, QR, ElementwiseScale, LRSCoupling, LinearRQSCoupling
-from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, \
-    InvertibleResNet, \
+from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
+    InvertibleResNetBlock, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
 from normalizing_flows.bijections import FFJORD
 from normalizing_flows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
@@ -14,8 +14,9 @@ from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
 from normalizing_flows.bijections.continuous.otflow import OTFlow
 from normalizing_flows.bijections.continuous.rnode import RNODE
+from normalizing_flows.bijections.finite.residual.architectures import ResFlow, InvertibleResNet, ProximalResFlow
 from normalizing_flows.bijections.finite.residual.planar import Planar
-from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlow
+from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from normalizing_flows.bijections.finite.residual.radial import Radial
 from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
 from normalizing_flows.utils import get_batch_shape
@@ -165,14 +166,17 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
     assert_valid_reconstruction(bijection, x, context)
 
 
-@pytest.mark.skip(reason="Computation takes too long")
+# @pytest.mark.skip(reason="Computation takes too long")
 @pytest.mark.parametrize('bijection_class', [
-    ProximalResFlow,  # This works perfectly with a single layer
-    InvertibleResNet,
-    ResFlow,
-    Planar,
-    Radial,
-    Sylvester
+    # ProximalResFlowBlock,  # This works perfectly with a single PNN layer
+    # InvertibleResNetBlock,
+    # ResFlowBlock,
+    ProximalResFlow,
+    # InvertibleResNet,
+    # ResFlow,
+    # Planar,
+    # Radial,
+    # Sylvester
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])

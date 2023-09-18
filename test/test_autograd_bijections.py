@@ -6,8 +6,8 @@ import torch
 from normalizing_flows import Flow
 from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular, \
     Orthogonal, QR, ElementwiseScale, LRSCoupling, LinearRQSCoupling
-from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlow, \
-    InvertibleResNet, \
+from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
+    InvertibleResNetBlock, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.finite.residual.planar import Planar
@@ -94,8 +94,8 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
 
 @pytest.mark.skip(reason="Computation takes too long")
 @pytest.mark.parametrize('bijection_class', [
-    InvertibleResNet,
-    ResFlow,
+    InvertibleResNetBlock,
+    ResFlowBlock,
     Planar,
     Radial,
     Sylvester

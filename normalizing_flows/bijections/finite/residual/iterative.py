@@ -67,7 +67,7 @@ class SpectralNeuralNetwork(nn.Sequential):
         super().__init__(*layers)
 
 
-class InvertibleResNet(ResidualBijection):
+class InvertibleResNetBlock(ResidualBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape)
         self.g = SpectralNeuralNetwork(n_dim=self.n_dim, **kwargs)
@@ -76,15 +76,16 @@ class InvertibleResNet(ResidualBijection):
         return log_det_hutchinson(self.g, x, **kwargs)[1]
 
 
-class ResFlow(InvertibleResNet):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], p: float = 0.5):
+class ResFlowBlock(InvertibleResNetBlock):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], p: float = 0.5, **kwargs):
+        # TODO add context
         super().__init__(event_shape)
 
     def log_det(self, x: torch.Tensor, **kwargs):
         return log_det_roulette(self.g, x)[1]
 
 
-class QuasiAutoregressiveFlow(Bijection):
+class QuasiAutoregressiveFlowBlock(Bijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], sigma: float = 0.7):
         super().__init__(event_shape)
         self.log_theta = nn.Parameter(torch.randn())
