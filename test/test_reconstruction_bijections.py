@@ -15,6 +15,7 @@ from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBiject
 from normalizing_flows.bijections.continuous.otflow import OTFlow
 from normalizing_flows.bijections.continuous.rnode import RNODE
 from normalizing_flows.bijections.finite.residual.planar import Planar
+from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlow
 from normalizing_flows.bijections.finite.residual.radial import Radial
 from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
 from normalizing_flows.utils import get_batch_shape
@@ -166,6 +167,7 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
 
 @pytest.mark.skip(reason="Computation takes too long")
 @pytest.mark.parametrize('bijection_class', [
+    ProximalResFlow,  # This works perfectly with a single layer
     InvertibleResNet,
     ResFlow,
     Planar,

@@ -16,8 +16,9 @@ class ProximityOperator(nn.Module):
         self.alpha = alpha
 
     @property
-    def t(self) -> float:
-        raise NotImplementedError
+    def t(self):
+        # Assuming the activation comes from the referenced list
+        return 0.5  # Unused
 
     def forward(self, x):
         raise NotImplementedError
@@ -29,10 +30,6 @@ class ProximityOperator(nn.Module):
 class TanH(ProximityOperator):
     def __init__(self):
         super().__init__(alpha=None)
-
-    @property
-    def t(self):
-        return 0.5  # TODO check
 
     def forward(self, x):
         return torch.tanh(x)
@@ -72,7 +69,7 @@ class PNNBlock(nn.Module):
         # Initialize t_tilde close to identity
 
         identity = torch.eye(self.hidden_size, self.event_size)
-        divisor = self.event_size ** 2
+        divisor = max(self.event_size ** 2, 100)
         delta_b = torch.randn(self.hidden_size) / divisor
         delta_t_tilde = torch.randn(self.hidden_size, self.event_size) / divisor
 
@@ -114,6 +111,10 @@ class PNN(nn.Sequential):
         self.n_layers = n_layers
         self.act = act
 
+    @property
+    def t(self):
+        return self.n_layers / (self.n_layers + 1)
+
 
 class ProximalResFlowIncrement(nn.Module):
     def __init__(self, pnn: PNN, gamma: float):
@@ -122,16 +123,16 @@ class ProximalResFlowIncrement(nn.Module):
         self.phi = pnn
 
     def forward(self, x):
-        t = self.phi.act.t
+        t = self.phi.t
         const = self.gamma * t / (1 + self.gamma - self.gamma * t)
         r = 1 / t * (self.phi(x) - (1 - t) * x)
         return const * r
 
     def log_det_single_layer(self, x):
         # Computes the log determinant of the jacobian for a single layer proximal neural network.
-        assert len(self.phi) == 0
+        assert self.phi.n_layers == 1
         layer: PNNBlock = self.phi[0]
-        mat = layer.mat
+        mat = layer.stiefel_matrix
         b = layer.b
 
         act_derivative = layer.act.derivative(torch.nn.functional.linear(x, mat, b))
@@ -140,7 +141,9 @@ class ProximalResFlowIncrement(nn.Module):
 
 
 class ProximalResFlow(ResidualBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1.99, **kwargs):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], gamma: float = 1e-5, **kwargs):
+        # Check: setting low gamma means doing basically nothing to the input. Find a reasonable setting which is still
+        # numerically stable.
         super().__init__(event_shape)
         assert gamma > 0
         self.g = ProximalResFlowIncrement(
@@ -150,6 +153,6 @@ class ProximalResFlow(ResidualBijection):
 
     def log_det(self, x, **kwargs):
         if self.g.phi.n_layers == 1:
-            return self.g.log_det(x)
+            return self.g.log_det_single_layer(x)
         else:
             return log_det_roulette(self.g, x, **kwargs)[1]
