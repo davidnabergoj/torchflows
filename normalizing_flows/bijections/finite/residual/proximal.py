@@ -123,11 +123,12 @@ class ProximalResFlowBlockIncrement(nn.Module):
         assert gamma < pnn.n_layers / (pnn.n_layers + 1)
         self.phi = pnn
 
+    def r(self, x):
+        return 1 / self.phi.t * (self.phi(x) - (1 - self.phi.t) * x)
+
     def forward(self, x):
-        t = self.phi.t
-        const = self.gamma * t / (1 + self.gamma - self.gamma * t)
-        r = 1 / t * (self.phi(x) - (1 - t) * x)
-        return const * r
+        const = self.gamma * self.phi.t / (1 + self.gamma - self.gamma * self.phi.t)
+        return const * self.r(x)
 
     def log_det_single_layer(self, x):
         # Computes the log determinant of the jacobian for a single layer proximal neural network.
@@ -169,8 +170,7 @@ class ProximalResFlowBlock(ResidualBijection):
         t = self.g.phi.t
         x = z
         for _ in range(n_iterations):
-            r = 1 / t * (self.g.phi(x) - (1 - t) * x)
-            x = 1 / (1 + gamma - gamma * t) * (z - gamma * t * r)
+            x = 1 / (1 + gamma - gamma * t) * (z - gamma * t * self.g.r(x))
         if skip_log_det:
             return x
         else:
