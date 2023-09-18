@@ -166,17 +166,17 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
     assert_valid_reconstruction(bijection, x, context)
 
 
-# @pytest.mark.skip(reason="Computation takes too long")
+@pytest.mark.skip(reason="Computation takes too long")
 @pytest.mark.parametrize('bijection_class', [
-    # ProximalResFlowBlock,  # This works perfectly with a single PNN layer
-    # InvertibleResNetBlock,
-    # ResFlowBlock,
+    ProximalResFlowBlock,  # This works perfectly with a single PNN layer
+    InvertibleResNetBlock,
+    ResFlowBlock,
     ProximalResFlow,
-    # InvertibleResNet,
-    # ResFlow,
-    # Planar,
-    # Radial,
-    # Sylvester
+    InvertibleResNet,
+    ResFlow,
+    Planar,
+    Radial,
+    Sylvester
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])

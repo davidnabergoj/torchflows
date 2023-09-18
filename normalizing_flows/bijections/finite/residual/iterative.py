@@ -68,7 +68,7 @@ class SpectralNeuralNetwork(nn.Sequential):
 
 
 class InvertibleResNetBlock(ResidualBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, **kwargs):
         super().__init__(event_shape)
         self.g = SpectralNeuralNetwork(n_dim=self.n_dim, **kwargs)
 
@@ -77,7 +77,7 @@ class InvertibleResNetBlock(ResidualBijection):
 
 
 class ResFlowBlock(InvertibleResNetBlock):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], p: float = 0.5, **kwargs):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, p: float = 0.5, **kwargs):
         # TODO add context
         super().__init__(event_shape)
 
