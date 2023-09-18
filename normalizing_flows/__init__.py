@@ -14,7 +14,7 @@ from normalizing_flows.bijections import (
     RNODE,
     InvertibleResNet,
     ResFlow,
-    ProximalResidualFlow,
+    ProximalResFlow,
     QuasiAutoregressiveFlow,
     Radial,
     Planar,
