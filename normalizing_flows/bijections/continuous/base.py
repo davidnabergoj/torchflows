@@ -168,7 +168,9 @@ class ExactODEFunction(ODEFunction):
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
 
-        log_det = self.compute_log_det(t, y)  # TODO add appropriate args, kwargs
+        log_det = self.compute_log_det(t, y)
+        assert torch.all(torch.isfinite(log_det))
+        assert torch.all(~torch.isnan(log_det))
         return tuple([dy, log_det] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
