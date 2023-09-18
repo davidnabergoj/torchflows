@@ -168,7 +168,7 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
 
 @pytest.mark.skip(reason="Computation takes too long")
 @pytest.mark.parametrize('bijection_class', [
-    ProximalResFlowBlock,  # This works perfectly with a single PNN layer
+    ProximalResFlowBlock,
     InvertibleResNetBlock,
     ResFlowBlock,
     ProximalResFlow,

@@ -104,7 +104,7 @@ class PNN(nn.Sequential):
     Proximal neural network
     """
 
-    def __init__(self, event_size: int, n_layers: int = 2, hidden_size: int = 100, act: ProximityOperator = None):
+    def __init__(self, event_size: int, n_layers: int = 1, hidden_size: int = 100, act: ProximityOperator = None):
         if act is None:
             act = TanH()
         super().__init__(*[PNNBlock(event_size, hidden_size, act) for _ in range(n_layers)])
@@ -120,7 +120,8 @@ class ProximalResFlowBlockIncrement(nn.Module):
     def __init__(self, pnn: PNN, gamma: float):
         super().__init__()
         self.gamma = gamma
-        assert gamma < pnn.n_layers / (pnn.n_layers + 1)
+        self.max_gamma = (pnn.n_layers + 1) / (pnn.n_layers - 1 + 1e-6)
+        assert 0 < gamma < self.max_gamma, f'{gamma = }, {self.max_gamma = }'
         self.phi = pnn
 
     def r(self, x):
@@ -143,14 +144,25 @@ class ProximalResFlowBlockIncrement(nn.Module):
 
 
 class ProximalResFlowBlock(ResidualBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, gamma: float = 1 / 2,
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 gamma: float = None,
+                 n_layers: int = 1,
                  **kwargs):
         # Check: setting low gamma means doing basically nothing to the input. Find a reasonable setting which is still
         # numerically stable.
         super().__init__(event_shape)
-        assert gamma > 0
+
+        # Set gamma
+        assert n_layers > 0
+        self.max_gamma = (n_layers + 1) / (n_layers - 1 + 1e-6)
+        if gamma is None:
+            gamma = self.max_gamma - 1e-2
+        assert 0 < gamma < self.max_gamma
+
         self.g = ProximalResFlowBlockIncrement(
-            pnn=PNN(event_size=self.n_dim, **kwargs),
+            pnn=PNN(event_size=self.n_dim, n_layers=n_layers, **kwargs),
             gamma=gamma
         )
 
@@ -164,7 +176,7 @@ class ProximalResFlowBlock(ResidualBijection):
                 z: torch.Tensor,
                 context: torch.Tensor = None,
                 skip_log_det: bool = False,
-                n_iterations: int = 250,
+                n_iterations: int = 500,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         gamma = self.g.gamma
         t = self.g.phi.t
