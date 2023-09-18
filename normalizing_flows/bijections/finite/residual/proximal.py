@@ -67,8 +67,17 @@ class PNNBlock(nn.Module):
         super().__init__()
         self.event_size = event_size
         self.hidden_size = hidden_size
-        self.b = nn.Parameter(torch.randn(self.hidden_size))
-        self.t_tilde = nn.Parameter(torch.randn(self.hidden_size, self.event_size))
+
+        # Initialize b close to 0
+        # Initialize t_tilde close to identity
+
+        identity = torch.eye(self.hidden_size, self.event_size)
+        divisor = self.event_size ** 2
+        delta_b = torch.randn(self.hidden_size) / divisor
+        delta_t_tilde = torch.randn(self.hidden_size, self.event_size) / divisor
+
+        self.b = nn.Parameter(0 + delta_b)
+        self.t_tilde = nn.Parameter(identity + delta_t_tilde)
         self.act = act
 
     @property
