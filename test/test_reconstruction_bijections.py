@@ -9,7 +9,7 @@ from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAuto
     InvertibleResNet, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
 from normalizing_flows.bijections import FFJORD
-from normalizing_flows.bijections.continuous.base import ContinuousBijection
+from normalizing_flows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
 from normalizing_flows.bijections.continuous.otflow import OTFlow
@@ -75,10 +75,16 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
     if context is None:
         # We need this check for transformers, as they do not receive context as an input.
         z, log_det_forward = bijection.forward(x)
-        xr, log_det_inverse = bijection.inverse(z, noise=bijection.f.hutch_noise)
+        if isinstance(bijection.f, ExactODEFunction):
+            xr, log_det_inverse = bijection.inverse(z)
+        else:
+            xr, log_det_inverse = bijection.inverse(z, noise=bijection.f.hutch_noise)
     else:
         z, log_det_forward = bijection.forward(x, context=context)
-        xr, log_det_inverse = bijection.inverse(z, context=context, noise=bijection.f.hutch_noise)
+        if isinstance(bijection.f, ExactODEFunction):
+            xr, log_det_inverse = bijection.inverse(z, context=context)
+        else:
+            xr, log_det_inverse = bijection.inverse(z, context=context, noise=bijection.f.hutch_noise)
 
     batch_shape = get_batch_shape(x, bijection.event_shape)
 

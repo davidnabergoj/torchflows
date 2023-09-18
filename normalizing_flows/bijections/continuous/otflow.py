@@ -69,7 +69,7 @@ class OTResNet(nn.Module):
         Compute grad_ResNet_wrt_s * w. The first term is the jacobian matrix.
         """
         z1 = self.compute_z1(s, w)
-        linear_in_2 = torch.diag(self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))) * z1
+        linear_in_2 = self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1
         z0 = torch.nn.functional.linear(linear_in_2, self.K0.T)
         return z0
 
@@ -95,25 +95,18 @@ class OTResNet(nn.Module):
         )
 
         # K1J = self.K1 @ self.K0.T @ self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))
-        K1J = torch.nn.functional.linear(
-            torch.nn.functional.linear(
-                self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0)),
-                self.K0.T
-            ),
-            self.K1
+        K1J = torch.matmul(
+            self.K1,
+            self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))[..., None] * self.K0[:, :-1][None]
         )
 
         t1 = torch.sum(
             torch.multiply(
-                (self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * z1),
-                torch.nn.functional.linear(ones, K1J[:, :-1] ** 2)
+                self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * w,
+                (K1J ** 2) @ ones
             ),
             dim=1
         )
-        # t1 = torch.matmul(
-        #     (self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * z1).T,
-        #     torch.nn.functional.linear(ones, K1J[:, :-1].T ** 2)
-        # )
 
         return t0 + self.step_size * t1
 
@@ -133,7 +126,8 @@ class OTPotential(TimeDerivative):
 
     def gradient(self, s):
         # Equation 12
-        return self.resnet.jvp(s, self.w) + torch.nn.functional.linear(s, self.A.T @ self.A, self.b)
+        out = self.resnet.jvp(s, self.w) + torch.nn.functional.linear(s, self.A.T @ self.A, self.b)
+        return out[..., : -1]  # Remove the time prediction
 
     def hessian_trace(self, s: torch.Tensor, u0: torch.Tensor = None, z1: torch.Tensor = None):
         # Equation 14
@@ -151,7 +145,7 @@ class OTFlowODEFunction(ExactODEFunction):
         super().__init__(OTPotential(n_dim, hidden_size=30))
 
     def compute_log_det(self, t, x):
-        return self.diffeq.hessian_trace(concatenate_x_t(x, t))
+        return self.diffeq.hessian_trace(concatenate_x_t(x, t)).view(-1, 1)  # Need an empty dim at the end
 
 
 class OTFlow(ExactContinuousBijection):
