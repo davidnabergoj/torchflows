@@ -58,11 +58,12 @@ We implement the following NF transformations:
 | ResFlow                | Approximate | Unbiased approximation |         Yes         |
 | Proximal ResFlow       |             |                        |                     |
 | Quasi AR flow          |             |                        |                     |
-| FFJORD                 |             |      Approximate       |                     |
-| RNode                  |             |      Approximate       |                     |
-| DDNF                   |             |      Approximate       |                     |
-| OT flow                |             |         Exact          |                     |
+| FFJORD                 | Approximate |      Approximate       |         Yes         |
+| RNode                  | Approximate |      Approximate       |         Yes         |
+| DDNF                   | Approximate |      Approximate       |         Yes         |
+| OT flow                | Approximate |         Exact          |         Yes         |
 
+Note: inverse approximations can be made arbitrarily accurate with stricter convergence conditions.
 Architectures without an implemented inverse support either sampling or density estimation, but not both at once.
 Such architectures are unsuitable for downstream tasks which require both functionalities.
 
