@@ -37,6 +37,8 @@ def assert_valid_reconstruction(bijection: Bijection,
                                 context: torch.Tensor,
                                 reconstruction_eps=1e-3,
                                 log_det_eps=1e-3):
+    torch.manual_seed(0)
+
     if context is None:
         # We need this check for transformers, as they do not receive context as an input.
         z, log_det_forward = bijection.forward(x)
@@ -72,6 +74,8 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
                                            context: torch.Tensor,
                                            reconstruction_eps=1e-3,
                                            log_det_eps=1e-3):
+    torch.manual_seed(0)
+
     if context is None:
         # We need this check for transformers, as they do not receive context as an input.
         z, log_det_forward = bijection.forward(x)
