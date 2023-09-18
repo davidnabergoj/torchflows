@@ -142,7 +142,7 @@ class ProximalResFlowBlockIncrement(nn.Module):
 
 
 class ProximalResFlowBlock(ResidualBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, gamma: float = 1e-5,
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, gamma: float = 1 / 2,
                  **kwargs):
         # Check: setting low gamma means doing basically nothing to the input. Find a reasonable setting which is still
         # numerically stable.
@@ -158,3 +158,21 @@ class ProximalResFlowBlock(ResidualBijection):
             return self.g.log_det_single_layer(x)
         else:
             return log_det_roulette(self.g, x, **kwargs)[1]
+
+    def inverse(self,
+                z: torch.Tensor,
+                context: torch.Tensor = None,
+                skip_log_det: bool = False,
+                n_iterations: int = 250,
+                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        gamma = self.g.gamma
+        t = self.g.phi.t
+        x = z
+        for _ in range(n_iterations):
+            r = 1 / t * (self.g.phi(x) - (1 - t) * x)
+            x = 1 / (1 + gamma - gamma * t) * (z - gamma * t * r)
+        if skip_log_det:
+            return x
+        else:
+            log_det = self.log_det(x, **kwargs)
+            return x, log_det
