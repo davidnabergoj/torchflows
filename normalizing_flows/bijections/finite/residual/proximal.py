@@ -120,6 +120,7 @@ class ProximalResFlowBlockIncrement(nn.Module):
     def __init__(self, pnn: PNN, gamma: float):
         super().__init__()
         self.gamma = gamma
+        assert gamma < pnn.n_layers / (pnn.n_layers + 1)
         self.phi = pnn
 
     def forward(self, x):
@@ -141,7 +142,8 @@ class ProximalResFlowBlockIncrement(nn.Module):
 
 
 class ProximalResFlowBlock(ResidualBijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, gamma: float = 1e-5, **kwargs):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, gamma: float = 1e-5,
+                 **kwargs):
         # Check: setting low gamma means doing basically nothing to the input. Find a reasonable setting which is still
         # numerically stable.
         super().__init__(event_shape)
