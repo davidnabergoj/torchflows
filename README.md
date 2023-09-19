@@ -2,9 +2,11 @@
 
 This package implements normalizing flows and their building blocks.
 The package is meant for researchers, enabling:
+
 * easy use of normalizing flows as generative models or density estimators in various applications;
 * systematic comparisons of normalizing flows or their building blocks;
-* simple implementation of new normalizing flows which belong to either the autoregressive, residual, or continuous families;
+* simple implementation of new normalizing flows which belong to either the autoregressive, residual, or continuous
+  families;
 
 Example use:
 
@@ -46,25 +48,27 @@ $$\log q(x) = \log p(f^{-1}(x)) + \log\left|\det J_{f^{-1}}(x)\right|$$
 
 We implement the following NF transformations:
 
-| Bijection              |   Inverse   |     Log determinant     | Inverse implemented |
-|------------------------|:-----------:|:-----------------------:|:-------------------:|
-| NICE                   |    Exact    |          Exact          |         Yes         |
-| Real NVP               |    Exact    |          Exact          |         Yes         |
-| MAF                    |    Exact    |          Exact          |         Yes         |
-| IAF                    |    Exact    |          Exact          |         Yes         |
-| Rational quadratic NSF |    Exact    |          Exact          |         Yes         |
-| Linear rational NSF    |    Exact    |          Exact          |         Yes         |
-| UMNN flows             | Approximate |          Exact          |         No          |
-| Planar                 | Approximate |          Exact          |         No          |
-| Radial                 | Approximate |          Exact          |         No          |
-| Sylvester              | Approximate |          Exact          |         No          |
-| Invertible ResNet      | Approximate |  Biased approximation   |         Yes         |
-| ResFlow                | Approximate | Unbiased approximation  |         Yes         |
-| Proximal ResFlow       | Approximate | Exact (if single layer) |         Yes         |
-| FFJORD                 | Approximate |       Approximate       |         Yes         |
-| RNode                  | Approximate |       Approximate       |         Yes         |
-| DDNF                   | Approximate |       Approximate       |         Yes         |
-| OT flow                | Approximate |          Exact          |         Yes         |
+| Bijection                                                           |   Inverse   |     Log determinant     | Inverse implemented |
+|---------------------------------------------------------------------|:-----------:|:-----------------------:|:-------------------:|
+| [NICE](http://arxiv.org/abs/1410.8516)                              |    Exact    |          Exact          |         Yes         |
+| [Real NVP](http://arxiv.org/abs/1605.08803)                         |    Exact    |          Exact          |         Yes         |
+| [MAF](http://arxiv.org/abs/1705.07057)                              |    Exact    |          Exact          |         Yes         |
+| [IAF](http://arxiv.org/abs/1606.04934)                              |    Exact    |          Exact          |         Yes         |
+| [Rational quadratic NSF](http://arxiv.org/abs/1906.04032)           |    Exact    |          Exact          |         Yes         |
+| [Linear rational NSF](http://arxiv.org/abs/2001.05168)              |    Exact    |          Exact          |         Yes         |
+| [NAF](http://arxiv.org/abs/1804.00779)                              |             |                         |                     |
+| [Block NAF](http://arxiv.org/abs/1904.04676)                        |             |                         |                     |
+| [UMNN](http://arxiv.org/abs/1908.05164)                             | Approximate |          Exact          |         No          |
+| [Planar](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpa.21423) | Approximate |          Exact          |         No          |
+| [Radial](https://proceedings.mlr.press/v37/rezende15.html)          | Approximate |          Exact          |         No          |
+| [Sylvester](http://arxiv.org/abs/1803.05649)                        | Approximate |          Exact          |         No          |
+| [Invertible ResNet](http://arxiv.org/abs/1811.00995)                | Approximate |  Biased approximation   |         Yes         |
+| [ResFlow](http://arxiv.org/abs/1906.02735)                          | Approximate | Unbiased approximation  |         Yes         |
+| [Proximal ResFlow](http://arxiv.org/abs/2211.17158)                 | Approximate | Exact (if single layer) |         Yes         |
+| [FFJORD](http://arxiv.org/abs/1810.01367)                           | Approximate |       Approximate       |         Yes         |
+| [RNODE](http://arxiv.org/abs/2002.02798)                            | Approximate |       Approximate       |         Yes         |
+| [DDNF](http://arxiv.org/abs/1810.03256)                             | Approximate |       Approximate       |         Yes         |
+| [OT flow](http://arxiv.org/abs/2006.00104)                          | Approximate |          Exact          |         Yes         |
 
 Note: inverse approximations can be made arbitrarily accurate with stricter convergence conditions.
 Architectures without an implemented inverse support either sampling or density estimation, but not both at once.
