@@ -1,12 +1,12 @@
 import math
-from typing import Tuple, Callable, Union, List
+from typing import Tuple, Union
 import torch
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.base import Combination
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax, \
     log_sigmoid
-from normalizing_flows.bijections.finite.autoregressive.util import gauss_legendre, bisection
-from normalizing_flows.utils import get_batch_shape, sum_except_batch
+from normalizing_flows.bijections.numerical_inversion import bisection_no_gradient
+from normalizing_flows.utils import sum_except_batch
 
 
 class Sigmoid(Transformer):
@@ -83,6 +83,21 @@ class Sigmoid(Transformer):
         z = z_flat.view_as(x)
         log_det = sum_except_batch(log_det_flat.view_as(x), self.event_shape)
         return z, log_det
+
+    def inverse_1d(self, z, h):
+        def f(inputs):
+            return self.forward_1d(inputs, h)
+
+        x, log_det = bisection_no_gradient(f, z)
+        return x, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        z_flat = z.view(-1)
+        h_flat = h.view(-1, h.shape[-1])
+        x_flat, log_det_flat = self.inverse_1d(z_flat, h_flat)
+        x = x_flat.view_as(z)
+        log_det = sum_except_batch(log_det_flat.view_as(z), self.event_shape)
+        return x, log_det
 
 
 class DenseSigmoid(Transformer):

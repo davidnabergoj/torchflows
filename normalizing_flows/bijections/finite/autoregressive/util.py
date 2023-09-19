@@ -1,45 +1,11 @@
 from functools import lru_cache
-from typing import Any, Tuple, Union, List
+from typing import Tuple, List
 
 import numpy as np
 import torch.autograd
 
 
 # Adapted from https://github.com/francois-rozet/zuko/blob/ee03dba8aa73c62420cbd87359499c0c9aadab63/zuko/utils.py
-
-
-class Bisection(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx: Any, f, y, a: torch.Tensor, b: torch.Tensor, n: int, h: List[torch.Tensor]) -> torch.Tensor:
-        ctx.f = f
-        ctx.save_for_backward(*h)
-        for _ in range(n):
-            c = (a + b) / 2
-            mask = torch.as_tensor(f(c, h) < y)
-            a = torch.where(mask, c, a)
-            b = torch.where(mask, b, c)
-        ctx.x = (a + b) / 2
-        return ctx.x
-
-    @staticmethod
-    def backward(ctx: Any, grad_x: torch.Tensor) -> Tuple[Union[torch.Tensor, None], ...]:
-        f, x = ctx.f, ctx.x
-        h = ctx.saved_tensors
-        with torch.enable_grad():
-            x = x.detach().requires_grad_()
-            y = f(x)
-        jac = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph=True)[0]
-        grad_y = grad_x / jac
-        if h:
-            grad_h = torch.autograd.grad(y, h, -grad_y, retain_graph=True)
-        else:
-            grad_h = ()
-
-        return None, grad_y, None, None, None, *grad_h
-
-
-def bisection(f, y, a, b, n, h):
-    return Bisection.apply(f, y, a.to(y), b.to(y), n, h)
 
 
 class GaussLegendre(torch.autograd.Function):

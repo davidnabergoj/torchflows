@@ -4,7 +4,7 @@ from typing import Union, Tuple, List
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.bijections.finite.autoregressive.util import bisection
+from normalizing_flows.bijections.numerical_inversion import bisection
 from normalizing_flows.utils import get_batch_shape, sum_except_batch
 
 

@@ -53,9 +53,9 @@ def assert_valid_reconstruction(transformer: Transformer,
 
     assert log_det_forward.shape == log_det_inverse.shape
     assert torch.allclose(x, xr, atol=reconstruction_eps), \
-        f"E: {(x - xr).abs().max()[0]:.16f}"
+        f"E: {(x - xr).abs().max():.16f}"
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=log_det_eps), \
-        f"E: {(log_det_forward + log_det_inverse).abs().max()[0]:.16f}"
+        f"E: {(log_det_forward + log_det_inverse).abs().max():.16f}"
 
 
 @pytest.mark.parametrize('transformer_class', [
