@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import (
-    MADE, FeedForward, QuasiMADE, LinearMADE, ResidualFeedForward, Constant, Linear
+    MADE, FeedForward, LinearMADE, ResidualFeedForward, Constant, Linear
 )
 from test.constants import __test_constants
 
@@ -10,7 +10,6 @@ from test.constants import __test_constants
 @pytest.mark.parametrize('transform_class', [
     MADE,
     FeedForward,
-    QuasiMADE,
     LinearMADE,
     ResidualFeedForward,
     Linear

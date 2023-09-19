@@ -135,23 +135,6 @@ class LinearMADE(MADE):
         super().__init__(input_event_shape, output_event_shape, n_predicted_parameters, n_layers=1, **kwargs)
 
 
-class QuasiMADE(MADE):
-    # https://arxiv.org/pdf/2009.07419.pdf
-    @staticmethod
-    def create_masks(n_layers, ms):
-        masks = []
-        for i in range(1, n_layers + 1):
-            m_current = ms[i]
-            m_previous = ms[i - 1]
-            xx, yy = torch.meshgrid(m_current, m_previous, indexing='ij')
-            masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
-        return masks
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        # TODO modify autograd
-        raise NotImplementedError
-
-
 class FeedForward(ConditionerTransform):
     def __init__(self,
                  input_event_shape: torch.Size,
