@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 import torch
 import torch.nn as nn
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
@@ -7,7 +7,7 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax, \
     log_sigmoid, log_dot
 from normalizing_flows.bijections.numerical_inversion import bisection_no_gradient
-from normalizing_flows.utils import sum_except_batch
+from normalizing_flows.utils import sum_except_batch, get_batch_shape
 
 
 # As defined in the NAF paper
@@ -125,6 +125,7 @@ class DenseSigmoidInnerTransform(nn.Module):
         """
         h.shape = (batch_size, self.n_parameters)
         """
+        assert len(h.shape) == 2
         batch_size = len(h)
 
         da = h[:, :self.output_size]
@@ -177,33 +178,10 @@ class DenseSigmoidInnerTransform(nn.Module):
 
         m1 = (log_t1 + log_t2 + log_t3 + log_t4)[:, :, :, None]  # (batch_size, output_size, output_size, 1)
         m2 = log_u[:, None, :, :]  # (batch_size, 1, output_size, input_size)
-        log_det = torch.sum(log_dot(m1, m2), dim=(1, 2, 3))
+        log_det = torch.sum(log_dot(m1, m2), dim=(1, 2, 3))  # (batch_size,)
 
         z = x
         return z, log_det
-
-    def inverse_1d(self, z, h):
-        def f(inputs):
-            return self.forward_1d(inputs, h)
-
-        x, log_det = bisection_no_gradient(f, z)
-        return x, log_det
-
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        x_flat = x.view(-1, self.input_size)
-        h_flat = h.view(-1, self.n_parameters)
-        z_flat, log_det_flat = self.forward_1d(x_flat, h_flat)
-        z = z_flat.view_as(x)
-        log_det = sum_except_batch(log_det_flat.view_as(x), self.event_shape)
-        return z, log_det
-
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        z_flat = z.view(-1, self.output_size)
-        h_flat = h.view(-1, self.n_parameters)
-        x_flat, log_det_flat = self.inverse_1d(z_flat, h_flat)
-        x = x_flat.view_as(z)
-        log_det = sum_except_batch(log_det_flat.view_as(z), self.event_shape)
-        return x, log_det
 
 
 class DenseSigmoid(Transformer):
@@ -231,32 +209,56 @@ class DenseSigmoid(Transformer):
     def split_parameters(self, h):
         # split parameters h into parameters for several layers
         # h.shape == (*batch_shape, *event_shape, n_parameters)
-        split_parameters = torch.split(h, split_size_or_sections=[layer.n_parameters for layer in self.layers])
+        split_parameters = torch.split(h, split_size_or_sections=[layer.n_parameters for layer in self.layers], dim=-1)
         return split_parameters
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        h_split = self.split_parameters(h)
-        log_det = None
+    def forward_1d(self, x_flat, h_split_flat: List[torch.Tensor]):
+        log_det_flat = None
         for i in range(len(self.layers)):
-            x, log_det_inc = self.layers[i].forward(x, h_split[i])
-            if log_det is None:
-                log_det = log_det_inc
+            x_flat, log_det_flat_inc = self.layers[i].forward_1d(x_flat, h_split_flat[i])
+            if log_det_flat is None:
+                log_det_flat = log_det_flat_inc
             else:
-                log_det += log_det_inc
-        z = x
+                log_det_flat += log_det_flat_inc
+        z_flat = x_flat
+        return z_flat, log_det_flat
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # x.shape == (*batch_shape, *event_shape)
+        # h.shape == (*batch_shape, n_parameters)
+        h_split = self.split_parameters(h)
+        event_size = self.n_dim
+        batch_size = int(torch.prod(torch.as_tensor(get_batch_shape(x, self.event_shape))))
+        x_flat = x.view(batch_size, event_size)
+        h_split_flat = [h_split[i].view(batch_size, -1) for i in range(len(h_split))]
+
+        z_flat, log_det_flat = self.forward_1d(x_flat, h_split_flat)
+
+        log_det = log_det_flat.view(batch_size)
+        z = z_flat.view_as(x)
         return z, log_det
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        h_split = self.split_parameters(h)
-        log_det = None
-        for i in range(len(self.layers) - 1, -1, -1):
-            z, log_det_inc = self.layers[i].inverse(z, h_split[i])
-            if log_det is None:
-                log_det = log_det_inc
-            else:
-                log_det += log_det_inc
-        x = z
+    def inverse_1d(self, z, h):
+        def f(inputs):
+            return self.forward_1d(inputs, h)
+
+        x, log_det = bisection_no_gradient(f, z)
         return x, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # x.shape == (*batch_shape, *event_shape)
+        # h.shape == (*batch_shape, n_parameters)
+        h_split = self.split_parameters(h)
+        event_size = self.n_dim
+        batch_size = int(torch.prod(torch.as_tensor(get_batch_shape(z, self.event_shape))))
+        z_flat = z.view(batch_size, event_size)
+        h_split_flat = [h_split[i].view(batch_size, -1) for i in range(len(h_split))]
+
+        x_flat, log_det_flat = self.inverse_1d(z_flat, h_split_flat)
+
+        log_det = log_det_flat.view(batch_size)
+        z = x_flat.view_as(z)
+        return z, log_det
 
 
 class DeepSigmoid(Combination):
