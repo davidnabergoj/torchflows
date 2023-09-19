@@ -101,7 +101,7 @@ class Sigmoid(Transformer):
 
 
 class DenseSigmoid(Transformer):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -125,5 +125,5 @@ class DeepDenseSigmoid(Combination):
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_hidden_layers: int = 2,
                  **kwargs):
-        sigmoid_transforms = [Sigmoid(event_shape, **kwargs) for _ in range(n_hidden_layers)]
+        sigmoid_transforms = [DenseSigmoid(event_shape, **kwargs) for _ in range(n_hidden_layers)]
         super().__init__(event_shape, sigmoid_transforms)
