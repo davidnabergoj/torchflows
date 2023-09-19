@@ -1,6 +1,10 @@
 # Normalizing flows in PyTorch
 
 This package implements normalizing flows and their building blocks.
+The package is meant for researchers, enabling:
+* easy use of normalizing flows as generative models or density estimators in various applications;
+* systematic comparisons of normalizing flows or their building blocks;
+* simple implementation of new normalizing flows which belong to either the autoregressive, residual, or continuous families;
 
 Example use:
 
