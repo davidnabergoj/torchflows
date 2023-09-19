@@ -57,7 +57,6 @@ We implement the following NF transformations:
 | Invertible ResNet      | Approximate |  Biased approximation   |         Yes         |
 | ResFlow                | Approximate | Unbiased approximation  |         Yes         |
 | Proximal ResFlow       | Approximate | Exact (if single layer) |         Yes         |
-| Quasi AR flow          |             |                         |                     |
 | FFJORD                 | Approximate |       Approximate       |         Yes         |
 | RNode                  | Approximate |       Approximate       |         Yes         |
 | DDNF                   | Approximate |       Approximate       |         Yes         |
