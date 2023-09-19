@@ -3,7 +3,6 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.finite.residual.base import ResidualBijection
 from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
 
@@ -83,10 +82,3 @@ class ResFlowBlock(InvertibleResNetBlock):
 
     def log_det(self, x: torch.Tensor, **kwargs):
         return log_det_roulette(self.g, x)[1]
-
-
-class QuasiAutoregressiveFlowBlock(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], sigma: float = 0.7):
-        super().__init__(event_shape)
-        self.log_theta = nn.Parameter(torch.randn())
-        self.sigma = sigma
