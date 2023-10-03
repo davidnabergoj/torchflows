@@ -214,6 +214,27 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
             conditioner_transform=conditioner_transform
         )
 
+class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_bins: int = 8,
+                 **kwargs):
+        transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
+        conditioner_transform = MADE(
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            n_predicted_parameters=transformer.n_parameters,
+            context_shape=context_shape,
+            **kwargs
+        )
+        conditioner = MaskedAutoregressive()
+        super().__init__(
+            conditioner=conditioner,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform
+        )
+
 
 class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
     def __init__(self,
