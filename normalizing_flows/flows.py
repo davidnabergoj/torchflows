@@ -5,7 +5,7 @@ from tqdm import tqdm
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
 from normalizing_flows.regularization import reconstruction_error
-from normalizing_flows.utils import flatten_event, get_batch_shape
+from normalizing_flows.utils import flatten_event, get_batch_shape, unflatten_event
 
 
 class Flow(nn.Module):
@@ -23,6 +23,13 @@ class Flow(nn.Module):
         zf = flatten_event(z, self.bijection.event_shape)
         log_prob = self.base.log_prob(zf)
         return log_prob
+
+    def base_sample(self, sample_shape):
+        z_flat = self.base.sample(sample_shape)
+        z = unflatten_event(z_flat, self.bijection.event_shape)
+        return z
+
+
 
     def forward_with_log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         if context is not None:
@@ -46,11 +53,11 @@ class Flow(nn.Module):
         :return:
         """
         if context is not None:
-            z = self.base.sample(sample_shape=torch.Size((n, len(context))))
+            z = self.base_sample(sample_shape=torch.Size((n, len(context))))
             context = context[None].repeat(*[n, *([1] * len(context.shape))])  # Make context shape match z shape
             assert z.shape[:2] == context.shape[:2]
         else:
-            z = self.base.sample(sample_shape=torch.Size((n,)))
+            z = self.base_sample(sample_shape=torch.Size((n,)))
         if no_grad:
             z = z.detach()
             with torch.no_grad():
