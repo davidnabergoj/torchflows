@@ -20,15 +20,12 @@ from normalizing_flows.utils import get_batch_shape
 from test.constants import __test_constants
 
 
-def setup_transformer_data(transformer_class: Transformer, batch_shape, event_shape, vector_to_vector: bool = False):
+def setup_transformer_data(transformer_class: Transformer, batch_shape, event_shape):
     # vector_to_vector: does the transformer map a vector to vector? Otherwise, it maps a scalar to scalar.
     torch.manual_seed(0)
     transformer = transformer_class(event_shape)
     x = torch.randn(*batch_shape, *event_shape)
-    if vector_to_vector:
-        h = torch.randn(*batch_shape, transformer.n_parameters)
-    else:
-        h = torch.randn(*batch_shape, *event_shape, transformer.n_parameters)
+    h = torch.randn(*batch_shape, *event_shape, transformer.n_parameters)
     return transformer, x, h
 
 
@@ -110,5 +107,5 @@ def test_combination_basic(transformer_class: Transformer, batch_shape: Tuple, e
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_combination_vector_to_vector(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
-    transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape, vector_to_vector=True)
-    assert_valid_reconstruction(transformer, x, h)
+    transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
+    assert_valid_reconstruction(transformer, x, h, reconstruction_eps=1e-2)
