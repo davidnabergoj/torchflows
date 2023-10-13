@@ -259,7 +259,25 @@ class DenseSigmoid(Transformer):
         # x.shape == (*batch_shape, *event_shape)
         # h.shape == (*batch_shape, *event_shape, n_parameters)
         h_split = self.split_parameters(h)
-        z, log_det = self.forward_1d(x, h_split)
+
+        n_event_dims = len(self.event_shape)
+        n_batch_dims = len(x.shape) - n_event_dims
+        batch_shape = x.shape[:n_batch_dims]
+
+        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
+        event_size = int(torch.prod(torch.as_tensor(self.event_shape)))
+
+        # Flatten event and batch
+        x_flat = x.view(batch_size, event_size)
+        h_split_flat = [h_element.view(batch_size, event_size, -1) for h_element in h_split]
+
+        z_flat, log_det_flat = self.forward_1d(x_flat, h_split_flat)
+
+        # Unflatten event and batch
+        z = z_flat.view(*batch_shape, *self.event_shape)
+        log_det = log_det_flat.view(*batch_shape)
+        # log_det = sum_except_batch(log_det, self.event_shape)
+
         return z, log_det
 
     def inverse_1d(self, z, h):
@@ -273,8 +291,24 @@ class DenseSigmoid(Transformer):
         # z.shape == (*batch_shape, *event_shape)
         # h.shape == (*batch_shape, *event_shape, n_parameters)
         h_split = self.split_parameters(h)
-        x, log_det = self.inverse_1d(z, h_split)
-        return z, log_det
+
+        n_event_dims = len(self.event_shape)
+        n_batch_dims = len(z.shape) - n_event_dims
+        batch_shape = z.shape[:n_batch_dims]
+
+        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
+        event_size = int(torch.prod(torch.as_tensor(self.event_shape)))
+
+        # Flatten event and batch
+        z_flat = z.view(batch_size, event_size)
+        h_split_flat = [h_element.view(batch_size, event_size, -1) for h_element in h_split]
+        x_flat, log_det_flat = self.inverse_1d(z_flat, h_split_flat)
+
+        # Unflatten event and batch
+        x = x_flat.view(*batch_shape, *self.event_shape)
+        log_det = log_det_flat.view(*batch_shape)
+
+        return x, log_det
 
 
 class DeepSigmoid(Combination):

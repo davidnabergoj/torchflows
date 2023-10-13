@@ -103,9 +103,12 @@ def test_combination_basic(transformer_class: Transformer, batch_shape: Tuple, e
     assert_valid_reconstruction(transformer, x, h)
 
 
-@pytest.mark.parametrize('transformer_class', [DenseSigmoid, DeepDenseSigmoid])
+@pytest.mark.parametrize('transformer_class', [
+    DenseSigmoid,
+    DeepDenseSigmoid
+])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_combination_vector_to_vector(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
-    assert_valid_reconstruction(transformer, x, h, reconstruction_eps=1e-2)
+    assert_valid_reconstruction(transformer, x, h)
