@@ -62,7 +62,7 @@ class Sigmoid(Transformer):
         log_w = log_softmax(w_pre, dim=-1)
         return a, b, w, log_w
 
-    def forward_1d(self, x, h):
+    def forward_1d(self, x, h, eps: float = 1e-6):
         """
         x.shape = (batch_size,)
         h.shape = (batch_size, hidden_size * 3)
@@ -73,8 +73,9 @@ class Sigmoid(Transformer):
         w.shape = (batch_size, hidden_size)
         """
         a, b, w, log_w = self.extract_parameters(h)
-        c = torch.sigmoid(a * x[:, None] + b)  # (batch_size, n_hidden)
-        d = torch.einsum('...i,...i->...', w, c)  # Softmax weighing -> (batch_size,)
+        c = a * x[:, None] + b  # (batch_size, n_hidden)
+        d = torch.clip(torch.einsum('...i,...i->...', w, torch.sigmoid(c)), eps,
+                       1 - eps)  # Softmax weighing -> (batch_size,)
         x = inverse_sigmoid(d)  # Inverse sigmoid ... (batch_size,)
 
         log_t1 = (torch.log(d) - torch.log(1 - d))[:, None]  # (batch_size, hidden_size)
@@ -162,7 +163,7 @@ class DenseSigmoidInnerTransform(nn.Module):
         log_w = log_softmax(w_pre, dim=-1)
         return a, b, w, log_w, u, log_u
 
-    def forward_1d(self, x, h):
+    def forward_1d(self, x, h, eps: float = 1e-6):
         # Compute y = inv_sig(w @ sig(a * u @ x + b))
         # h.shape = (batch_size, n_parameters)
 
@@ -183,7 +184,11 @@ class DenseSigmoidInnerTransform(nn.Module):
 
         ux = torch.einsum('beoi,bei->beo', u, x)  # (batch_size, event_size, output_size)
         c = a * ux + b  # (batch_size, event_size, output_size)
-        d = torch.einsum('beij,bej->bei', w, torch.sigmoid(c))  # Softmax -> (batch_size, event_size, output_size)
+        d = torch.clip(
+            torch.einsum('beij,bej->bei', w, torch.sigmoid(c)),
+            eps,
+            1 - eps
+        )  # Softmax -> (batch_size, event_size, output_size)
         x = inverse_sigmoid(d)  # Inverse sigmoid (batch_size, event_size, output_size)
         # The problem with NAF: we map c to sigmoid(c), alter it a bit, then map it back with the inverse.
         # Precision gets lost when mapping back.
