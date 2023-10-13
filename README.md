@@ -16,7 +16,7 @@ from normalizing_flows import RealNVP, Flow
 
 torch.manual_seed(0)
 
-n_data = 100
+n_data = 1000
 n_dim = 3
 
 x = torch.randn(n_data, n_dim)  # Generate some training data
