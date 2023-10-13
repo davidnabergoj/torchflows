@@ -82,7 +82,7 @@ class MADE(ConditionerTransform):
         )
 
         if n_hidden is None:
-            n_hidden = int(3 * math.log10(self.n_input_event_dims))
+            n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
 
         # Set conditional dimension values
         ms = [
@@ -151,7 +151,7 @@ class FeedForward(ConditionerTransform):
         )
 
         if n_hidden is None:
-            n_hidden = int(3 * math.log10(self.n_input_event_dims))
+            n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
 
         # If context given, concatenate it to transform input
         if context_shape is not None:
