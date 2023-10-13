@@ -11,9 +11,12 @@ from normalizing_flows.utils import sum_except_batch, get_batch_shape
 
 
 # As defined in the NAF paper
+# Note: when using dense sigmoid transformers, the input data should have relatively small magnitudes (abs(x) < 10).
+#       Otherwise, inversion becomes unstable due to sigmoid saturation.
 
 def inverse_sigmoid(p):
-    return torch.log(p / (1 - p))
+    # return torch.log(p / (1 - p))
+    return torch.log(p) - torch.log1p(-p)
 
 
 class Sigmoid(Transformer):
@@ -87,7 +90,7 @@ class Sigmoid(Transformer):
         def f(inputs):
             return self.forward_1d(inputs, h)
 
-        x, log_det = bisection_no_gradient(f, z)
+        x, log_det = bisection_no_gradient(f, z, a=-10.0, b=10.0)
         return x, log_det
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -167,9 +170,11 @@ class DenseSigmoidInnerTransform(nn.Module):
         a, b, w, log_w, u, log_u = self.extract_parameters(h)
 
         ux = torch.einsum('boi,bi->bo', u, x)  # (batch_size, output_size)
-        c = torch.sigmoid(a * ux + b)  # (batch_size, output_size)
-        d = torch.einsum('bij,bj->bi', w, c)  # Softmax weighing -> (batch_size, output_size)
+        c = a * ux + b  # (batch_size, output_size)
+        d = torch.einsum('bij,bj->bi', w, torch.sigmoid(c))  # Softmax weighing -> (batch_size, output_size)
         x = inverse_sigmoid(d)  # Inverse sigmoid (batch_size, output_size)
+        # The problem with NAF: we map c to sigmoid(c), alter it a bit, then map it back with the inverse.
+        # Precision gets lost when mapping back.
 
         log_t1 = (torch.log(d) - torch.log(1 - d))[:, :, None]  # (batch_size, output_size, 1)
         log_t2 = log_w  # (batch_size, output_size, output_size)
@@ -188,7 +193,7 @@ class DenseSigmoid(Transformer):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_dense_layers: int = 1,
-                 hidden_size: int = 30):
+                 hidden_size: int = 8):
         super().__init__(event_shape)
         self.n_dense_layers = n_dense_layers
         layers = [
@@ -242,7 +247,7 @@ class DenseSigmoid(Transformer):
         def f(inputs):
             return self.forward_1d(inputs, h)
 
-        x, log_det = bisection_no_gradient(f, z)
+        x, log_det = bisection_no_gradient(f, z, a=-10.0, b=10.0)
         return x, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

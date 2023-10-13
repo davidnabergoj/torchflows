@@ -3,6 +3,8 @@ from typing import Tuple
 import pytest
 import torch
 
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import inverse_sigmoid
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax
 from normalizing_flows.utils import get_batch_shape, vjp_tensor
 
 
@@ -59,3 +61,21 @@ def test_vjp_tensor_batched_quadratic():
     fval, vjp = torch.autograd.functional.vjp(lambda _in: _in ** 2, x, v)
 
     assert torch.allclose(vjp, 2 * x * v)
+
+
+def test_log_softmax():
+    torch.manual_seed(0)
+    x_pre = torch.randn(5, 10)
+    x = torch.softmax(x_pre, dim=1)
+    x_log_1 = log_softmax(x_pre, dim=1)
+    x_log_2 = torch.log(x)
+
+    assert torch.allclose(x_log_1, x_log_2)
+
+
+def test_inverse_sigmoid():
+    torch.manual_seed(0)
+    x = torch.randn(10)
+    s = torch.sigmoid(x)
+    xr = inverse_sigmoid(s)
+    assert torch.allclose(x, xr)

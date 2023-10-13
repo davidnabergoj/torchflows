@@ -38,8 +38,8 @@ def bisection(f, y, a, b, n, h):
 
 def bisection_no_gradient(f: callable,
                           y: torch.Tensor,
-                          a: torch.Tensor = None,
-                          b: torch.Tensor = None,
+                          a: Union[torch.Tensor, float] = None,
+                          b: Union[torch.Tensor, float] = None,
                           n_iterations: int = 500,
                           atol: float = 1e-9):
     """
@@ -53,8 +53,13 @@ def bisection_no_gradient(f: callable,
 
     if a is None:
         a = torch.full_like(y, fill_value=-100.0)
+    elif isinstance(a, float):
+        a = torch.full_like(y, fill_value=a)
+
     if b is None:
         b = torch.full_like(y, fill_value=100.0)
+    elif isinstance(b, float):
+        b = torch.full_like(y, fill_value=b)
 
     c = (a + b) / 2
     log_det = None
