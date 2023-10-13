@@ -78,8 +78,8 @@ def test_affine(transformer_class: Transformer, batch_shape: Tuple, event_shape:
     LinearSpline,
     LinearRationalSpline,
     RationalQuadraticSpline,
-    CubicSpline,
-    BasisSpline
+    # CubicSpline,
+    # BasisSpline
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])

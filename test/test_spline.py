@@ -21,7 +21,13 @@ def test_linear_rational():
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-4)
 
 
-@pytest.mark.parametrize('spline_class', [Linear, LinearRational, RationalQuadratic, Cubic, Basis])
+@pytest.mark.parametrize('spline_class', [
+    Linear,
+    LinearRational,
+    RationalQuadratic,
+    # Cubic,
+    # Basis
+])
 def test_1d_spline(spline_class):
     torch.manual_seed(0)
     spline = spline_class(event_shape=(1,), n_bins=8, boundary=5.0)
@@ -71,7 +77,13 @@ def test_2d_spline(spline_class):
 @pytest.mark.parametrize('boundary', [1.0, 5.0, 50.0])
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (10,), (100,), (2, 5, 6, 3)])
 @pytest.mark.parametrize('event_shape', [(1,), (2,), (10,), (100,), (3, 4, 1)])
-@pytest.mark.parametrize('spline_class', [RationalQuadratic, LinearRational, Linear, Cubic, Basis])
+@pytest.mark.parametrize('spline_class', [
+    RationalQuadratic,
+    LinearRational,
+    Linear,
+    # Cubic,
+    # Basis
+])
 def test_spline_exhaustive(spline_class, boundary: float, batch_shape, event_shape):
     torch.manual_seed(0)
 

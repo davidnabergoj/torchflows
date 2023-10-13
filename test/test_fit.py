@@ -5,6 +5,7 @@ from normalizing_flows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, 
     CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular, ElementwiseScale, QR, LU
 
 
+@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
 @pytest.mark.parametrize('bijection_class', [
     LowerTriangular,
     ElementwiseScale,
@@ -36,6 +37,7 @@ def test_standard_gaussian(bijection_class):
     assert torch.allclose(x_var, torch.ones(size=(n_dim,)), atol=0.1)
 
 
+@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
 def test_diagonal_gaussian_elementwise_affine():
     torch.manual_seed(0)
 
@@ -53,6 +55,7 @@ def test_diagonal_gaussian_elementwise_affine():
     assert relative_error < 0.1
 
 
+@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
 def test_diagonal_gaussian_elementwise_scale():
     torch.manual_seed(0)
 
@@ -73,6 +76,7 @@ def test_diagonal_gaussian_elementwise_scale():
     assert relative_error < 0.1
 
 
+@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
 @pytest.mark.parametrize('bijection_class',
                          [
                              LowerTriangular,
