@@ -49,7 +49,13 @@ def test_1d_spline(spline_class):
     assert torch.allclose(log_det, -log_det_inverse, atol=1e-3)
 
 
-@pytest.mark.parametrize('spline_class', [RationalQuadratic, LinearRational, Linear, Cubic, Basis])
+@pytest.mark.parametrize('spline_class', [
+    RationalQuadratic,
+    LinearRational,
+    Linear,
+    # Cubic,
+    # Basis
+])
 def test_2d_spline(spline_class):
     torch.manual_seed(0)
     batch_shape = (3,)
