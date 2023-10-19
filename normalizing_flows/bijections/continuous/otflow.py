@@ -27,7 +27,7 @@ class OTResNet(nn.Module):
         # Initialize K0, K1 close to identity
         # Initialize b0, b1 close to zero
 
-        divisor = event_size ** 2
+        divisor = max(event_size ** 2, 10)
 
         K0_delta = torch.randn(size=(hidden_size, event_size)) / divisor
         b0_delta = torch.randn(size=(hidden_size,)) / divisor
