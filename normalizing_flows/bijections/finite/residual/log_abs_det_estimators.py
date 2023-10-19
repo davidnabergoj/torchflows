@@ -4,11 +4,11 @@ import torch.nn as nn
 from normalizing_flows.utils import Geometric, vjp_tensor
 
 
-def hutchinson_log_abs_det_estimator(g: callable,
-                                     x: torch.Tensor,
-                                     noise: torch.Tensor,
-                                     training: bool,
-                                     n_iterations: int = 8):
+def power_series_log_abs_det_estimator(g: callable,
+                                       x: torch.Tensor,
+                                       noise: torch.Tensor,
+                                       training: bool,
+                                       n_iterations: int = 8):
     # f(x) = x + g(x)
     # x.shape == (batch_size, event_size)
     # noise.shape == (batch_size, event_size, n_hutchinson_samples)
@@ -41,11 +41,11 @@ def hutchinson_log_abs_det_estimator(g: callable,
     return g_value, log_abs_det_jac_f
 
 
-def neumann_log_abs_det_estimator(g: callable,
-                                  x: torch.Tensor,
-                                  noise: torch.Tensor,
-                                  training: bool,
-                                  p: float = 0.5):
+def roulette_log_abs_det_estimator(g: callable,
+                                   x: torch.Tensor,
+                                   noise: torch.Tensor,
+                                   training: bool,
+                                   p: float = 0.5):
     """
     Estimate log[abs(det(grad(f)))](x) with a roulette approach, where f(x) = x + g(x); Lip(g) < 1.
 
@@ -144,7 +144,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
 def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: float = 0.5):
     noise = torch.randn_like(x)
     return LogDeterminantEstimator.apply(
-        lambda *args, **kwargs: neumann_log_abs_det_estimator(*args, **kwargs, p=p),
+        lambda *args, **kwargs: roulette_log_abs_det_estimator(*args, **kwargs, p=p),
         g,
         x,
         noise,
@@ -153,11 +153,11 @@ def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: f
     )
 
 
-def log_det_hutchinson(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8,
-                       n_hutchinson_samples: int = 1):
+def log_det_power_series(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8,
+                         n_hutchinson_samples: int = 1):
     noise = torch.randn(size=(*x.shape, n_hutchinson_samples))
     return LogDeterminantEstimator.apply(
-        lambda *args, **kwargs: hutchinson_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
+        lambda *args, **kwargs: power_series_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
         g,
         x,
         noise,

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from normalizing_flows.bijections.finite.residual.base import ResidualBijection
-from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
+from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_power_series, log_det_roulette
 
 
 class SpectralLinear(nn.Module):
@@ -72,7 +72,7 @@ class InvertibleResNetBlock(ResidualBijection):
         self.g = SpectralNeuralNetwork(n_dim=self.n_dim, **kwargs)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_hutchinson(self.g, x, **kwargs)[1]
+        return log_det_power_series(self.g, x, **kwargs)[1]
 
 
 class ResFlowBlock(InvertibleResNetBlock):
