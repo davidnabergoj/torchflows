@@ -5,37 +5,54 @@ import torch.nn as nn
 from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_hutchinson, log_det_roulette
 
 
-@pytest.mark.parametrize('n_iterations', [4, 10, 25, 100])
-def test_hutchinson(n_iterations):
-    # an example of a Lipschitz continuous function with constant < 1: g(x) = 1/2 * x
+class LipschitzTestData:
+    def __init__(self, n_dim):
+        self.n_dim = n_dim
 
-    n_data = 100
-    n_dim = 30
-
-    class TestFunction(nn.Module):
+    class LipschitzFunction(nn.Module):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
         def forward(self, inputs):
             return 0.5 * inputs
 
-    def jac_f(inputs):
-        return torch.eye(n_dim) * 1.5
+    def jac_f(self, _):
+        return torch.eye(self.n_dim) * (1 + 0.5)
 
-    def log_det_jac_f(inputs):
-        return torch.log(torch.abs(torch.det(jac_f(inputs))))
+    def log_det_jac_f(self, inputs):
+        return torch.log(torch.abs(torch.det(self.jac_f(inputs))))
 
-    g = TestFunction()
+
+@pytest.mark.parametrize('n_hutchinson_samples', [*list(range(25, 40))])
+@pytest.mark.parametrize('n_iterations', [4, 10, 25, 100])
+def test_hutchinson(n_iterations, n_hutchinson_samples):
+    # This test checks for validity of the hutchinson power series trace estimator.
+    # The estimator computes log|det(Jac_f)| where f(x) = x + g(x) and x is Lipschitz continuous with Lip(g) < 1.
+    # In this example: a Lipschitz continuous function with constant < 1 is g(x) = 1/2 * x; Lip(g) = 1/2.
+
+    # The reference jacobian of f is I * 1.5, because d/dx f(x) = d/dx x + g(x) = d/dx x + 1/2 * x = 1 + 1/2 = 1.5
+
+    n_data = 1
+    n_dim = 1
+
+    test_data = LipschitzTestData(n_dim)
+    g = test_data.LipschitzFunction()
 
     torch.manual_seed(0)
     x = torch.randn(size=(n_data, n_dim))
-    g_value, log_det_f = log_det_hutchinson(g, x, training=False, n_iterations=n_iterations)
-    log_det_f_true = log_det_jac_f(x).ravel()
+    g_value, log_det_f_estimated = log_det_hutchinson(
+        g,
+        x,
+        training=False,
+        n_iterations=n_iterations,
+        n_hutchinson_samples=n_hutchinson_samples
+    )
+    log_det_f_true = test_data.log_det_jac_f(x).ravel()
 
-    print(f'{log_det_f = }')
+    print()
+    print(f'{log_det_f_estimated = }')
     print(f'{log_det_f_true = }')
-    print(f'{log_det_f.mean() = }')
-    assert torch.allclose(log_det_f, log_det_f_true)
+    assert torch.allclose(log_det_f_estimated, log_det_f_true)
 
 
 @pytest.mark.parametrize('p', [0.01, 0.1, 0.5, 0.9, 0.99])
@@ -45,25 +62,14 @@ def test_roulette(p):
     n_data = 100
     n_dim = 30
 
-    class TestFunction(nn.Module):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+    test_data = LipschitzTestData(n_dim)
 
-        def forward(self, inputs):
-            return 0.5 * inputs
-
-    def jac_f(inputs):
-        return torch.eye(n_dim) * 1.5
-
-    def log_det_jac_f(inputs):
-        return torch.log(torch.abs(torch.det(jac_f(inputs))))
-
-    g = TestFunction()
+    g = test_data.LipschitzFunction()
 
     torch.manual_seed(0)
     x = torch.randn(size=(n_data, n_dim))
     g_value, log_det_f = log_det_roulette(g, x, training=False, p=p)
-    log_det_f_true = log_det_jac_f(x).ravel()
+    log_det_f_true = test_data.log_det_jac_f(x).ravel()
 
     print(f'{log_det_f = }')
     print(f'{log_det_f_true = }')

@@ -4,18 +4,47 @@ import torch.nn as nn
 from normalizing_flows.utils import Geometric, vjp_tensor
 
 
-def hutchinson_log_abs_det_estimator(g: callable, x: torch.Tensor, noise: torch.Tensor, training: bool,
+def hutchinson_log_abs_det_estimator(g: callable,
+                                     x: torch.Tensor,
+                                     noise: torch.Tensor,
+                                     training: bool,
                                      n_iterations: int = 8):
     # f(x) = x + g(x)
-    w = noise
-    log_abs_det_jac_f = 0.0
+    # x.shape == (batch_size, event_size)
+    # noise.shape == (batch_size, event_size, n_hutchinson_samples)
+    # g(x).shape == (batch_size, event_size)
+
+    assert len(noise.shape) == 3
+    batch_size, event_size, n_hutchinson_samples = noise.shape
+    assert len(x.shape) == 2
+    assert x.shape == (batch_size, event_size)
+    assert n_iterations >= 2
+
+    w = noise  # (batch_size, event_size, n_hutchinson_samples)
+    log_abs_det_jac_f = torch.zeros(size=(batch_size, n_hutchinson_samples))  # this will be averaged at the end
+    g_value = None
     for k in range(1, n_iterations + 1):
-        g_value, w = torch.autograd.functional.vjp(g, x, w)
-        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=-1)
+        # Compute VJP, reshape appropriately for hutchinson averaging
+        tmp = [torch.autograd.functional.vjp(g, x, w[..., i], strict=True) for i in range(n_hutchinson_samples)]
+        gs, ws = zip(*tmp)
+
+        if g_value is None:
+            gs = list(gs)
+            g_value = gs[0]
+
+        ws = list(ws)
+        # (batch_size, event_size, n_hutchinson_samples)
+        w = torch.concatenate([ws[i][..., None] for i in range(n_hutchinson_samples)], dim=2)
+        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=1)  # sum over event dim
+        assert log_abs_det_jac_f.shape == (batch_size, n_hutchinson_samples)
+    log_abs_det_jac_f = torch.mean(log_abs_det_jac_f, dim=1)  # hutchinson averaging over the many different series
     return g_value, log_abs_det_jac_f
 
 
-def neumann_log_abs_det_estimator(g: callable, x: torch.Tensor, noise: torch.Tensor, training: bool,
+def neumann_log_abs_det_estimator(g: callable,
+                                  x: torch.Tensor,
+                                  noise: torch.Tensor,
+                                  training: bool,
                                   p: float = 0.5):
     """
     Estimate log[abs(det(grad(f)))](x) with a roulette approach, where f(x) = x + g(x); Lip(g) < 1.
@@ -124,8 +153,9 @@ def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: f
     )
 
 
-def log_det_hutchinson(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8):
-    noise = torch.randn_like(x)
+def log_det_hutchinson(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8,
+                       n_hutchinson_samples: int = 1):
+    noise = torch.randn(size=(*x.shape, n_hutchinson_samples))
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: hutchinson_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
         g,
