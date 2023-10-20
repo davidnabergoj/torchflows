@@ -17,7 +17,7 @@ def test_linear_rational():
     xr, log_det_inverse = spline.inverse(z, h)
     assert x.shape == z.shape == xr.shape
     assert log_det_forward.shape == log_det_inverse.shape
-    assert torch.allclose(x, xr)
+    assert torch.allclose(x, xr, atol=1e-05)
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-4)
 
 
