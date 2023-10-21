@@ -33,6 +33,17 @@ print(x_new.shape)  # (50, 3)
 
 We provide more examples [here](examples/README.md).
 
+## Installing
+
+We support Python versions 3.6 and upwards.
+
+Install via git:
+```python
+git clone https://github.com/davidnabergoj/normalizing-flows.git
+cd normalizing-flows
+pip install -r requirements.txt
+```
+
 ## Brief background
 
 A normalizing flow (NF) is a flexible distribution, defined as a bijective transformation of a simple statistical
