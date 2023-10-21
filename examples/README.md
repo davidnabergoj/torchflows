@@ -1,7 +1,7 @@
 # Examples
 
 We provide minimal working examples on how to perform various common tasks with normalizing flows.
-We use Real NVP as an example, but you can replace it with any other bijections from `normalizing_flows.bijections`.
+We use Real NVP as an example, but you can replace it with any other bijection from `normalizing_flows.bijections`.
 
 ## Training a normalizing flow on a fixed dataset
 ```python
