@@ -31,6 +31,8 @@ print(log_prob.shape)  # (100,)
 print(x_new.shape)  # (50, 3)
 ```
 
+We provide more examples [here](examples/README.md).
+
 ## Brief background
 
 A normalizing flow (NF) is a flexible distribution, defined as a bijective transformation of a simple statistical
