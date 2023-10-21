@@ -35,7 +35,7 @@ We provide more examples [here](examples/README.md).
 
 ## Installing
 
-We support Python versions 3.6 and upwards.
+We support Python versions 3.7 and upwards.
 
 Install via git:
 ```python
