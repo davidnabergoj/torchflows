@@ -34,7 +34,7 @@ setup(
         "density-estimation",
         "normalizing-flow"
     ],
-    packages=["normalizing_flows"],
+    packages=find_packages(exclude=["test"]),
     python_requires=">=3.7, <4",
     install_requires=[
         "torch>=2.0.1",
