@@ -25,8 +25,16 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3 :: Only",
     ],
-    keywords="sample, setuptools, development",
-    packages=find_packages("./"),  # Required
+    keywords=[
+        "python",
+        "machine-learning",
+        "pytorch",
+        "generative-model",
+        "sampling",
+        "density-estimation",
+        "normalizing-flow"
+    ],
+    packages=["normalizing_flows"],
     python_requires=">=3.7, <4",
     install_requires=[
         "torch>=2.0.1",
