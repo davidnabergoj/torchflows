@@ -31,18 +31,25 @@ print(log_prob.shape)  # (100,)
 print(x_new.shape)  # (50, 3)
 ```
 
-We provide more examples [here](examples/README.md).
+We provide more examples [here](examples/).
 
 ## Installing
 
-We support Python versions 3.7 and upwards.
+Install the package:
 
-Install via git:
-```python
+```
+pip install git+https://github.com/davidnabergoj/normalizing-flows.git
+```
+
+Setup for development:
+
+```
 git clone https://github.com/davidnabergoj/normalizing-flows.git
 cd normalizing-flows
 pip install -r requirements.txt
 ```
+
+We support Python versions 3.7 and upwards.
 
 ## Brief background
 

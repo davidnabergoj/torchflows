@@ -1,12 +1,12 @@
 import torch
-from typing import Tuple
+from typing import Tuple, List
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
 from normalizing_flows.utils import get_batch_shape
 
 
 class Combination(Transformer):
-    def __init__(self, event_shape: torch.Size, components: list[Transformer]):
+    def __init__(self, event_shape: torch.Size, components: List[Transformer]):
         super().__init__(event_shape)
         self.components = components
         self.n_components = len(self.components)
