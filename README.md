@@ -1,12 +1,10 @@
 # Normalizing flows in PyTorch
 
 This package implements normalizing flows and their building blocks.
-The package is meant for researchers, enabling:
+It allows:
 
-* easy use of normalizing flows as generative models or density estimators in various applications;
-* systematic comparisons of normalizing flows or their building blocks;
-* simple implementation of new normalizing flows which belong to either the autoregressive, residual, or continuous
-  families;
+* easy use of normalizing flows as trainable distributions;
+* easy implementation of new normalizing flows.
 
 Example use:
 
@@ -53,48 +51,51 @@ We support Python versions 3.7 and upwards.
 
 ## Brief background
 
-A normalizing flow (NF) is a flexible distribution, defined as a bijective transformation of a simple statistical
-distribution.
-The simple distribution is typically a standard Gaussian.
-The transformation is typically an invertible neural network that can make the NF arbitrarily complex.
-Training a NF using a dataset means optimizing the parameters of transformation to make the dataset likely under the NF.
+A normalizing flow (NF) is a flexible trainable distribution.
+It is defined as a bijective transformation of a simple distribution, such as a standard Gaussian.
+The bijection is typically an invertible neural network.
+Training a NF using a dataset means optimizing the bijection's parameters to make the dataset likely under the NF.
 We can use a NF to compute the probability of a data point or to independently sample data from the process that
 generated our dataset.
 
-A NF $q(x)$ with the bijection $f(z) = x$ and base distribution $p(z)$ is defined as:
-$$\log q(x) = \log p(f^{-1}(x)) + \log\left|\det J_{f^{-1}}(x)\right|$$
+The density of a NF $q(x)$ with the bijection $f(z) = x$ and base distribution $p(z)$ is defined as:
+$$\log q(x) = \log p(f^{-1}(x)) + \log\left|\det J_{f^{-1}}(x)\right|.$$
+Sampling from a NF means sampling from the simple distribution and transforming the sample using the bijection.
 
-## Implemented architectures
+## Supported architectures
 
-We implement the following NF transformations:
+We list supported NF architectures below.
+We classify architectures as either autoregressive, residual, or continuous; as defined
+by [Papamakarios et al. (2021)](https://arxiv.org/abs/1912.02762).
+Exact architectures do not use numerical approximations to generate data or compute the log density.
 
-| Bijection                                                           |   Inverse   |     Log determinant     | Inverse implemented |
-|---------------------------------------------------------------------|:-----------:|:-----------------------:|:-------------------:|
-| [NICE](http://arxiv.org/abs/1410.8516)                              |    Exact    |          Exact          |         Yes         |
-| [Real NVP](http://arxiv.org/abs/1605.08803)                         |    Exact    |          Exact          |         Yes         |
-| [MAF](http://arxiv.org/abs/1705.07057)                              |    Exact    |          Exact          |         Yes         |
-| [IAF](http://arxiv.org/abs/1606.04934)                              |    Exact    |          Exact          |         Yes         |
-| [Rational quadratic NSF](http://arxiv.org/abs/1906.04032)           |    Exact    |          Exact          |         Yes         |
-| [Linear rational NSF](http://arxiv.org/abs/2001.05168)              |    Exact    |          Exact          |         Yes         |
-| [NAF](http://arxiv.org/abs/1804.00779)                              |             |                         |                     |
-| [Block NAF](http://arxiv.org/abs/1904.04676)                        |             |                         |                     |
-| [UMNN](http://arxiv.org/abs/1908.05164)                             | Approximate |          Exact          |         No          |
-| [Planar](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpa.21423) | Approximate |          Exact          |         No          |
-| [Radial](https://proceedings.mlr.press/v37/rezende15.html)          | Approximate |          Exact          |         No          |
-| [Sylvester](http://arxiv.org/abs/1803.05649)                        | Approximate |          Exact          |         No          |
-| [Invertible ResNet](http://arxiv.org/abs/1811.00995)                | Approximate |  Biased approximation   |         Yes         |
-| [ResFlow](http://arxiv.org/abs/1906.02735)                          | Approximate | Unbiased approximation  |         Yes         |
-| [Proximal ResFlow](http://arxiv.org/abs/2211.17158)                 | Approximate | Exact (if single layer) |         Yes         |
-| [FFJORD](http://arxiv.org/abs/1810.01367)                           | Approximate |       Approximate       |         Yes         |
-| [RNODE](http://arxiv.org/abs/2002.02798)                            | Approximate |       Approximate       |         Yes         |
-| [DDNF](http://arxiv.org/abs/1810.03256)                             | Approximate |       Approximate       |         Yes         |
-| [OT flow](http://arxiv.org/abs/2006.00104)                          | Approximate |          Exact          |         Yes         |
+| Architecture                                                           	 | Bijection type           	 | Exact 	 | Two-way |
+|--------------------------------------------------------------------------|:--------------------------:|:-------:|:-------:|
+| [NICE](http://arxiv.org/abs/1410.8516)                              	    |      Autoregressive 	      | ✔     	 |    ✔    |
+| [Real NVP](http://arxiv.org/abs/1605.08803)                         	    |      Autoregressive 	      | ✔     	 |    ✔    |
+| [MAF](http://arxiv.org/abs/1705.07057)                              	    |      Autoregressive 	      | ✔     	 |    ✔    |
+| [IAF](http://arxiv.org/abs/1606.04934)                              	    |      Autoregressive 	      | ✔     	 |    ✔    |
+| [Rational quadratic NSF](http://arxiv.org/abs/1906.04032)           	    |      Autoregressive 	      | ✔     	 |    ✔    |
+| [Linear rational NSF](http://arxiv.org/abs/2001.05168)              	    |      Autoregressive 	      | ✔     	 |    ✔    |
+| [NAF](http://arxiv.org/abs/1804.00779)                              	    |      Autoregressive 	      | ✗     	 |    ✔    |
+| [UMNN](http://arxiv.org/abs/1908.05164)                             	    |      Autoregressive 	      | ✗     	 |    ✔    |
+| [Planar](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpa.21423) 	    |      Residual       	      | ✗     	 |    ✗    |
+| [Radial](https://proceedings.mlr.press/v37/rezende15.html)          	    |      Residual       	      | ✗     	 |    ✗    |
+| [Sylvester](http://arxiv.org/abs/1803.05649)                        	    |      Residual       	      | ✗     	 |    ✗    |
+| [Invertible ResNet](http://arxiv.org/abs/1811.00995)                	    |      Residual       	      | ✗     	 |   ✔*    |
+| [ResFlow](http://arxiv.org/abs/1906.02735)                          	    |      Residual       	      | ✗     	 |   ✔*    |
+| [Proximal ResFlow](http://arxiv.org/abs/2211.17158)                 	    |      Residual       	      | ✗     	 |   ✔*    |
+| [FFJORD](http://arxiv.org/abs/1810.01367)                           	    |      Continuous     	      | ✗     	 |   ✔*    |
+| [RNODE](http://arxiv.org/abs/2002.02798)                            	    |      Continuous     	      | ✗     	 |   ✔*    |
+| [DDNF](http://arxiv.org/abs/1810.03256)                             	    |      Continuous     	      | ✗     	 |   ✔*    |
+| [OT flow](http://arxiv.org/abs/2006.00104)                          	    |      Continuous     	      | ✗     	 |    ✔    |
 
-Note: inverse approximations can be made arbitrarily accurate with stricter convergence conditions.
-Architectures without an implemented inverse support either sampling or density estimation, but not both at once.
-Such architectures are unsuitable for downstream tasks which require both functionalities.
+Two-way architectures support both sampling and density estimation.
+Two-way architectures marked with an asterisk (*) support both, but use a numerical approximation to sample or estimate
+density.
+One-way architectures support either sampling or density estimation, but not both at once.
 
-We also implement simple bijections that can be used in the same manner:
+We also support simple bijections (all exact and two-way):
 
 * Permutation
 * Elementwise translation (shift vector)
@@ -102,5 +103,3 @@ We also implement simple bijections that can be used in the same manner:
 * Rotation (orthogonal matrix)
 * Triangular matrix
 * Dense matrix (using the QR or LU decomposition)
-
-All of these have exact inverses and log determinants.
