@@ -31,7 +31,7 @@ print(log_prob.shape)  # (100,)
 print(x_new.shape)  # (50, 3)
 ```
 
-We provide more examples [here](examples/README.md).
+We provide more examples [here](examples/).
 
 ## Installing
 
