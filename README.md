@@ -10,7 +10,9 @@ Example use:
 
 ```python
 import torch
-from normalizing_flows import RealNVP, Flow
+from normalizing_flows import Flow
+from normalizing_flows.architectures import RealNVP
+
 
 torch.manual_seed(0)
 
