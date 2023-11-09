@@ -17,4 +17,11 @@ from normalizing_flows.bijections.continuous.rnode import RNODE
 from normalizing_flows.bijections.continuous.ffjord import FFJORD
 from normalizing_flows.bijections.continuous.otflow import OTFlow
 
-from normalizing_flows.bijections.finite.residual.architectures import ResFlow, ProximalResFlow, InvertibleResNet
+from normalizing_flows.bijections.finite.residual.architectures import (
+    ResFlow,
+    ProximalResFlow,
+    InvertibleResNet,
+    Planar,
+    Radial,
+    Sylvester
+)
