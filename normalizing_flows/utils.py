@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -187,8 +187,8 @@ class Geometric(GeometricBase):
 
 
 def create_data_loader(x: torch.Tensor,
-                       weights: torch.Tensor,
-                       context: torch.Tensor,
+                       weights: Optional[torch.Tensor],
+                       context: Optional[torch.Tensor],
                        label: str,
                        **kwargs):
     """

@@ -164,14 +164,15 @@ class Flow(nn.Module):
         )
 
         # Process validation data
-        val_loader = create_data_loader(
-            x_val,
-            w_val,
-            context_val,
-            "validation",
-            batch_size=batch_size,
-            shuffle=shuffle
-        )
+        if x_val is not None:
+            val_loader = create_data_loader(
+                x_val,
+                w_val,
+                context_val,
+                "validation",
+                batch_size=batch_size,
+                shuffle=shuffle
+            )
 
         def compute_batch_loss(batch_, reduction: callable = torch.mean):
             batch_x, batch_weights = batch_[:2]
