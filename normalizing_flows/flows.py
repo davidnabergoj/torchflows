@@ -7,7 +7,7 @@ from tqdm import tqdm
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
 from normalizing_flows.regularization import reconstruction_error
-from normalizing_flows.utils import flatten_event, get_batch_shape, unflatten_event
+from normalizing_flows.utils import flatten_event, get_batch_shape, unflatten_event, create_data_loader
 
 
 class Flow(nn.Module):
@@ -17,6 +17,7 @@ class Flow(nn.Module):
     This class represents a bijective transformation of a standard Gaussian distribution (the base distribution).
     A normalizing flow is itself a distribution which we can sample from or use it to compute the density of inputs.
     """
+
     def __init__(self, bijection: Bijection):
         """
 
@@ -120,51 +121,100 @@ class Flow(nn.Module):
             batch_size: int = 1024,
             shuffle: bool = True,
             show_progress: bool = False,
-            w_train: torch.Tensor = None):
+            w_train: torch.Tensor = None,
+            context_train: torch.Tensor = None,
+            x_val: torch.Tensor = None,
+            w_val: torch.Tensor = None,
+            context_val: torch.Tensor = None):
         """
+        Fit the normalizing flow.
 
-        :param x_train:
-        :param n_epochs:
+        Fitting the flow means finding the parameters of the bijection that maximize the probability of training data.
+        Bijection parameters are iteratively updated for a specified number of epochs.
+        If validation data is provided, we keep the bijection weights with the highest probability of validation data.
+        If context data is provided, the normalizing flow learns the distribution of data conditional on context data.
+
+        :param x_train: training data with shape (n_training_data, *event_shape).
+        :param n_epochs: perform fitting for this many steps.
         :param lr: learning rate. In general, lower learning rates are recommended for high-parametric bijections.
-        :param batch_size:
-        :param shuffle:
-        :param show_progress:
-        :param w_train: training data weights
-        :return:
+        :param batch_size: in each epoch, split training data into batches of this size and perform a parameter update for each batch.
+        :param shuffle: shuffle training data. This helps avoid incorrect fitting if nearby training samples are similar.
+        :param show_progress: show a progress bar with the current batch loss.
+        :param w_train: training data weights with shape (n_training_data,).
+        :param context_train: training data context tensor with shape (n_training_data, *context_shape).
+        :param x_val: validation data with shape (n_validation_data, *event_shape).
+        :param w_val: validation data weights with shape (n_validation_data,).
+        :param context_val: validation data context tensor with shape (n_validation_data, *context_shape).
         """
-        if w_train is None:
-            batch_shape = get_batch_shape(x_train, self.bijection.event_shape)
-            w_train = torch.ones(batch_shape)
-        if batch_size is None:
-            batch_size = len(x_train)
-        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
-        dataset = TensorDataset(x_train, w_train)
-        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-
+        # Compute the number of event dimensions
         n_event_dims = int(torch.prod(torch.as_tensor(self.bijection.event_shape)))
 
-        if show_progress:
-            iterator = tqdm(range(n_epochs), desc='Fitting NF')
-        else:
-            iterator = range(n_epochs)
+        # Set the default batch size
+        if batch_size is None:
+            batch_size = len(x_train)
 
+        # Process training data
+        train_loader = create_data_loader(
+            x_train,
+            w_train,
+            context_train,
+            "training",
+            batch_size=batch_size,
+            shuffle=shuffle
+        )
+
+        # Process validation data
+        val_loader = create_data_loader(
+            x_val,
+            w_val,
+            context_val,
+            "validation",
+            batch_size=batch_size,
+            shuffle=shuffle
+        )
+
+        def compute_batch_loss(batch_, reduction: callable = torch.mean):
+            batch_x, batch_weights = batch_[:2]
+            batch_context = batch_[2] if len(batch_) == 3 else None
+
+            batch_log_prob = self.log_prob(batch_x.to(self.loc), context=batch_context)
+            batch_weights = batch_weights.to(self.loc)
+            assert batch_log_prob.shape == batch_weights.shape
+            batch_loss = -reduction(batch_log_prob * batch_weights) / n_event_dims
+
+            return batch_loss
+
+        iterator = tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+        val_loss = None
         for _ in iterator:
-            for batch_x, batch_w in data_loader:
+            for train_batch in train_loader:
                 optimizer.zero_grad()
-
-                log_prob = self.log_prob(batch_x.to(self.loc))  # TODO context!
-                w = batch_w.to(self.loc)
-                assert log_prob.shape == w.shape
-                loss = -torch.mean(log_prob * w) / n_event_dims
-
+                train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
                 if hasattr(self.bijection, 'regularization'):
-                    loss += self.bijection.regularization()
-
-                loss.backward()
+                    train_loss += self.bijection.regularization()
+                train_loss.backward()
                 optimizer.step()
 
                 if show_progress:
-                    iterator.set_postfix_str(f'Loss: {loss:.4f}')
+                    if val_loss is None:
+                        iterator.set_postfix_str(f'Training loss (batch): {train_loss:.4f}')
+                    else:
+                        iterator.set_postfix_str(
+                            f'Training loss (batch): {train_loss:.4f}, '
+                            f'Validation loss: {val_loss:.4f}'
+                        )
+
+            # Compute validation loss at the end of each epoch
+            # Validation loss will be displayed at the start of the next epoch
+            if x_val is not None:
+                with torch.no_grad():
+                    val_loss = 0.0
+                    for val_batch in val_loader:
+                        n_batch_data = len(val_batch[0])
+                        val_loss += compute_batch_loss(val_batch, reduction=torch.sum) / n_batch_data
+                    if hasattr(self.bijection, 'regularization'):
+                        val_loss += self.bijection.regularization()
 
     def variational_fit(self,
                         target,

@@ -1,6 +1,6 @@
 from typing import Tuple, Union
-
 import torch
+from torch.utils.data import TensorDataset, DataLoader
 
 
 def pad_leading_dims(x: torch.Tensor, n_dims: int):
@@ -184,3 +184,36 @@ class Geometric(GeometricBase):
 
     def log_prob(self, value):
         return super().log_prob(value - self.minimum)
+
+
+def create_data_loader(x: torch.Tensor,
+                       weights: torch.Tensor,
+                       context: torch.Tensor,
+                       label: str,
+                       **kwargs):
+    """
+    Creates a DataLoader object for NF training.
+    """
+    assert label in ["training", "validation", "testing"]
+
+    # Set default weights
+    if weights is None:
+        weights = torch.ones(len(x))
+
+    # Create the training dataset and loader
+    if len(x) != len(weights):
+        raise ValueError(
+            f"Expected same number of {label} data and {label} weights, "
+            f"but found {len(x)} and {len(weights)}"
+        )
+    if context is None:
+        dataset = TensorDataset(x, weights)
+    else:
+        if len(x) != len(context):
+            raise ValueError(
+                f"Expected same number of {label} data and {label} contexts, "
+                f"but found {len(x)} and {len(context)}"
+            )
+        dataset = TensorDataset(x, weights, context)
+    loader = DataLoader(dataset, **kwargs)
+    return loader
