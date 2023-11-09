@@ -7,7 +7,7 @@ The code is as follows:
 ```python
 import torch
 from normalizing_flows import Flow
-from normalizing_flows.bijections import RealNVP
+from normalizing_flows.architectures import RealNVP
 
 torch.manual_seed(0)
 

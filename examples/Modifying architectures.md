@@ -4,7 +4,7 @@ We give an example on how to modify a bijection's architecture.
 We use the Masked Autoregressive Flow (MAF) as an example.
 We can manually set the number of invertible layers as follows:
 ```python
-from normalizing_flows.bijections import MAF
+from normalizing_flows.architectures import MAF
 
 event_shape = (10,)
 flow = MAF(event_shape=event_shape, n_layers=5)

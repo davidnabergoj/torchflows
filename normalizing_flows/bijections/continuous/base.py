@@ -159,7 +159,7 @@ class ExactODEFunction(ODEFunction):
         y = states[0]
         self._n_evals += 1
 
-        t = torch.tensor(t).type_as(y)
+        t = torch.as_tensor(t).type_as(y)
 
         with torch.enable_grad():
             y.requires_grad_(True)
@@ -198,7 +198,7 @@ class ApproximateODEFunction(ODEFunction):
         y = states[0]
         self._n_evals += 1
 
-        t = torch.tensor(t).type_as(y)
+        t = torch.as_tensor(t).type_as(y)
 
         if self.hutch_noise is None:
             self.hutch_noise = torch.randn_like(y)
