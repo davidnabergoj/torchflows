@@ -67,12 +67,13 @@ class Invertible1x1Convolution(Transformer):
             raise ValueError(
                 f"InvertibleConvolution transformer only supports events with shape (height, width, channels)."
             )
-        self.h, self.w, self.c = event_shape
+        self.c, self.h, self.w = event_shape
         if kernel_length <= 0:
             raise ValueError(f"Expected kernel length to be positive, but got {kernel_length}")
         self.k = kernel_length
         self.sign_diag = torch.sign(torch.randn(self.k))
         self.permutation = torch.eye(self.k)[torch.randperm(self.k)]
+        self.const = 1000
         super().__init__(event_shape)
 
     @property
@@ -106,6 +107,8 @@ class Invertible1x1Convolution(Transformer):
                 f" but got {h.shape}"
             )
 
+        h = self.default_parameters + h / self.const
+
         n_p_elements = (self.k ** 2 - self.k) // 2
         p_elements = h[..., :n_p_elements]
         u_elements = h[..., n_p_elements:n_p_elements * 2]
@@ -138,6 +141,8 @@ class Invertible1x1Convolution(Transformer):
                 f"Expected h to have shape (batch_size, kernel_height * kernel_width) = (batch_size, {self.k * self.k}),"
                 f" but got {h.shape}"
             )
+
+        h = self.default_parameters + h / self.const
 
         n_p_elements = (self.k ** 2 - self.k) // 2
         p_elements = h[..., :n_p_elements]
