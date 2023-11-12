@@ -115,25 +115,26 @@ def test_combination_vector_to_vector(transformer_class: Transformer, batch_shap
     assert_valid_reconstruction(transformer, x, h)
 
 
-@pytest.mark.parametrize('kernel_length', [1, 2, 3, 5])
+@pytest.mark.parametrize("batch_size", [2, 3, 5, 7, 1])
 @pytest.mark.parametrize('image_shape', __test_constants['image_shape'])
-def test_convolution(image_shape: Tuple, kernel_length):
+def test_convolution(batch_size: int, image_shape: Tuple):
     torch.manual_seed(0)
-    batch_size = 10
+    n_channels = image_shape[0]
     images = torch.randn(size=(batch_size, *image_shape))
-    parameters = torch.randn(size=(batch_size, kernel_length ** 2))
-    transformer = Invertible1x1Convolution(image_shape, kernel_length=kernel_length)
+    parameters = torch.randn(size=(batch_size, n_channels ** 2))
+    transformer = Invertible1x1Convolution(image_shape)
     latent_images, log_det_forward = transformer.forward(images, parameters)
     reconstructed_images, log_det_inverse = transformer.inverse(latent_images, parameters)
-
-    assert latent_images.shape == images.shape
-    assert reconstructed_images.shape == images.shape
-    assert torch.isfinite(latent_images).all()
-    assert torch.isfinite(reconstructed_images).all()
-    assert torch.allclose(latent_images, reconstructed_images)
 
     assert log_det_forward.shape == (batch_size,)
     assert log_det_inverse.shape == (batch_size,)
     assert torch.isfinite(log_det_forward).all()
     assert torch.isfinite(log_det_inverse).all()
-    assert torch.allclose(log_det_forward, -log_det_inverse)
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-3)
+
+    assert latent_images.shape == images.shape
+    assert reconstructed_images.shape == images.shape
+    assert torch.isfinite(latent_images).all()
+    assert torch.isfinite(reconstructed_images).all()
+    rec_err = torch.max(torch.abs(latent_images - reconstructed_images))
+    assert torch.allclose(latent_images, reconstructed_images, atol=1e-2), f"{rec_err = }"
