@@ -20,7 +20,7 @@ class LinearRational(MonotonicSpline):
         self.min_bin_height = 1e-2
         self.min_d = 1e-5
         self.const = math.log(math.exp(1 - self.min_d) - 1)  # to ensure identity initialization
-        self.eps = 1e-7  # Epsilon for numerical stability when computing forward/inverse
+        self.eps = 5e-10  # Epsilon for numerical stability when computing forward/inverse
 
     @property
     def n_parameters(self) -> int:
