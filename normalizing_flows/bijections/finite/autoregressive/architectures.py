@@ -141,13 +141,13 @@ class MaskedAutoregressiveLRS(BijectiveComposition):
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = [ElementwiseAffine(event_shape=event_shape)]
+        bijections = [ElementwiseShift(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
                 LRSForwardMaskedAutoregressive(event_shape=event_shape)
             ])
-        bijections.append(ElementwiseAffine(event_shape=event_shape))
+        bijections.append(ElementwiseShift(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
 
