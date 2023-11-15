@@ -117,12 +117,14 @@ class MADE(ConditionerTransform):
                  n_transformer_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
-                 n_layers: int = 2):
+                 n_layers: int = 2,
+                 **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
             output_event_shape=output_event_shape,
-            n_transformer_parameters=n_transformer_parameters
+            n_transformer_parameters=n_transformer_parameters,
+            **kwargs
         )
 
         if n_hidden is None:
@@ -176,7 +178,13 @@ class MADE(ConditionerTransform):
 class LinearMADE(MADE):
     def __init__(self, input_event_shape: torch.Size, output_event_shape: torch.Size, n_transformer_parameters: int,
                  **kwargs):
-        super().__init__(input_event_shape, output_event_shape, n_transformer_parameters, n_layers=1, **kwargs)
+        super().__init__(
+            input_event_shape,
+            output_event_shape,
+            n_transformer_parameters,
+            n_layers=1,
+            **kwargs
+        )
 
 
 class FeedForward(ConditionerTransform):
@@ -186,12 +194,14 @@ class FeedForward(ConditionerTransform):
                  n_transformer_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
-                 n_layers: int = 2):
+                 n_layers: int = 2,
+                 **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
             output_event_shape=output_event_shape,
-            n_transformer_parameters=n_transformer_parameters
+            n_transformer_parameters=n_transformer_parameters,
+            **kwargs
         )
 
         if n_hidden is None:
@@ -245,7 +255,13 @@ class ResidualFeedForward(ConditionerTransform):
                  context_shape: torch.Size = None,
                  n_layers: int = 2,
                  **kwargs):
-        super().__init__(input_event_shape, context_shape, output_event_shape, n_transformer_parameters, **kwargs)
+        super().__init__(
+            input_event_shape,
+            context_shape,
+            output_event_shape,
+            n_transformer_parameters,
+            **kwargs
+        )
 
         # If context given, concatenate it to transform input
         if context_shape is not None:
