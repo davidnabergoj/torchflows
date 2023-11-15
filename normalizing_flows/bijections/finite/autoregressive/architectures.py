@@ -166,14 +166,14 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
 
 
 class CouplingDSF(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, percent_global_parameters: float = 0.8, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                DSCoupling(event_shape=event_shape)
+                DSCoupling(event_shape=event_shape, percent_global_parameters=percent_global_parameters)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)

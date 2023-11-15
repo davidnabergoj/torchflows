@@ -25,7 +25,7 @@ class ConditionerTransform(nn.Module):
                  output_event_shape,
                  n_transformer_parameters: int,
                  context_combiner: ContextCombiner = None,
-                 percent_globally_learned_parameters: float = 0.0,
+                 percent_global_parameters: float = 0.0,
                  initial_global_parameter_value: float = None):
         """
         :param input_event_shape: shape of conditioner input tensor x.
@@ -33,7 +33,7 @@ class ConditionerTransform(nn.Module):
         :param output_event_shape: shape of transformer input tensor y.
         :param n_transformer_parameters: number of parameters required to transform a single element of y.
         :param context_combiner: ContextCombiner class which defines how to combine x and c to predict theta.
-        :param percent_globally_learned_parameters: fraction of all parameters in theta that should be learned directly.
+        :param percent_global_parameters: percent of all parameters in theta to be learned independent of x and c.
          A value of 0 means the conditioner predicts n_transformer_parameters parameters based on x and c.
          A value of 1 means the conditioner predicts no parameters based on x and c, but outputs globally learned theta.
          A value of alpha means the conditioner outputs alpha * n_transformer_parameters parameters globally and
@@ -56,14 +56,14 @@ class ConditionerTransform(nn.Module):
         self.n_input_event_dims = self.context_combiner.n_output_dims
         self.n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
         self.n_transformer_parameters = n_transformer_parameters
-        self.n_globally_learned_parameters = int(n_transformer_parameters * percent_globally_learned_parameters)
-        self.n_predicted_parameters = self.n_transformer_parameters - self.n_globally_learned_parameters
+        self.n_global_parameters = int(n_transformer_parameters * percent_global_parameters)
+        self.n_predicted_parameters = self.n_transformer_parameters - self.n_global_parameters
 
         if initial_global_parameter_value is None:
-            initial_global_theta = torch.randn(size=(*output_event_shape, self.n_globally_learned_parameters))
+            initial_global_theta = torch.randn(size=(*output_event_shape, self.n_global_parameters))
         else:
             initial_global_theta = torch.full(
-                size=(*output_event_shape, self.n_globally_learned_parameters),
+                size=(*output_event_shape, self.n_global_parameters),
                 fill_value=initial_global_parameter_value
             )
         self.global_theta = nn.Parameter(initial_global_theta)
@@ -72,7 +72,7 @@ class ConditionerTransform(nn.Module):
         # x.shape = (*batch_shape, *input_event_shape)
         # context.shape = (*batch_shape, *context_shape)
         # output.shape = (*batch_shape, *output_event_shape, n_transformer_parameters)
-        if self.n_globally_learned_parameters == 0:
+        if self.n_global_parameters == 0:
             return self.predict_theta(x, context)
         else:
             n_batch_dims = len(x.shape) - len(self.output_event_shape)
@@ -81,7 +81,7 @@ class ConditionerTransform(nn.Module):
             batch_global_theta = pad_leading_dims(self.global_theta, n_batch_dims).repeat(
                 *batch_shape, *([1] * n_event_dims), 1
             )
-            if self.n_globally_learned_parameters == self.n_transformer_parameters:
+            if self.n_global_parameters == self.n_transformer_parameters:
                 return batch_global_theta
             else:
                 return torch.cat([batch_global_theta, self.predict_theta(x, context)], dim=-1)
@@ -98,7 +98,7 @@ class Constant(ConditionerTransform):
             output_event_shape=output_event_shape,
             n_transformer_parameters=n_parameters,
             initial_global_parameter_value=fill_value,
-            percent_globally_learned_parameters=1.0
+            percent_global_parameters=1.0
         )
 
 
