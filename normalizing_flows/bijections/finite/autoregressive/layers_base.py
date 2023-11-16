@@ -40,13 +40,15 @@ class CouplingBijection(AutoregressiveBijection):
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         z = x.clone()
         h, mask = self.conditioner(x, self.conditioner_transform, context, return_mask=True)
-        z[..., ~mask], log_det = self.transformer.forward(x[..., ~mask], h[..., ~mask, :])
+        z[..., ~mask], log_det = self.transformer.forward_base(x[..., ~mask], h[..., ~mask, :])
+        # TODO make this work with self.transformer.forward
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         x = z.clone()
         h, mask = self.conditioner(z, self.conditioner_transform, context, return_mask=True)
-        x[..., ~mask], log_det = self.transformer.inverse(z[..., ~mask], h[..., ~mask, :])
+        x[..., ~mask], log_det = self.transformer.inverse_base(z[..., ~mask], h[..., ~mask, :])
+        # TODO make this work with self.transformer.inverse
         return x, log_det
 
 

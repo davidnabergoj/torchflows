@@ -12,6 +12,8 @@ class Coupling(Conditioner):
         """
         Coupling conditioner.
 
+        Warning: at the moment, this only works for elementwise conditioners (which predict a set of parameters for each
+         element in the event).
 
         Note: Always treats the first n_dim // 2 dimensions as constant.
         Shuffling is handled in Permutation bijections.

@@ -126,7 +126,7 @@ class MADE(ConditionerTransform):
 
     def __init__(self,
                  input_event_shape: torch.Size,
-
+                 output_event_shape: torch.Size,
                  n_transformer_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
@@ -138,6 +138,7 @@ class MADE(ConditionerTransform):
             n_transformer_parameters=n_transformer_parameters,
             **kwargs
         )
+        self.n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
 
         if n_hidden is None:
             n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
@@ -190,10 +191,14 @@ class LinearMADE(MADE):
     Masked autoencoder for distribution estimation with a single layer.
     """
 
-    def __init__(self, input_event_shape: torch.Size, n_transformer_parameters: int,
+    def __init__(self,
+                 input_event_shape: torch.Size,
+                 output_event_shape: torch.Size,
+                 n_transformer_parameters: int,
                  **kwargs):
         super().__init__(
             input_event_shape,
+            output_event_shape,
             n_transformer_parameters,
             n_layers=1,
             **kwargs
@@ -230,12 +235,12 @@ class FeedForward(ConditionerTransform):
 
         # Check the one layer special case
         if n_layers == 1:
-            layers.append(nn.Linear(self.n_input_event_dims, self.n_output_event_dims * n_transformer_parameters))
+            layers.append(nn.Linear(self.n_input_event_dims, n_transformer_parameters))
         elif n_layers > 1:
             layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nn.Tanh()])
             for _ in range(n_layers - 2):
                 layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
-            layers.append(nn.Linear(n_hidden, self.n_output_event_dims * self.n_predicted_parameters))
+            layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         else:
             raise ValueError
 
@@ -288,12 +293,12 @@ class ResidualFeedForward(ConditionerTransform):
 
         # Check the one layer special case
         if n_layers == 1:
-            layers.append(nn.Linear(self.n_input_event_dims, self.n_output_event_dims * self.n_predicted_parameters))
+            layers.append(nn.Linear(self.n_input_event_dims, self.n_predicted_parameters))
         elif n_layers > 1:
             layers.extend([self.ResidualLinear(self.n_input_event_dims, self.n_input_event_dims), nn.Tanh()])
             for _ in range(n_layers - 2):
                 layers.extend([self.ResidualLinear(self.n_input_event_dims, self.n_input_event_dims), nn.Tanh()])
-            layers.append(nn.Linear(self.n_input_event_dims, self.n_output_event_dims * self.n_predicted_parameters))
+            layers.append(nn.Linear(self.n_input_event_dims, self.n_predicted_parameters))
         else:
             raise ValueError
 

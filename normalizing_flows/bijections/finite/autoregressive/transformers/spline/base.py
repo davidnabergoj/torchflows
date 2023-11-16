@@ -50,7 +50,7 @@ class MonotonicSpline(Transformer):
     def forward_1d(self, x, h):
         raise NotImplementedError
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward_base(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         z = torch.clone(x)  # Remain the same out of bounds
         log_det = torch.zeros_like(z)  # y = x means gradient = 1 or log gradient = 0 out of bounds
         mask = self.forward_inputs_inside_bounds_mask(x)
@@ -62,7 +62,7 @@ class MonotonicSpline(Transformer):
     def inverse_1d(self, z, h):
         raise NotImplementedError
 
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse_base(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x = torch.clone(z)  # Remain the same out of bounds
         log_det = torch.zeros_like(x)  # y = x means gradient = 1 or log gradient = 0 out of bounds
         mask = self.inverse_inputs_inside_bounds_mask(z)
