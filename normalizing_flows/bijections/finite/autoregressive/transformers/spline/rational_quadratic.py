@@ -39,14 +39,10 @@ class RationalQuadratic(MonotonicSpline):
 
     @property
     def n_parameters(self) -> int:
-        return 3 * self.n_bins - 1
+        return (3 * self.n_bins - 1) * self.n_dim
 
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        default_u_x = torch.zeros(size=(self.n_bins,))
-        default_u_y = torch.zeros(size=(self.n_bins,))
-        default_u_d = torch.zeros(size=(self.n_bins - 1,))
-        return torch.cat([default_u_x, default_u_y, default_u_d], dim=0)
+    def unflatten_conditioner_parameters(self, h: torch.Tensor):
+        return torch.unflatten(h, dim=-1, sizes=(*self.event_shape, 3 * self.n_bins - 1))
 
     def compute_bins(self, u, minimum, maximum):
         bin_sizes = torch.softmax(u, dim=-1)

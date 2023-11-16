@@ -3,7 +3,7 @@ from typing import Union, Tuple
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.utils import sum_except_batch
+from normalizing_flows.utils import sum_except_batch, get_batch_shape
 
 
 class MonotonicSpline(Transformer):
