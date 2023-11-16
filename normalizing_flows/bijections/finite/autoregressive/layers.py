@@ -51,7 +51,6 @@ class AffineCoupling(CouplingBijection):
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -70,7 +69,6 @@ class InverseAffineCoupling(CouplingBijection):
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -87,7 +85,6 @@ class ShiftCoupling(CouplingBijection):
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -106,7 +103,6 @@ class LRSCoupling(CouplingBijection):
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -124,7 +120,6 @@ class RQSCoupling(CouplingBijection):
         conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
         conditioner_transform = FeedForward(
             input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -144,7 +139,6 @@ class DSCoupling(CouplingBijection):
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
             input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -180,7 +174,6 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         transformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -202,7 +195,6 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -214,6 +206,7 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
             conditioner_transform=conditioner_transform
         )
 
+
 class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
@@ -223,7 +216,6 @@ class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -244,7 +236,6 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
         transformer = invert(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -267,7 +258,6 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -294,7 +284,6 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         )
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
             n_transformer_parameters=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs

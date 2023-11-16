@@ -22,7 +22,6 @@ class ConditionerTransform(nn.Module):
     def __init__(self,
                  input_event_shape,
                  context_shape,
-                 output_event_shape,
                  n_transformer_parameters: int,
                  context_combiner: ContextCombiner = None,
                  percent_global_parameters: float = 0.0,
@@ -30,7 +29,6 @@ class ConditionerTransform(nn.Module):
         """
         :param input_event_shape: shape of conditioner input tensor x.
         :param context_shape: shape of conditioner context tensor c.
-        :param output_event_shape: shape of transformer input tensor y.
         :param n_transformer_parameters: number of parameters required to transform a single element of y.
         :param context_combiner: ContextCombiner class which defines how to combine x and c to predict theta.
         :param percent_global_parameters: percent of all parameters in theta to be learned independent of x and c.
@@ -51,51 +49,62 @@ class ConditionerTransform(nn.Module):
 
         # The conditioner transform receives as input the context combiner output
         self.input_event_shape = input_event_shape
-        self.output_event_shape = output_event_shape
         self.context_shape = context_shape
         self.n_input_event_dims = self.context_combiner.n_output_dims
-        self.n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
         self.n_transformer_parameters = n_transformer_parameters
         self.n_global_parameters = int(n_transformer_parameters * percent_global_parameters)
         self.n_predicted_parameters = self.n_transformer_parameters - self.n_global_parameters
 
         if initial_global_parameter_value is None:
-            initial_global_theta = torch.randn(size=(*output_event_shape, self.n_global_parameters))
+            initial_global_theta = torch.randn(size=(self.n_global_parameters,))
         else:
             initial_global_theta = torch.full(
-                size=(*output_event_shape, self.n_global_parameters),
+                size=(self.n_global_parameters,),
                 fill_value=initial_global_parameter_value
             )
         self.global_theta = nn.Parameter(initial_global_theta)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        # x.shape = (*batch_shape, *input_event_shape)
-        # context.shape = (*batch_shape, *context_shape)
-        # output.shape = (*batch_shape, *output_event_shape, n_transformer_parameters)
+        """
+        Compute parameters theta for each input tensor.
+        This includes globally learned parameters and parameters which are predicted based on x and context.
+
+        :param x: batch of input tensors with x.shape = (*batch_shape, *self.input_event_shape).
+        :param context: batch of context tensors with context.shape = (*batch_shape, *self.context_shape).
+        :return: batch of parameter tensors theta with theta.shape = (*batch_shape, self.n_transformer_parameters).
+        """
         if self.n_global_parameters == 0:
             return self.predict_theta(x, context)
         else:
-            n_batch_dims = len(x.shape) - len(self.output_event_shape)
-            n_event_dims = len(self.output_event_shape)
-            batch_shape = x.shape[:n_batch_dims]
-            batch_global_theta = pad_leading_dims(self.global_theta, n_batch_dims).repeat(
-                *batch_shape, *([1] * n_event_dims), 1
-            )
+            batch_shape = get_batch_shape(x, self.input_event_shape)
+            n_batch_dims = len(batch_shape)
+            batch_global_theta = pad_leading_dims(self.global_theta, n_batch_dims).repeat(*batch_shape, 1)
             if self.n_global_parameters == self.n_transformer_parameters:
                 return batch_global_theta
             else:
                 return torch.cat([batch_global_theta, self.predict_theta(x, context)], dim=-1)
 
     def predict_theta(self, x: torch.Tensor, context: torch.Tensor = None):
+        """
+        Predict parameters theta for each input tensor.
+        Note: this method does not set any global parameters, but instead only predicts parameters from x and context.
+
+        :param x: batch of input tensors with x.shape = (*batch_shape, *self.input_event_shape).
+        :param context: batch of context tensors with context.shape = (*batch_shape, *self.context_shape).
+        :return: batch of parameter tensors theta with theta.shape = (*batch_shape, self.n_predicted_parameters).
+        """
         raise NotImplementedError
 
 
 class Constant(ConditionerTransform):
-    def __init__(self, output_event_shape, n_parameters: int, fill_value: float = None):
+    """
+    Constant conditioner transform, which only uses global parameters theta and no local parameters.
+    """
+
+    def __init__(self, input_event_shape, n_parameters: int, fill_value: float = None):
         super().__init__(
-            input_event_shape=None,
+            input_event_shape=input_event_shape,
             context_shape=None,
-            output_event_shape=output_event_shape,
             n_transformer_parameters=n_parameters,
             initial_global_parameter_value=fill_value,
             percent_global_parameters=1.0
@@ -103,6 +112,10 @@ class Constant(ConditionerTransform):
 
 
 class MADE(ConditionerTransform):
+    """
+    Masked autoencoder for distribution estimation.
+    """
+
     class MaskedLinear(nn.Linear):
         def __init__(self, in_features: int, out_features: int, mask: torch.Tensor):
             super().__init__(in_features=in_features, out_features=out_features)
@@ -113,7 +126,7 @@ class MADE(ConditionerTransform):
 
     def __init__(self,
                  input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
+
                  n_transformer_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
@@ -122,7 +135,6 @@ class MADE(ConditionerTransform):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
-            output_event_shape=output_event_shape,
             n_transformer_parameters=n_transformer_parameters,
             **kwargs
         )
@@ -152,7 +164,7 @@ class MADE(ConditionerTransform):
                 masks[-1].shape[0] * self.n_predicted_parameters,
                 torch.repeat_interleave(masks[-1], self.n_predicted_parameters, dim=0)
             ),
-            nn.Unflatten(dim=-1, unflattened_size=(*output_event_shape, self.n_predicted_parameters))
+            nn.Unflatten(dim=-1, unflattened_size=(self.n_predicted_parameters,))
         ])
         self.sequential = nn.Sequential(*layers)
 
@@ -170,17 +182,18 @@ class MADE(ConditionerTransform):
         return masks
 
     def predict_theta(self, x: torch.Tensor, context: torch.Tensor = None):
-        out = self.sequential(self.context_combiner(x, context))
-        batch_shape = get_batch_shape(x, self.input_event_shape)
-        return out.view(*batch_shape, *self.output_event_shape, self.n_predicted_parameters)
+        return self.sequential(self.context_combiner(x, context))
 
 
 class LinearMADE(MADE):
-    def __init__(self, input_event_shape: torch.Size, output_event_shape: torch.Size, n_transformer_parameters: int,
+    """
+    Masked autoencoder for distribution estimation with a single layer.
+    """
+
+    def __init__(self, input_event_shape: torch.Size, n_transformer_parameters: int,
                  **kwargs):
         super().__init__(
             input_event_shape,
-            output_event_shape,
             n_transformer_parameters,
             n_layers=1,
             **kwargs
@@ -188,9 +201,12 @@ class LinearMADE(MADE):
 
 
 class FeedForward(ConditionerTransform):
+    """
+    Feed-forward neural network conditioner transform.
+    """
+
     def __init__(self,
                  input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
                  n_transformer_parameters: int,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
@@ -199,7 +215,6 @@ class FeedForward(ConditionerTransform):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
-            output_event_shape=output_event_shape,
             n_transformer_parameters=n_transformer_parameters,
             **kwargs
         )
@@ -224,22 +239,26 @@ class FeedForward(ConditionerTransform):
         else:
             raise ValueError
 
-        # Reshape the output
-        layers.append(nn.Unflatten(dim=-1, unflattened_size=(*output_event_shape, self.n_predicted_parameters)))
         self.sequential = nn.Sequential(*layers)
 
     def predict_theta(self, x: torch.Tensor, context: torch.Tensor = None):
-        out = self.sequential(self.context_combiner(x, context))
-        batch_shape = get_batch_shape(x, self.input_event_shape)
-        return out.view(*batch_shape, *self.output_event_shape, self.n_predicted_parameters)
+        return self.sequential(self.context_combiner(x, context))
 
 
 class Linear(FeedForward):
+    """
+    Linear conditioner transform with the map: theta = a * combiner(x, context) + b.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, n_layers=1)
 
 
 class ResidualFeedForward(ConditionerTransform):
+    """
+    Residual feed-forward neural network conditioner transform.
+    """
+
     class ResidualLinear(nn.Module):
         def __init__(self, n_in, n_out):
             super().__init__()
@@ -250,7 +269,6 @@ class ResidualFeedForward(ConditionerTransform):
 
     def __init__(self,
                  input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
                  n_transformer_parameters: int,
                  context_shape: torch.Size = None,
                  n_layers: int = 2,
@@ -258,7 +276,6 @@ class ResidualFeedForward(ConditionerTransform):
         super().__init__(
             input_event_shape,
             context_shape,
-            output_event_shape,
             n_transformer_parameters,
             **kwargs
         )
@@ -280,11 +297,7 @@ class ResidualFeedForward(ConditionerTransform):
         else:
             raise ValueError
 
-        # Reshape the output
-        layers.append(nn.Unflatten(dim=-1, unflattened_size=(*output_event_shape, self.n_predicted_parameters)))
         self.sequential = nn.Sequential(*layers)
 
     def predict_theta(self, x: torch.Tensor, context: torch.Tensor = None):
-        out = self.sequential(self.context_combiner(x, context))
-        batch_shape = get_batch_shape(x, self.input_event_shape)
-        return out.view(*batch_shape, *self.output_event_shape, self.n_predicted_parameters)
+        return self.sequential(self.context_combiner(x, context))
