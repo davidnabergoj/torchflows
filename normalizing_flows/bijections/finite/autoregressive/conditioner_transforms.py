@@ -159,14 +159,13 @@ class MADE(ConditionerTransform):
             layers.extend([self.MaskedLinear(n_layer_inputs, n_layer_outputs, mask), nn.Tanh()])
 
         # Final linear layer
-        layers.extend([
+        layers.append(
             self.MaskedLinear(
                 masks[-1].shape[1],
                 masks[-1].shape[0] * self.n_predicted_parameters,
                 torch.repeat_interleave(masks[-1], self.n_predicted_parameters, dim=0)
-            ),
-            nn.Unflatten(dim=-1, unflattened_size=(self.n_predicted_parameters,))
-        ])
+            )
+        )
         self.sequential = nn.Sequential(*layers)
 
     @staticmethod

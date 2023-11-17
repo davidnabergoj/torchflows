@@ -171,11 +171,12 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
@@ -193,11 +194,12 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
@@ -215,11 +217,12 @@ class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
@@ -236,11 +239,12 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = invert(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
@@ -259,11 +263,12 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
@@ -282,6 +287,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  n_hidden_layers: int = 1,
                  hidden_dim: int = 5,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = UnconstrainedMonotonicNeuralNetwork(
             event_shape=event_shape,
             n_hidden_layers=n_hidden_layers,
@@ -290,7 +296,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
