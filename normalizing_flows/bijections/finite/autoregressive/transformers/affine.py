@@ -3,11 +3,11 @@ from typing import Tuple
 
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.utils import get_batch_shape, sum_except_batch
 
 
-class Affine(Transformer):
+class Affine(ScalarTransformer):
     """
     Affine transformer.
 
@@ -55,7 +55,7 @@ class Affine(Transformer):
         return (z - beta) / alpha, log_det
 
 
-class Affine2(Transformer):
+class Affine2(ScalarTransformer):
     """
     Affine transformer with near-identity initialization.
 
@@ -110,7 +110,7 @@ class Affine2(Transformer):
         return (z - beta) / alpha, log_det
 
 
-class Shift(Transformer):
+class Shift(ScalarTransformer):
     def __init__(self, event_shape: torch.Size):
         super().__init__(event_shape=event_shape)
 
@@ -135,7 +135,7 @@ class Shift(Transformer):
         return z - beta, log_det
 
 
-class Scale(Transformer):
+class Scale(ScalarTransformer):
     """
     Scaling transformer.
 

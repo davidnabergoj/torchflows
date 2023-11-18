@@ -2,7 +2,7 @@ import math
 from typing import Tuple, Union, List
 import torch
 import torch.nn as nn
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.base import Combination
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax, \
     log_sigmoid, log_dot
@@ -19,7 +19,7 @@ def inverse_sigmoid(p):
     return torch.log(p) - torch.log1p(-p)
 
 
-class Sigmoid(Transformer):
+class Sigmoid(ScalarTransformer):
     """
     Applies z = inv_sigmoid(w.T @ sigmoid(a * x + b)) where a > 0, w > 0 and sum(w) = 1.
     Note: w, a, b are vectors, so multiplication a * x is broadcast.
@@ -212,7 +212,7 @@ class DenseSigmoidInnerTransform(nn.Module):
         return z, log_det.view(*x.shape[:2])
 
 
-class DenseSigmoid(Transformer):
+class DenseSigmoid(ScalarTransformer):
     """
     Apply y = f1 \\circ f2 \\circ ... \\circ fn (x) where
     * f1 is a dense sigmoid inner transform which maps from 1 to h dimensions;

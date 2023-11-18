@@ -3,12 +3,12 @@ from typing import Union, Tuple, List
 
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.numerical_inversion import bisection
 from normalizing_flows.utils import get_batch_shape, sum_except_batch
 
 
-class Integration(Transformer):
+class Integration(ScalarTransformer):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 100.0, eps: float = 1e-6):
         """
         :param bound: specifies the initial interval [-bound, bound] where numerical inversion is performed.

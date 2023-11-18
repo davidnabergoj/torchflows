@@ -5,13 +5,13 @@ import torch
 from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner, NullConditioner
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
 
 
 class AutoregressiveBijection(Bijection):
-    def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
+    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer, conditioner_transform: ConditionerTransform):
         super().__init__(event_shape=transformer.event_shape)
         self.conditioner = conditioner
         self.conditioner_transform = conditioner_transform
@@ -29,7 +29,7 @@ class AutoregressiveBijection(Bijection):
 
 
 class CouplingBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Coupling, transformer: Transformer, conditioner_transform: ConditionerTransform,
+    def __init__(self, conditioner: Coupling, transformer: ScalarTransformer, conditioner_transform: ConditionerTransform,
                  **kwargs):
         super().__init__(conditioner, transformer, conditioner_transform, **kwargs)
 
@@ -51,7 +51,7 @@ class CouplingBijection(AutoregressiveBijection):
 
 
 class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
+    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer, conditioner_transform: ConditionerTransform):
         super().__init__(conditioner, transformer, conditioner_transform)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -73,7 +73,7 @@ class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Conditioner, transformer: Transformer, conditioner_transform: ConditionerTransform):
+    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer, conditioner_transform: ConditionerTransform):
         super().__init__(conditioner, transformer, conditioner_transform)
         self.forward_layer = ForwardMaskedAutoregressiveBijection(
             conditioner,
@@ -89,6 +89,6 @@ class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class ElementwiseBijection(AutoregressiveBijection):
-    def __init__(self, transformer: Transformer, n_transformer_parameters: int):
+    def __init__(self, transformer: ScalarTransformer, n_transformer_parameters: int):
         super().__init__(NullConditioner(), transformer, Constant(transformer.event_shape, n_transformer_parameters))
         # TODO override forward and inverse to save on space

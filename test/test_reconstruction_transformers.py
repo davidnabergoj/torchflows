@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear as LinearSpline
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import \
     LinearRational as LinearRationalSpline
@@ -21,7 +21,7 @@ from normalizing_flows.utils import get_batch_shape
 from test.constants import __test_constants
 
 
-def setup_transformer_data(transformer_class: Transformer, batch_shape, event_shape):
+def setup_transformer_data(transformer_class: ScalarTransformer, batch_shape, event_shape):
     # vector_to_vector: does the transformer map a vector to vector? Otherwise, it maps a scalar to scalar.
     torch.manual_seed(0)
     transformer = transformer_class(event_shape)
@@ -30,7 +30,7 @@ def setup_transformer_data(transformer_class: Transformer, batch_shape, event_sh
     return transformer, x, h
 
 
-def assert_valid_reconstruction(transformer: Transformer,
+def assert_valid_reconstruction(transformer: ScalarTransformer,
                                 x: torch.Tensor,
                                 h: torch.Tensor,
                                 reconstruction_eps: float = 1e-3,
@@ -67,7 +67,7 @@ def assert_valid_reconstruction(transformer: Transformer,
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-def test_affine(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
+def test_affine(transformer_class: ScalarTransformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
 
@@ -81,7 +81,7 @@ def test_affine(transformer_class: Transformer, batch_shape: Tuple, event_shape:
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-def test_spline(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
+def test_spline(transformer_class: ScalarTransformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
 
@@ -91,7 +91,7 @@ def test_spline(transformer_class: Transformer, batch_shape: Tuple, event_shape:
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-def test_integration(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
+def test_integration(transformer_class: ScalarTransformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
 
@@ -99,7 +99,7 @@ def test_integration(transformer_class: Transformer, batch_shape: Tuple, event_s
 @pytest.mark.parametrize('transformer_class', [Sigmoid, DeepSigmoid])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-def test_combination_basic(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
+def test_combination_basic(transformer_class: ScalarTransformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
 
@@ -110,7 +110,7 @@ def test_combination_basic(transformer_class: Transformer, batch_shape: Tuple, e
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-def test_combination_vector_to_vector(transformer_class: Transformer, batch_shape: Tuple, event_shape: Tuple):
+def test_combination_vector_to_vector(transformer_class: ScalarTransformer, batch_shape: Tuple, event_shape: Tuple):
     transformer, x, h = setup_transformer_data(transformer_class, batch_shape, event_shape)
     assert_valid_reconstruction(transformer, x, h)
 

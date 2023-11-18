@@ -1,7 +1,7 @@
 from typing import Union, Tuple
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 
 
 def construct_kernels_plu(
@@ -55,7 +55,7 @@ def construct_kernels_plu(
     return kernels
 
 
-class Invertible1x1Convolution(Transformer):
+class Invertible1x1Convolution(ScalarTransformer):
     """
     Invertible 1x1 convolution.
 
