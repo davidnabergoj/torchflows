@@ -92,9 +92,9 @@ class ConditionerTransform(nn.Module):
 
 
 class Constant(ConditionerTransform):
-    def __init__(self, parameter_shape, fill_value: float = None):
+    def __init__(self, event_shape, parameter_shape, fill_value: float = None):
         super().__init__(
-            input_event_shape=None,
+            input_event_shape=event_shape,
             context_shape=None,
             parameter_shape=parameter_shape,
             initial_global_parameter_value=fill_value,

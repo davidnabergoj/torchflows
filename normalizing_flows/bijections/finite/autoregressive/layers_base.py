@@ -129,7 +129,17 @@ class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class ElementwiseBijection(AutoregressiveBijection):
+    """
+    Base elementwise bijection class.
+
+    Applies a bijective transformation to each element of the input tensor.
+    The bijection for each element has its own set of globally learned parameters.
+    """
+
     def __init__(self, transformer: ScalarTransformer, fill_value: float = None):
-        super().__init__(transformer.event_shape, NullConditioner(), transformer,
-                         Constant(transformer.event_shape, fill_value=fill_value))
-        # TODO override forward and inverse to save on space
+        super().__init__(
+            transformer.event_shape,
+            NullConditioner(),
+            transformer,
+            Constant(transformer.event_shape, transformer.parameter_shape, fill_value=fill_value)
+        )
