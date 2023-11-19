@@ -26,7 +26,7 @@ def setup_transformer_data(transformer_class: ScalarTransformer, batch_shape, ev
     torch.manual_seed(0)
     transformer = transformer_class(event_shape)
     x = torch.randn(*batch_shape, *event_shape)
-    h = torch.randn(*batch_shape, *event_shape, transformer.n_parameters)
+    h = torch.randn(*batch_shape, *transformer.parameter_shape)
     return transformer, x, h
 
 

@@ -47,8 +47,8 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         self._sampled_default_params = torch.randn(size=(self.n_parameters,)) / 1000
 
     @property
-    def n_parameters(self) -> int:
-        return self.n_input_params + self.n_output_params + self.n_hidden_params
+    def parameter_shape_per_element(self) -> Union[torch.Size, Tuple]:
+        return (self.n_input_params + self.n_output_params + self.n_hidden_params,)
 
     @property
     def default_parameters(self) -> torch.Tensor:

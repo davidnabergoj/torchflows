@@ -40,12 +40,8 @@ class Sigmoid(ScalarTransformer):
         super().__init__(event_shape)
 
     @property
-    def n_parameters(self) -> int:
-        return 3 * self.hidden_dim
-
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(self.n_parameters,))
+    def parameter_shape_per_element(self) -> Union[torch.Size, Tuple[int, ...]]:
+        return (3 * self.hidden_dim,)
 
     def extract_parameters(self, h: torch.Tensor):
         """
@@ -234,12 +230,12 @@ class DenseSigmoid(ScalarTransformer):
         self.layers = nn.ModuleList(layers)
 
     @property
-    def n_parameters(self) -> int:
-        return sum([layer.n_parameters for layer in self.layers])
+    def parameter_shape_per_element(self) -> Union[torch.Size, Tuple[int, ...]]:
+        return (sum([layer.n_parameters for layer in self.layers]),)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(self.n_parameters,))  # TODO set up parametrization with deltas so this holds
+        return torch.zeros(size=self.parameter_shape)  # TODO set up parametrization with deltas so this holds
 
     def split_parameters(self, h):
         # split parameters h into parameters for several layers

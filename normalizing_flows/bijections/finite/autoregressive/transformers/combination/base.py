@@ -1,5 +1,5 @@
 import torch
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.utils import get_batch_shape
@@ -12,12 +12,12 @@ class Combination(ScalarTransformer):
         self.n_components = len(self.components)
 
     @property
-    def n_parameters(self) -> int:
-        return sum([c.n_parameters for c in self.components])
+    def parameter_shape_per_element(self) -> Union[torch.Size, Tuple[int, ...]]:
+        return (sum([c.n_parameters for c in self.components]),)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.cat([c.default_parameters for c in self.components], dim=0)
+        return torch.cat([c.default_parameters.ravel() for c in self.components], dim=0)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # h.shape = (*batch_size, *event_shape, n_components * n_output_parameters)
