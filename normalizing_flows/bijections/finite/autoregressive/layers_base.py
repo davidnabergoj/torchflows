@@ -5,9 +5,7 @@ import torch
 from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner, NullConditioner
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import CouplingMask
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
-from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
 
@@ -16,7 +14,7 @@ class AutoregressiveBijection(Bijection):
     def __init__(self,
                  event_shape,
                  conditioner: Optional[Conditioner],
-                 transformer: Transformer,
+                 transformer: TensorTransformer,
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
         super().__init__(event_shape=event_shape)
@@ -54,7 +52,7 @@ class CouplingBijection(AutoregressiveBijection):
     """
 
     def __init__(self,
-                 transformer: Transformer,
+                 transformer: TensorTransformer,
                  coupling_mask: CouplingMask,
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
@@ -70,13 +68,11 @@ class CouplingBijection(AutoregressiveBijection):
 
         :param x: input tensor with x.shape = (*batch_shape, *event_shape) to be partitioned into x_A and x_B.
         :param context: context tensor with context.shape = (*batch_shape, *context.shape).
-        :return: parameter tensor h with h.shape = (*batch_shape, n_transformer_parameters). If return_mask is True,
-         also return the event partition mask with shape = event_shape and the constant parameter mask with shape
-         (n_transformer_parameters,).
+        :return: parameter tensor h with h.shape = (*batch_shape, *parameter_shape).
         """
         # Predict transformer parameters for output dimensions
-        x_a = x[..., self.coupling_mask.mask]  # (*b, *e_A)
-        h_b = self.conditioner_transform(x_a, context=context)  # (*b, p)
+        x_a = x[..., self.coupling_mask.mask]  # (*b, constant_event_size)
+        h_b = self.conditioner_transform(x_a, context=context)  # (*b, *p)
         return h_b
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -93,7 +89,8 @@ class CouplingBijection(AutoregressiveBijection):
 
 
 class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer, conditioner_transform: ConditionerTransform):
+    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer,
+                 conditioner_transform: ConditionerTransform):
         super().__init__(conditioner, transformer, conditioner_transform)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -115,7 +112,8 @@ class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer, conditioner_transform: ConditionerTransform):
+    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer,
+                 conditioner_transform: ConditionerTransform):
         super().__init__(conditioner, transformer, conditioner_transform)
         self.forward_layer = ForwardMaskedAutoregressiveBijection(
             conditioner,
@@ -131,6 +129,7 @@ class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class ElementwiseBijection(AutoregressiveBijection):
-    def __init__(self, transformer: ScalarTransformer):
-        super().__init__(NullConditioner(), transformer, Constant(transformer.event_shape, transformer.parameter_shape))
+    def __init__(self, transformer: ScalarTransformer, fill_value: float = None):
+        super().__init__(transformer.event_shape, NullConditioner(), transformer,
+                         Constant(transformer.event_shape, fill_value=fill_value))
         # TODO override forward and inverse to save on space

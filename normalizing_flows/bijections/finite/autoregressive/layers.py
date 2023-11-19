@@ -48,13 +48,11 @@ class AffineCoupling(CouplingBijection):
         if event_shape == (1,):
             raise ValueError
         coupling_mask = HalfSplit(event_shape)
-        transformer = Affine(event_shape=(coupling_mask.transformed_event_size,))
+        transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
             n_transformer_parameters=transformer.n_parameters,
-            input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
@@ -69,13 +67,11 @@ class InverseAffineCoupling(CouplingBijection):
         if event_shape == (1,):
             raise ValueError
         coupling_mask = HalfSplit(event_shape)
-        transformer = Affine(event_shape=(coupling_mask.transformed_event_size,)).invert()
+        transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,))).invert()
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
             n_transformer_parameters=transformer.n_parameters,
-            input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
@@ -88,13 +84,10 @@ class ShiftCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  **kwargs):
         coupling_mask = HalfSplit(event_shape)
-        transformer = Shift(event_shape=(coupling_mask.transformed_event_size,))
+        transformer = Shift(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            n_transformer_parameters=transformer.n_parameters,
-            input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
@@ -109,13 +102,10 @@ class LRSCoupling(CouplingBijection):
                  **kwargs):
         assert n_bins >= 1
         coupling_mask = HalfSplit(event_shape)
-        transformer = LinearRational(event_shape=(coupling_mask.transformed_event_size,), n_bins=n_bins)
+        transformer = LinearRational(event_shape=torch.Size((coupling_mask.transformed_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            n_transformer_parameters=transformer.n_parameters,
-            input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
@@ -129,13 +119,10 @@ class RQSCoupling(CouplingBijection):
                  n_bins: int = 8,
                  **kwargs):
         coupling_mask = HalfSplit(event_shape)
-        transformer = RationalQuadratic(event_shape=(coupling_mask.transformed_event_size,), n_bins=n_bins)
+        transformer = RationalQuadratic(event_shape=torch.Size((coupling_mask.transformed_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            n_transformer_parameters=transformer.n_parameters,
-            input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
@@ -149,15 +136,15 @@ class DSCoupling(CouplingBijection):
                  n_hidden_layers: int = 2,
                  **kwargs):
         coupling_mask = HalfSplit(event_shape)
-        transformer = DeepSigmoid(event_shape=(coupling_mask.transformed_event_size,), n_hidden_layers=n_hidden_layers)
+        transformer = DeepSigmoid(
+            event_shape=torch.Size((coupling_mask.transformed_event_size,)),
+            n_hidden_layers=n_hidden_layers
+        )
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            n_transformer_parameters=transformer.n_parameters,
-            input_event_shape=conditioner.input_shape,
-            output_event_shape=conditioner.output_shape,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
@@ -189,13 +176,11 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters // event_size,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
         )
