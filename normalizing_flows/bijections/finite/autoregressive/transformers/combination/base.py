@@ -13,7 +13,7 @@ class Combination(ScalarTransformer):
 
     @property
     def parameter_shape_per_element(self) -> Union[torch.Size, Tuple[int, ...]]:
-        return (sum([c.n_parameters for c in self.components]),)
+        return (sum([c.n_parameters_per_element for c in self.components]),)
 
     @property
     def default_parameters(self) -> torch.Tensor:
@@ -27,9 +27,9 @@ class Combination(ScalarTransformer):
         start_index = 0
         for i in range(self.n_components):
             component = self.components[i]
-            x, log_det_increment = component.forward(x, h[..., start_index:start_index + component.n_parameters])
+            x, log_det_increment = component.forward(x, h[..., start_index:start_index + component.n_parameters_per_element])
             log_det += log_det_increment
-            start_index += component.n_parameters
+            start_index += component.n_parameters_per_element
         z = x
         return z, log_det
 
@@ -38,11 +38,11 @@ class Combination(ScalarTransformer):
         # We assume last dim is ordered as [c1, c2, ..., ck] i.e. sequence of parameter vectors, one for each component.
         batch_shape = get_batch_shape(z, self.event_shape)
         log_det = torch.zeros(size=batch_shape)
-        c = self.n_parameters
+        c = self.n_parameters_per_element
         for i in range(self.n_components):
             component = self.components[self.n_components - i - 1]
-            c -= component.n_parameters
-            z, log_det_increment = component.inverse(z, h[..., c:c + component.n_parameters])
+            c -= component.n_parameters_per_element
+            z, log_det_increment = component.inverse(z, h[..., c:c + component.n_parameters_per_element])
             log_det += log_det_increment
         x = z
         return x, log_det
