@@ -114,7 +114,7 @@ class MADE(ConditionerTransform):
     def __init__(self,
                  input_event_shape: torch.Size,
                  output_event_shape: torch.Size,
-                 parameter_shape: torch.Size,
+                 parameter_shape_per_element: torch.Size,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
                  n_layers: int = 2,
@@ -122,9 +122,10 @@ class MADE(ConditionerTransform):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
-            parameter_shape=parameter_shape,
+            parameter_shape=(*output_event_shape, *parameter_shape_per_element),
             **kwargs
         )
+        n_predicted_parameters_per_element = int(torch.prod(torch.as_tensor(parameter_shape_per_element)))
         n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
 
         if n_hidden is None:
@@ -149,8 +150,8 @@ class MADE(ConditionerTransform):
         layers.extend([
             self.MaskedLinear(
                 masks[-1].shape[1],
-                masks[-1].shape[0] * self.n_predicted_parameters,
-                torch.repeat_interleave(masks[-1], self.n_predicted_parameters, dim=0)
+                masks[-1].shape[0] * n_predicted_parameters_per_element,
+                torch.repeat_interleave(masks[-1], n_predicted_parameters_per_element, dim=0)
             )
         ])
         self.sequential = nn.Sequential(*layers)

@@ -180,7 +180,7 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.parameter_shape_per_element,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -202,7 +202,7 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.parameter_shape_per_element,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -224,7 +224,7 @@ class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.parameter_shape_per_element,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -245,7 +245,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.parameter_shape_per_element,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -268,7 +268,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.parameter_shape_per_element,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -295,7 +295,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.parameter_shape_per_element,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
