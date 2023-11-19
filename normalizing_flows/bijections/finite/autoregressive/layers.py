@@ -16,6 +16,7 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
 from normalizing_flows.bijections.base import invert
 
 
+# TODO move elementwise bijections, coupling bijections, and masked autoregressive bijections into separate files.
 class ElementwiseAffine(ElementwiseBijection):
     def __init__(self, event_shape, **kwargs):
         transformer = Affine(event_shape, **kwargs)
