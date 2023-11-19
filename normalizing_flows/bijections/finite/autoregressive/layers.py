@@ -51,7 +51,6 @@ class AffineCoupling(CouplingBijection):
         transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            n_transformer_parameters=transformer.n_parameters,
             parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs
@@ -70,7 +69,6 @@ class InverseAffineCoupling(CouplingBijection):
         transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,))).invert()
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            n_transformer_parameters=transformer.n_parameters,
             parameter_shape=torch.Size((transformer.n_parameters,)),
             context_shape=context_shape,
             **kwargs

@@ -23,11 +23,9 @@ class LinearRational(MonotonicSpline):
         self.eps = 5e-10  # Epsilon for numerical stability when computing forward/inverse
 
     @property
-    def n_parameters(self) -> int:
-        return 4 * self.n_bins * self.n_dim
+    def parameter_shape_per_element(self) -> torch.Size:
+        return torch.Size((4 * self.n_bins,))
 
-    def unflatten_conditioner_parameters(self, h: torch.Tensor):
-        return torch.unflatten(h, dim=-1, sizes=(*self.event_shape, 4 * self.n_bins))
 
     def compute_parameters(self, idx, knots_x, knots_y, knots_d, knots_lambda, u_w0):
         assert knots_x.shape == knots_y.shape == knots_d.shape

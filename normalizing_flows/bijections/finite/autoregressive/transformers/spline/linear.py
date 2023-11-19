@@ -35,11 +35,8 @@ class Linear(MonotonicSpline):
         return cs * (self.max_output - self.min_output) + self.min_output
 
     @property
-    def n_parameters(self) -> int:
-        return self.n_bins * self.n_dim
-
-    def unflatten_conditioner_parameters(self, h: torch.Tensor):
-        return torch.unflatten(h, dim=-1, sizes=(*self.event_shape, self.n_bins))
+    def parameter_shape_per_element(self) -> torch.Size:
+        return torch.Size((self.n_bins,))
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1

@@ -23,7 +23,7 @@ class MonotonicSpline(ScalarTransformer):
         self.n_knots = n_bins + 1
 
     @property
-    def n_parameters(self) -> int:
+    def parameter_shape_per_element(self) -> int:
         raise NotImplementedError
 
     def forward_inputs_inside_bounds_mask(self, x):

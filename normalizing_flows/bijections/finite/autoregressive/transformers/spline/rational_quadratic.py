@@ -38,11 +38,9 @@ class RationalQuadratic(MonotonicSpline):
         self.boundary_u_delta = math.log(math.expm1(1 - self.min_delta))
 
     @property
-    def n_parameters(self) -> int:
-        return (3 * self.n_bins - 1) * self.n_dim
+    def parameter_shape_per_element(self) -> torch.Size:
+        return torch.Size((3 * self.n_bins - 1,))
 
-    def unflatten_conditioner_parameters(self, h: torch.Tensor):
-        return torch.unflatten(h, dim=-1, sizes=(*self.event_shape, 3 * self.n_bins - 1))
 
     def compute_bins(self, u, minimum, maximum):
         bin_sizes = torch.softmax(u, dim=-1)
