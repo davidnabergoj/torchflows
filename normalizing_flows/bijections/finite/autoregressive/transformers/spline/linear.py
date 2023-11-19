@@ -36,11 +36,10 @@ class Linear(MonotonicSpline):
 
     @property
     def n_parameters(self) -> int:
-        return self.n_bins
+        return self.n_bins * self.n_dim
 
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(self.n_bins,))
+    def unflatten_conditioner_parameters(self, h: torch.Tensor):
+        return torch.unflatten(h, dim=-1, sizes=(*self.event_shape, self.n_bins))
 
     def forward_1d(self, x, h):
         assert len(x.shape) == 1

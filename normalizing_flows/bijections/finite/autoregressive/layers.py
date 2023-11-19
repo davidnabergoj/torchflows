@@ -1,7 +1,7 @@
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
-from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling import Coupling
+from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import HalfSplit
 from normalizing_flows.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
 from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
@@ -47,16 +47,18 @@ class AffineCoupling(CouplingBijection):
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        transformer = Affine(event_shape=event_shape)
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
+        coupling_mask = HalfSplit(event_shape)
+        transformer = Affine(event_shape=(coupling_mask.transformed_event_size,))
         conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            n_transformer_parameters=transformer.n_parameters,
             input_event_shape=conditioner.input_shape,
             output_event_shape=conditioner.output_shape,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer, coupling_mask, conditioner_transform)
 
 
 class InverseAffineCoupling(CouplingBijection):
@@ -66,16 +68,18 @@ class InverseAffineCoupling(CouplingBijection):
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        transformer = Affine(event_shape=event_shape).invert()
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
+        coupling_mask = HalfSplit(event_shape)
+        transformer = Affine(event_shape=(coupling_mask.transformed_event_size,)).invert()
         conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            n_transformer_parameters=transformer.n_parameters,
             input_event_shape=conditioner.input_shape,
             output_event_shape=conditioner.output_shape,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer, coupling_mask, conditioner_transform)
 
 
 class ShiftCoupling(CouplingBijection):
@@ -83,16 +87,18 @@ class ShiftCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        transformer = Shift(event_shape=event_shape)
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
+        coupling_mask = HalfSplit(event_shape)
+        transformer = Shift(event_shape=(coupling_mask.transformed_event_size,))
         conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            n_transformer_parameters=transformer.n_parameters,
             input_event_shape=conditioner.input_shape,
             output_event_shape=conditioner.output_shape,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer, coupling_mask, conditioner_transform)
 
 
 class LRSCoupling(CouplingBijection):
@@ -102,16 +108,18 @@ class LRSCoupling(CouplingBijection):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
-        transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
+        coupling_mask = HalfSplit(event_shape)
+        transformer = LinearRational(event_shape=(coupling_mask.transformed_event_size,), n_bins=n_bins)
         conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            n_transformer_parameters=transformer.n_parameters,
             input_event_shape=conditioner.input_shape,
             output_event_shape=conditioner.output_shape,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer, coupling_mask, conditioner_transform)
 
 
 class RQSCoupling(CouplingBijection):
@@ -120,16 +128,18 @@ class RQSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
-        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
+        coupling_mask = HalfSplit(event_shape)
+        transformer = RationalQuadratic(event_shape=(coupling_mask.transformed_event_size,), n_bins=n_bins)
         conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            n_transformer_parameters=transformer.n_parameters,
             input_event_shape=conditioner.input_shape,
             output_event_shape=conditioner.output_shape,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer, coupling_mask, conditioner_transform)
 
 
 class DSCoupling(CouplingBijection):
@@ -138,18 +148,20 @@ class DSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_hidden_layers: int = 2,
                  **kwargs):
-        transformer = DeepSigmoid(event_shape=event_shape, n_hidden_layers=n_hidden_layers)
-        conditioner = Coupling(constants=transformer.default_parameters, event_shape=event_shape)
+        coupling_mask = HalfSplit(event_shape)
+        transformer = DeepSigmoid(event_shape=(coupling_mask.transformed_event_size,), n_hidden_layers=n_hidden_layers)
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            n_transformer_parameters=transformer.n_parameters,
             input_event_shape=conditioner.input_shape,
             output_event_shape=conditioner.output_shape,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer, coupling_mask, conditioner_transform)
 
 
 class LinearAffineCoupling(AffineCoupling):
@@ -177,10 +189,12 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -199,10 +213,12 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -214,17 +230,20 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
             conditioner_transform=conditioner_transform
         )
 
+
 class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
             parameter_shape=transformer.n_parameters,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             context_shape=context_shape,
             **kwargs
         )
@@ -241,10 +260,12 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = invert(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -264,10 +285,12 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs
@@ -287,6 +310,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  n_hidden_layers: int = 1,
                  hidden_dim: int = 5,
                  **kwargs):
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
         transformer = UnconstrainedMonotonicNeuralNetwork(
             event_shape=event_shape,
             n_hidden_layers=n_hidden_layers,
@@ -295,6 +319,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
+            n_transformer_parameters=transformer.n_parameters // event_size,
             parameter_shape=transformer.n_parameters,
             context_shape=context_shape,
             **kwargs

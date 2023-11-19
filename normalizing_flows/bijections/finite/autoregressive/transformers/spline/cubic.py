@@ -14,11 +14,10 @@ class Cubic(MonotonicSpline):
 
     @property
     def n_parameters(self) -> int:
-        return 2 * self.n_bins + 2
+        return (2 * self.n_bins + 2) * self.n_dim
 
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(self.n_parameters,))
+    def unflatten_conditioner_parameters(self, h: torch.Tensor):
+        return torch.unflatten(h, dim=-1, sizes=(*self.event_shape, 2 * self.n_bins + 2))
 
     def compute_spline_parameters(self, knots_x: torch.Tensor, knots_y: torch.Tensor, idx: torch.Tensor):
         # knots_x.shape == (n, n_knots)
