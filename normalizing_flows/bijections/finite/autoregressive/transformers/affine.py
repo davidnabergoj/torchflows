@@ -23,14 +23,12 @@ class Affine(ScalarTransformer):
         self.const = 2
 
     @property
-    def n_parameters(self) -> int:
-        return 2
+    def parameter_shape_per_element(self):
+        return (2,)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        default_u_alpha = torch.zeros(size=(1,))
-        default_u_beta = torch.zeros(size=(1,))
-        return torch.cat([default_u_alpha, default_u_beta], dim=0)
+        return torch.zeros(self.parameter_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
@@ -115,12 +113,12 @@ class Shift(ScalarTransformer):
         super().__init__(event_shape=event_shape)
 
     @property
-    def n_parameters(self) -> int:
-        return 1
+    def parameter_shape_per_element(self):
+        return (1,)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(1,))
+        return torch.zeros(self.parameter_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         beta = h[..., 0]
@@ -150,11 +148,12 @@ class Scale(ScalarTransformer):
         self.u_alpha_1 = math.log(1 - self.m)
 
     @property
-    def n_parameters(self) -> int:
-        return 1
+    def parameter_shape_per_element(self):
+        return (1,)
 
+    @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(1,))
+        return torch.zeros(self.parameter_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]

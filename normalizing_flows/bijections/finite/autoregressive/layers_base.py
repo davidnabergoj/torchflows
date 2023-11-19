@@ -89,6 +89,6 @@ class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class ElementwiseBijection(AutoregressiveBijection):
-    def __init__(self, transformer: ScalarTransformer, n_transformer_parameters: int):
-        super().__init__(NullConditioner(), transformer, Constant(transformer.event_shape, n_transformer_parameters))
+    def __init__(self, transformer: ScalarTransformer):
+        super().__init__(NullConditioner(), transformer, Constant(transformer.event_shape, transformer.parameter_shape))
         # TODO override forward and inverse to save on space

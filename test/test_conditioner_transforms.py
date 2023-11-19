@@ -24,7 +24,7 @@ def test_shape(transform_class, batch_shape, input_event_shape, output_event_sha
     transform = transform_class(
         input_event_shape=input_event_shape,
         output_event_shape=output_event_shape,
-        n_transformer_parameters=n_predicted_parameters
+        parameter_shape=n_predicted_parameters
     )
     out = transform(x)
     assert out.shape == (*batch_shape, *output_event_shape, n_predicted_parameters)
