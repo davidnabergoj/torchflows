@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Union, Type
+from typing import Tuple, Union, Type, List
 
 import torch
 import torch.nn as nn
@@ -125,10 +125,10 @@ class MADE(ConditionerTransform):
             return nn.functional.linear(x, self.weight * self.mask, self.bias)
 
     def __init__(self,
-                 input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
-                 parameter_shape_per_element: torch.Size,
-                 context_shape: torch.Size = None,
+                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 output_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 parameter_shape_per_element: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  n_hidden: int = None,
                  n_layers: int = 2,
                  **kwargs):
@@ -193,18 +193,8 @@ class MADE(ConditionerTransform):
 
 
 class LinearMADE(MADE):
-    def __init__(self,
-                 input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
-                 parameter_shape: torch.Size,
-                 **kwargs):
-        super().__init__(
-            input_event_shape,
-            output_event_shape,
-            parameter_shape,
-            n_layers=1,
-            **kwargs
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, n_layers=1, **kwargs)
 
 
 class FeedForward(ConditionerTransform):
@@ -214,7 +204,6 @@ class FeedForward(ConditionerTransform):
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
                  n_layers: int = 2,
-                 hidden_linear_module: Type[nn.Module] = nn.Linear,
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
@@ -226,23 +215,16 @@ class FeedForward(ConditionerTransform):
         if n_hidden is None:
             n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
 
-        # If context given, concatenate it to transform input
-        if context_shape is not None:
-            self.n_input_event_dims += self.n_context_dims
-
         layers = []
-
-        # Check the one layer special case
         if n_layers == 1:
             layers.append(nn.Linear(self.n_input_event_dims, self.n_predicted_parameters))
         elif n_layers > 1:
-            layers.extend([hidden_linear_module(self.n_input_event_dims, n_hidden), nn.Tanh()])
+            layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nn.Tanh()])
             for _ in range(n_layers - 2):
-                layers.extend([hidden_linear_module(n_hidden, n_hidden), nn.Tanh()])
+                layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
             layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         else:
             raise ValueError
-
         layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
         self.sequential = nn.Sequential(*layers)
 
@@ -255,18 +237,50 @@ class Linear(FeedForward):
         super().__init__(*args, **kwargs, n_layers=1)
 
 
-class ResidualFeedForward(FeedForward):
-    class _ResidualLinearModule(nn.Module):
-        def __init__(self, n_in, n_out):
+class ResidualFeedForward(ConditionerTransform):
+    class ResidualBlock(nn.Module):
+        def __init__(self, event_size: int, hidden_size: int, block_size: int):
             super().__init__()
-            self.linear = nn.Linear(n_in, n_out)
+            if block_size < 2:
+                raise ValueError(f"block_size must be at least 2 but found {block_size}. "
+                                 f"For block_size = 1, use the FeedForward class instead.")
+            layers = []
+            layers.extend([nn.Linear(event_size, hidden_size), nn.ReLU()])
+            for _ in range(block_size - 2):
+                layers.extend([nn.Linear(hidden_size, hidden_size), nn.ReLU()])
+            layers.extend([nn.Linear(hidden_size, event_size)])
+            self.sequential = nn.Sequential(*layers)
 
         def forward(self, x):
-            return x + self.linear(x)
+            return x + self.sequential(x)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self,
+                 input_event_shape: torch.Size,
+                 parameter_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden: int = None,
+                 n_layers: int = 3,
+                 block_size: int = 2,
+                 **kwargs):
         super().__init__(
-            *args,
-            hidden_linear_module=ResidualFeedForward._ResidualLinearModule,
+            input_event_shape=input_event_shape,
+            context_shape=context_shape,
+            parameter_shape=parameter_shape,
             **kwargs
         )
+
+        if n_hidden is None:
+            n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
+
+        if n_layers <= 2:
+            raise ValueError(f"Number of layers in ResidualFeedForward must be at least 3, but found {n_layers}")
+
+        layers = [nn.Linear(self.n_input_event_dims, n_hidden), nn.ReLU()]
+        for _ in range(n_layers - 2):
+            layers.append(self.ResidualBlock(n_hidden, n_hidden, block_size))
+        layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
+        self.sequential = nn.Sequential(*layers)
+
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
+        return self.sequential(self.context_combiner(x, context))
