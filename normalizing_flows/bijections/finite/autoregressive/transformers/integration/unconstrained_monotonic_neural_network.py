@@ -112,28 +112,18 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         out = 1 + torch.nn.functional.elu(out)
         return out
 
-    @staticmethod
-    def reshape_tensors(x: torch.Tensor, h: List[torch.Tensor]):
-        # batch_shape = get_batch_shape(x, self.event_shape)
-        # batch_dims = int(torch.as_tensor(batch_shape).prod())
-        # event_dims = int(torch.as_tensor(self.event_shape).prod())
-        flattened_dim = int(torch.as_tensor(x.shape).prod())
-        x_r = x.view(flattened_dim, 1, 1)
-        h_r = [p.view(flattened_dim, *p.shape[-2:]) for p in h]
-        return x_r, h_r
-
     def base_forward_1d(self, x: torch.Tensor, params: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
-        x_r, p_r = self.reshape_tensors(x, params)
-        integral_flat = self.integral(x_r, p_r)
-        log_det_flat = self.g(x_r, p_r).log()  # We can apply log since g is always positive
+        x_r = x.view(-1, 1, 1)
+        integral_flat = self.integral(x_r, params)
+        log_det_flat = self.g(x_r, params).log()  # We can apply log since g is always positive
         output = integral_flat.view_as(x)
         log_det = log_det_flat.view_as(x)
         return output, log_det
 
     def inverse_1d(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         params = self.compute_parameters(h)
-        z_r, p_r = self.reshape_tensors(z, params)
-        x_flat = self.inverse_1d_without_log_det(z_r, p_r)
+        z_r = z.view(-1, 1, 1)
+        x_flat = self.inverse_1d_without_log_det(z_r, params)
         outputs = x_flat.view_as(z)
-        log_det = -self.g(x_flat, p_r).log().view_as(z)
+        log_det = -self.g(x_flat, params).log().view_as(z)
         return outputs, log_det

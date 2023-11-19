@@ -58,6 +58,10 @@ class ScalarTransformer(TensorTransformer):
         raise NotImplementedError
 
     @property
+    def n_parameters_per_element(self):
+        return int(torch.prod(torch.as_tensor(self.parameter_shape_per_element)))
+
+    @property
     def parameter_shape(self) -> Union[torch.Size, Tuple[int, ...]]:
         # Scalar transformers map each element individually, so the first dimensions are the event shape
         return torch.Size((*self.event_shape, *self.parameter_shape_per_element))
