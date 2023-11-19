@@ -76,11 +76,11 @@ class ConditionerTransform(nn.Module):
         # x.shape = (*batch_shape, *self.input_event_shape)
         # context.shape = (*batch_shape, *self.context_shape)
         # output.shape = (*batch_shape, *self.parameter_shape)
+        batch_shape = get_batch_shape(x, self.input_event_shape)
         if self.n_global_parameters == 0:
             # All parameters are predicted
-            return self.predict_theta_flat(x, context)
+            return self.predict_theta_flat(x, context).view(*batch_shape, *self.parameter_shape)
         else:
-            batch_shape = get_batch_shape(x, self.input_event_shape)
             if self.n_global_parameters == self.n_transformer_parameters:
                 # All transformer parameters are learned globally
                 output = torch.zeros(*batch_shape, *self.parameter_shape)
@@ -187,7 +187,7 @@ class MADE(ConditionerTransform):
         # (*b, *e, *pe)
 
         if self.global_parameter_mask is None:
-            return torch.flatten(theta, start_dim=-len(self.parameter_shape))
+            return torch.flatten(theta, start_dim=len(theta.shape) - len(self.input_event_shape))
         else:
             return theta[..., ~self.global_parameter_mask]
 
