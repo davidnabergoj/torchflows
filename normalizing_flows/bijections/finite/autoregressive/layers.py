@@ -6,6 +6,7 @@ from normalizing_flows.bijections.finite.autoregressive.conditioners.masked impo
 from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
@@ -175,11 +176,11 @@ class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        transformer = Affine(event_shape=event_shape)
+        transformer: ScalarTransformer = Affine(event_shape=event_shape)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -197,13 +198,11 @@ class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
-        event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
+        transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters // event_size,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -221,13 +220,11 @@ class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
-        event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        transformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
+        transformer: ScalarTransformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            parameter_shape=transformer.n_parameters,
-            n_transformer_parameters=transformer.n_parameters // event_size,
+            parameter_shape=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -244,13 +241,11 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        transformer = invert(Affine(event_shape=event_shape))
+        transformer: ScalarTransformer = invert(Affine(event_shape=event_shape))
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters // event_size,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -269,13 +264,11 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
-        event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        transformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
+        transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters // event_size,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )
@@ -294,8 +287,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
                  n_hidden_layers: int = 1,
                  hidden_dim: int = 5,
                  **kwargs):
-        event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        transformer = UnconstrainedMonotonicNeuralNetwork(
+        transformer: ScalarTransformer = UnconstrainedMonotonicNeuralNetwork(
             event_shape=event_shape,
             n_hidden_layers=n_hidden_layers,
             hidden_dim=hidden_dim
@@ -303,8 +295,7 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             output_event_shape=event_shape,
-            n_transformer_parameters=transformer.n_parameters // event_size,
-            parameter_shape=transformer.n_parameters,
+            parameter_shape=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs
         )

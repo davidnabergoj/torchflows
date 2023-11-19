@@ -81,7 +81,7 @@ class Bijection(nn.Module):
         return outputs, log_dets
 
 
-def invert(bijection: Bijection) -> Bijection:
+def invert(bijection):
     """
     Swap the forward and inverse methods of the input bijection.
     """

@@ -1,4 +1,4 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 import torch
 
@@ -14,7 +14,7 @@ class AutoregressiveBijection(Bijection):
     def __init__(self,
                  event_shape,
                  conditioner: Optional[Conditioner],
-                 transformer: TensorTransformer,
+                 transformer: Union[TensorTransformer, ScalarTransformer],
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
         super().__init__(event_shape=event_shape)
@@ -89,9 +89,11 @@ class CouplingBijection(AutoregressiveBijection):
 
 
 class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer,
+    def __init__(self,
+                 conditioner: Conditioner,
+                 transformer: ScalarTransformer,
                  conditioner_transform: ConditionerTransform):
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer.event_shape, conditioner, transformer, conditioner_transform)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
@@ -112,13 +114,15 @@ class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
 
 
 class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self, conditioner: Conditioner, transformer: ScalarTransformer,
+    def __init__(self,
+                 conditioner: Conditioner,
+                 transformer: ScalarTransformer,
                  conditioner_transform: ConditionerTransform):
-        super().__init__(conditioner, transformer, conditioner_transform)
+        super().__init__(transformer.event_shape, conditioner, transformer, conditioner_transform)
         self.forward_layer = ForwardMaskedAutoregressiveBijection(
-            conditioner,
-            transformer,
-            conditioner_transform
+            self.conditioner,
+            self.transformer,
+            self.conditioner_transform
         )
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
