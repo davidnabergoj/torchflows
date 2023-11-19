@@ -3,7 +3,8 @@ from typing import Tuple, Optional, Union
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner, NullConditioner
-from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant
+from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant, \
+    MADE
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import CouplingMask
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
@@ -88,12 +89,41 @@ class CouplingBijection(AutoregressiveBijection):
         return x, log_det
 
 
-class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
+class MaskedAutoregressiveBijection(AutoregressiveBijection):
+    """
+    Masked autoregressive bijection class.
+
+    This bijection is specified with a scalar transformer.
+    Its conditioner is always MADE, which receives as input a tensor x with x.shape = (*batch_shape, *event_shape).
+    MADE outputs parameters h for the scalar transformer with
+     h.shape = (*batch_shape, *event_shape, *parameter_shape_per_element).
+    The transformer then applies the bijection elementwise.
+    """
+
     def __init__(self,
-                 conditioner: Conditioner,
+                 event_shape,
+                 context_shape,
                  transformer: ScalarTransformer,
-                 conditioner_transform: ConditionerTransform):
-        super().__init__(transformer.event_shape, conditioner, transformer, conditioner_transform)
+                 **kwargs):
+        conditioner_transform = MADE(
+            input_event_shape=event_shape,
+            output_event_shape=event_shape,
+            parameter_shape_per_element=transformer.parameter_shape_per_element,
+            context_shape=context_shape,
+            **kwargs
+        )
+        super().__init__(transformer.event_shape, None, transformer, conditioner_transform)
+
+    def apply_conditioner_transformer(self, inputs, context, forward: bool = True):
+        h = self.conditioner_transform(inputs, context)
+        if forward:
+            outputs, log_det = self.transformer.forward(inputs, h)
+        else:
+            outputs, log_det = self.transformer.inverse(inputs, h)
+        return outputs, log_det
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.apply_conditioner_transformer(x, context, True)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
@@ -102,28 +132,16 @@ class ForwardMaskedAutoregressiveBijection(AutoregressiveBijection):
         x_flat = flatten_event(torch.clone(z), self.event_shape)
         for i in torch.arange(n_event_dims):
             x_clone = unflatten_event(torch.clone(x_flat), self.event_shape)
-            h = self.conditioner(
-                x_clone,
-                transform=self.conditioner_transform,
-                context=context
-            )
-            tmp, log_det = self.transformer.inverse(x_clone, h)
+            tmp, log_det = self.apply_conditioner_transformer(x_clone, context, False)
             x_flat[..., i] = flatten_event(tmp, self.event_shape)[..., i]
         x = unflatten_event(x_flat, self.event_shape)
         return x, log_det
 
 
 class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
-    def __init__(self,
-                 conditioner: Conditioner,
-                 transformer: ScalarTransformer,
-                 conditioner_transform: ConditionerTransform):
-        super().__init__(transformer.event_shape, conditioner, transformer, conditioner_transform)
-        self.forward_layer = ForwardMaskedAutoregressiveBijection(
-            self.conditioner,
-            self.transformer,
-            self.conditioner_transform
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.forward_layer = MaskedAutoregressiveBijection(self.event_shape, self.context_shape, self.transformer)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.forward_layer.inverse(x, context=context)

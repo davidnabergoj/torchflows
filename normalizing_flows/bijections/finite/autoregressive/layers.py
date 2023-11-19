@@ -2,8 +2,7 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import HalfSplit
-from normalizing_flows.bijections.finite.autoregressive.conditioners.masked import MaskedAutoregressive
-from normalizing_flows.bijections.finite.autoregressive.layers_base import ForwardMaskedAutoregressiveBijection, \
+from normalizing_flows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
@@ -171,69 +170,33 @@ class LinearShiftCoupling(ShiftCoupling):
         super().__init__(event_shape, **kwargs, n_layers=1)
 
 
-class AffineForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
+class AffineForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
         transformer: ScalarTransformer = Affine(event_shape=event_shape)
-        conditioner_transform = MADE(
-            input_event_shape=event_shape,
-            output_event_shape=event_shape,
-            parameter_shape_per_element=transformer.parameter_shape_per_element,
-            context_shape=context_shape,
-            **kwargs
-        )
-        conditioner = MaskedAutoregressive()
-        super().__init__(
-            conditioner=conditioner,
-            transformer=transformer,
-            conditioner_transform=conditioner_transform
-        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
-class RQSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
+class RQSForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
         transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
-        conditioner_transform = MADE(
-            input_event_shape=event_shape,
-            output_event_shape=event_shape,
-            parameter_shape_per_element=transformer.parameter_shape_per_element,
-            context_shape=context_shape,
-            **kwargs
-        )
-        conditioner = MaskedAutoregressive()
-        super().__init__(
-            conditioner=conditioner,
-            transformer=transformer,
-            conditioner_transform=conditioner_transform
-        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
-class LRSForwardMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
+class LRSForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
         transformer: ScalarTransformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
-        conditioner_transform = MADE(
-            input_event_shape=event_shape,
-            output_event_shape=event_shape,
-            parameter_shape_per_element=transformer.parameter_shape_per_element,
-            context_shape=context_shape,
-            **kwargs
-        )
-        conditioner = MaskedAutoregressive()
-        super().__init__(
-            conditioner=conditioner,
-            transformer=transformer,
-            conditioner_transform=conditioner_transform
-        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
 class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
@@ -242,19 +205,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  context_shape: torch.Size = None,
                  **kwargs):
         transformer: ScalarTransformer = invert(Affine(event_shape=event_shape))
-        conditioner_transform = MADE(
-            input_event_shape=event_shape,
-            output_event_shape=event_shape,
-            parameter_shape_per_element=transformer.parameter_shape_per_element,
-            context_shape=context_shape,
-            **kwargs
-        )
-        conditioner = MaskedAutoregressive()
-        super().__init__(
-            conditioner=conditioner,
-            transformer=transformer,
-            conditioner_transform=conditioner_transform
-        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
 class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
@@ -265,22 +216,10 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  **kwargs):
         assert n_bins >= 1
         transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
-        conditioner_transform = MADE(
-            input_event_shape=event_shape,
-            output_event_shape=event_shape,
-            parameter_shape_per_element=transformer.parameter_shape_per_element,
-            context_shape=context_shape,
-            **kwargs
-        )
-        conditioner = MaskedAutoregressive()
-        super().__init__(
-            conditioner=conditioner,
-            transformer=transformer,
-            conditioner_transform=conditioner_transform
-        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
-class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
+class UMNNMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -292,16 +231,4 @@ class UMNNMaskedAutoregressive(ForwardMaskedAutoregressiveBijection):
             n_hidden_layers=n_hidden_layers,
             hidden_dim=hidden_dim
         )
-        conditioner_transform = MADE(
-            input_event_shape=event_shape,
-            output_event_shape=event_shape,
-            parameter_shape_per_element=transformer.parameter_shape_per_element,
-            context_shape=context_shape,
-            **kwargs
-        )
-        conditioner = MaskedAutoregressive()
-        super().__init__(
-            conditioner=conditioner,
-            transformer=transformer,
-            conditioner_transform=conditioner_transform
-        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)

@@ -103,6 +103,13 @@ class Constant(ConditionerTransform):
 
 
 class MADE(ConditionerTransform):
+    """
+    Masked autoencoder for distribution estimation (MADE).
+
+    MADE is a conditioner transform that receives as input a tensor x. It predicts parameters for the
+     transformer such that each dimension only depends on the previous ones.
+    """
+
     class MaskedLinear(nn.Linear):
         def __init__(self, in_features: int, out_features: int, mask: torch.Tensor):
             super().__init__(in_features=in_features, out_features=out_features)
@@ -169,8 +176,11 @@ class MADE(ConditionerTransform):
                 masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
         return masks
 
-    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
+    def predict_theta(self, x: torch.Tensor, context: torch.Tensor = None):
         return self.sequential(self.context_combiner(x, context))
+
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
+        raise NotImplementedError
 
 
 class LinearMADE(MADE):
