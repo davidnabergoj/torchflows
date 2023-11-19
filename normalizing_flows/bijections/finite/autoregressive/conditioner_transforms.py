@@ -39,6 +39,12 @@ class ConditionerTransform(nn.Module):
          global parameters are independently drawn from the standard normal distribution.
         """
         super().__init__()
+        if global_parameter_mask is not None and global_parameter_mask.shape != parameter_shape:
+            raise ValueError(
+                f"Global parameter mask must have shape equal to the output parameter shape {parameter_shape}, "
+                f"but found {global_parameter_mask.shape}"
+            )
+
         if context_shape is None:
             context_combiner = Bypass(input_event_shape)
         elif context_shape is not None and context_combiner is None:
@@ -176,11 +182,14 @@ class MADE(ConditionerTransform):
                 masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
         return masks
 
-    def predict_theta(self, x: torch.Tensor, context: torch.Tensor = None):
-        return self.sequential(self.context_combiner(x, context))
-
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
-        raise NotImplementedError
+        theta = self.sequential(self.context_combiner(x, context))
+        # (*b, *e, *pe)
+
+        if self.global_parameter_mask is None:
+            return torch.flatten(theta, start_dim=-len(self.parameter_shape))
+        else:
+            return theta[..., ~self.global_parameter_mask]
 
 
 class LinearMADE(MADE):

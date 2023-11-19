@@ -138,16 +138,15 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
         return x, log_det
 
 
-class InverseMaskedAutoregressiveBijection(AutoregressiveBijection):
+class InverseMaskedAutoregressiveBijection(MaskedAutoregressiveBijection):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.forward_layer = MaskedAutoregressiveBijection(self.event_shape, self.context_shape, self.transformer)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.forward_layer.inverse(x, context=context)
+        return super().inverse(x, context=context)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.forward_layer.forward(z, context=context)
+        return super().forward(z, context=context)
 
 
 class ElementwiseBijection(AutoregressiveBijection):
