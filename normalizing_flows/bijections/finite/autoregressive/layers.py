@@ -51,7 +51,7 @@ class AffineCoupling(CouplingBijection):
         transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
@@ -69,7 +69,7 @@ class InverseAffineCoupling(CouplingBijection):
         transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,))).invert()
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
@@ -85,7 +85,7 @@ class ShiftCoupling(CouplingBijection):
         transformer = Shift(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
@@ -103,7 +103,7 @@ class LRSCoupling(CouplingBijection):
         transformer = LinearRational(event_shape=torch.Size((coupling_mask.transformed_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
@@ -120,7 +120,7 @@ class RQSCoupling(CouplingBijection):
         transformer = RationalQuadratic(event_shape=torch.Size((coupling_mask.transformed_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
@@ -142,7 +142,7 @@ class DSCoupling(CouplingBijection):
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
-            parameter_shape=torch.Size((transformer.n_parameters,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )

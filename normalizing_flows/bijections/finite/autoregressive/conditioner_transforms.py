@@ -223,6 +223,7 @@ class FeedForward(ConditionerTransform):
         else:
             raise ValueError
 
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
         self.sequential = nn.Sequential(*layers)
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
