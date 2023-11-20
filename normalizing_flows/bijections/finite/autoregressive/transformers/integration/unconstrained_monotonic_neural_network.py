@@ -24,6 +24,12 @@ class UnconstrainedMonotonicTransformer(Integration):
 
 
 class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
+    """
+    Unconstrained monotonic neural network transformer.
+
+    The unconstrained monotonic neural network is a neural network with positive weights and positive activation
+     function derivatives. These two conditions ensure its invertibility.
+    """
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_hidden_layers: int = 2,
@@ -44,7 +50,7 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         # weight is a square matrix, bias is a vector
         self.n_hidden_params = (self.hidden_dim ** 2 + self.hidden_dim) * self.n_hidden_layers
 
-        self._sampled_default_params = torch.randn(size=(self.n_parameters,)) / 1000
+        self._sampled_default_params = torch.randn(size=(self.n_dim, *self.parameter_shape_per_element)) / 1000
 
     @property
     def parameter_shape_per_element(self) -> Union[torch.Size, Tuple]:
@@ -55,31 +61,29 @@ class UnconstrainedMonotonicNeuralNetwork(UnconstrainedMonotonicTransformer):
         return self._sampled_default_params
 
     def compute_parameters(self, h: torch.Tensor):
-        batch_shape = h.shape[:-1]
         p0 = self.default_parameters
+        batch_size = h.shape[0]
+        n_events = batch_size // p0.shape[0]
 
         # Input layer
-        input_layer_defaults = pad_leading_dims(p0[:self.n_input_params], len(h.shape) - 1)
+        input_layer_defaults = p0[..., :self.n_input_params].repeat(n_events, 1)
         input_layer_deltas = h[..., :self.n_input_params] / self.const
         input_layer_params = input_layer_defaults + input_layer_deltas
-        input_layer_params = input_layer_params.view(*batch_shape, self.hidden_dim, 2)
+        input_layer_params = input_layer_params.view(batch_size, self.hidden_dim, 2)
 
         # Output layer
-        output_layer_defaults = pad_leading_dims(p0[-self.n_output_params:], len(h.shape) - 1)
+        output_layer_defaults = p0[..., -self.n_output_params:].repeat(n_events, 1)
         output_layer_deltas = h[..., -self.n_output_params:] / self.const
         output_layer_params = output_layer_defaults + output_layer_deltas
-        output_layer_params = output_layer_params.view(*batch_shape, 1, self.hidden_dim + 1)
+        output_layer_params = output_layer_params.view(batch_size, 1, self.hidden_dim + 1)
 
         # Hidden layers
-        hidden_layer_defaults = pad_leading_dims(
-            p0[self.n_input_params:self.n_input_params + self.n_hidden_params],
-            len(h.shape) - 1
-        )
+        hidden_layer_defaults = p0[..., self.n_input_params:self.n_input_params + self.n_hidden_params].repeat(n_events, 1)
         hidden_layer_deltas = h[..., self.n_input_params:self.n_input_params + self.n_hidden_params] / self.const
         hidden_layer_params = hidden_layer_defaults + hidden_layer_deltas
         hidden_layer_params = torch.chunk(hidden_layer_params, chunks=self.n_hidden_layers, dim=-1)
         hidden_layer_params = [
-            layer.view(*batch_shape, self.hidden_dim, self.hidden_dim + 1)
+            layer.view(batch_size, self.hidden_dim, self.hidden_dim + 1)
             for layer in hidden_layer_params
         ]
         return [input_layer_params, *hidden_layer_params, output_layer_params]

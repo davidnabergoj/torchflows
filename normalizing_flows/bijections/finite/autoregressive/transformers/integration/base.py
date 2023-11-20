@@ -61,7 +61,7 @@ class Integration(ScalarTransformer):
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         x.shape = (*batch_shape, *event_shape)
-        h.shape = (*batch_shape, *event_shape, n_parameters)
+        h.shape = (*batch_shape, *parameter_shape)
         """
         z_flat, log_det_flat = self.forward_1d(x.view(-1), h.view(-1, self.n_parameters_per_element))
         z = z_flat.view_as(x)
