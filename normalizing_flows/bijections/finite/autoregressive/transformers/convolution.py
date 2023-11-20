@@ -1,65 +1,21 @@
 from typing import Union, Tuple
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
+from normalizing_flows.bijections import LU
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer
+from normalizing_flows.utils import sum_except_batch, get_batch_shape
 
 
-def construct_kernels_plu(
-        lower_elements: torch.Tensor,
-        upper_elements: torch.Tensor,
-        log_abs_diag: torch.Tensor,
-        sign_diag: torch.Tensor,
-        permutation: torch.Tensor,
-        k: int,
-        inverse: bool = False
-):
-    """
-    :param lower_elements: (b, (k ** 2 - k) // 2)
-    :param upper_elements: (b, (k ** 2 - k) // 2)
-    :param log_abs_diag: (b, k)
-    :param sign_diag: (k,)
-    :param permutation: (k, k)
-    :param k: kernel length
-    :param inverse:
-    :return: kernels with shape (b, k, k)
-    """
-
-    assert lower_elements.shape == upper_elements.shape
-    assert log_abs_diag.shape[1] == sign_diag.shape[0]
-    assert permutation.shape == (k, k)
-    assert len(log_abs_diag.shape) == 2
-    assert len(lower_elements.shape) == 2
-    assert lower_elements.shape[1] == (k ** 2 - k) // 2
-    assert log_abs_diag.shape[1] == k
-
-    batch_size = len(lower_elements)
-
-    lower = torch.eye(k)[None].repeat(batch_size, 1, 1)
-    lower_row_idx, lower_col_idx = torch.tril_indices(k, k, offset=-1)
-    lower[:, lower_row_idx, lower_col_idx] = lower_elements
-
-    upper = torch.einsum("ij,bj->bij", torch.eye(k), log_abs_diag.exp() * sign_diag)
-    upper_row_idx, upper_col_idx = torch.triu_indices(k, k, offset=1)
-    upper[:, upper_row_idx, upper_col_idx] = upper_elements
-
-    if inverse:
-        if log_abs_diag.dtype == torch.float64:
-            lower_inv = torch.inverse(lower)
-            upper_inv = torch.inverse(upper)
-        else:
-            lower_inv = torch.inverse(lower.double()).type(log_abs_diag.dtype)
-            upper_inv = torch.inverse(upper.double()).type(log_abs_diag.dtype)
-        kernels = torch.einsum("bij,bjk,kl->bil", upper_inv, lower_inv, permutation.T)
-    else:
-        kernels = torch.einsum("ij,bjk,bkl->bil", permutation, lower, upper)
-    return kernels
-
-
-class Invertible1x1Convolution(ScalarTransformer):
+class Invertible1x1Convolution(TensorTransformer):
     """
     Invertible 1x1 convolution.
 
-    TODO permutation may be unnecessary, maybe remove.
+    This transformer receives as input a batch of images x with x.shape (*batch_shape, *image_dimensions, channels) and
+     parameters h for an invertible linear transform of the channels
+     with h.shape = (*batch_shape, *image_dimensions, *parameter_shape).
+    Note that image_dimensions can be a shape with arbitrarily ordered dimensions (height, width).
+    In fact, it is not required that the image is two-dimensional. Voxels with shape (height, width, depth, channels)
+    are also supported, as well as tensors with more general shapes.
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
@@ -67,96 +23,39 @@ class Invertible1x1Convolution(ScalarTransformer):
             raise ValueError(
                 f"InvertibleConvolution transformer only supports events with shape (height, width, channels)."
             )
-        self.n_channels, self.h, self.w = event_shape
-        self.sign_diag = torch.sign(torch.randn(self.n_channels))
-        self.permutation = torch.eye(self.n_channels)[torch.randperm(self.n_channels)]
-        self.const = 1000
+        *self.image_dimensions, self.n_channels = event_shape
+        self.invertible_linear: TensorTransformer = LU(event_shape=(self.n_channels,))
         super().__init__(event_shape)
 
     @property
-    def n_parameters(self) -> int:
-        return self.n_channels ** 2
+    def parameter_shape(self) -> Union[torch.Size, Tuple[int, ...]]:
+        return self.invertible_linear.parameter_shape
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        # Kernel matrix is identity (p=0,u=0,log_diag=0).
-        # Some diagonal elements are negated according to self.sign_diag.
-        # The matrix is then permuted.
-        return torch.zeros(self.n_parameters)
+        return torch.zeros(size=self.parameter_shape)
+
+    def apply_linear(self, inputs: torch.Tensor, h: torch.Tensor, forward: bool):
+        batch_shape = get_batch_shape(inputs, self.event_shape)
+
+        h = h / self.const + self.default_parameters[[None] * len(batch_shape)]
+        h_flat = torch.flatten(h, start_dim=0, end_dim=len(batch_shape) + len(self.image_dimensions))
+        inputs_flat = torch.flatten(inputs, start_dim=0, end_dim=len(batch_shape) + len(self.image_dimensions))
+
+        # Apply linear transformation along channel dimension
+        if forward:
+            outputs_flat, log_det_flat = self.invertible_linear.forward(inputs_flat, h_flat)
+        else:
+            outputs_flat, log_det_flat = self.invertible_linear.inverse(inputs_flat, h_flat)
+        outputs = outputs_flat.view_as(inputs)
+        log_det = sum_except_batch(
+            log_det_flat.view(*batch_shape, *self.image_dimensions),
+            event_shape=self.image_dimensions
+        )
+        return outputs, log_det
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        We parametrize K = PLU. The parameters h contain elements of L and U.
-        There are k ** 2 such elements.
+        return self.apply_linear(x, h, forward=True)
 
-        x.shape == (batch_size, c, h, w)
-        h.shape == (batch_size, k * k)
-
-        We expect each kernel to be invertible.
-        """
-        if len(x.shape) != 4:
-            raise ValueError(f"Expected x to have shape (batch_size, channels, height, width), but got {x.shape}")
-        if len(h.shape) != 2:
-            raise ValueError(f"Expected h.shape to be of length 2, but got {h.shape} with length {len(h.shape)}")
-        if h.shape[1] != self.n_channels * self.n_channels:
-            raise ValueError(
-                f"Expected h to have shape (batch_size, kernel_height * kernel_width) = (batch_size, {self.n_channels * self.n_channels}),"
-                f" but got {h.shape}"
-            )
-
-        h = self.default_parameters + h / self.const
-
-        n_p_elements = (self.n_channels ** 2 - self.n_channels) // 2
-        p_elements = h[..., :n_p_elements]
-        u_elements = h[..., n_p_elements:n_p_elements * 2]
-        log_diag_elements = h[..., n_p_elements * 2:]
-
-        kernels = construct_kernels_plu(
-            p_elements,
-            u_elements,
-            log_diag_elements,
-            self.sign_diag,
-            self.permutation,
-            self.n_channels,
-            inverse=False
-        )  # (b, k, k)
-        log_det = self.h * self.w * torch.sum(log_diag_elements, dim=-1)  # (*batch_shape)
-
-        z = torch.zeros_like(x)
-        for i in range(len(x)):
-            z[i] = torch.conv2d(x[i], kernels[i][:, :, None, None], groups=1, stride=1, padding="same")
-
-        return z, log_det
-
-    def inverse(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        if len(x.shape) != 4:
-            raise ValueError(f"Expected x to have shape (batch_size, channels, height, width), but got {x.shape}")
-        if len(h.shape) != 2:
-            raise ValueError(f"Expected h.shape to be of length 2, but got {h.shape} with length {len(h.shape)}")
-        if h.shape[1] != self.n_channels * self.n_channels:
-            raise ValueError(
-                f"Expected h to have shape (batch_size, kernel_height * kernel_width) = (batch_size, {self.n_channels * self.n_channels}),"
-                f" but got {h.shape}"
-            )
-
-        h = self.default_parameters + h / self.const
-
-        n_p_elements = (self.n_channels ** 2 - self.n_channels) // 2
-        p_elements = h[..., :n_p_elements]
-        u_elements = h[..., n_p_elements:n_p_elements * 2]
-        log_diag_elements = h[..., n_p_elements * 2:]
-
-        kernels = construct_kernels_plu(
-            p_elements,
-            u_elements,
-            log_diag_elements,
-            self.sign_diag,
-            self.permutation,
-            self.n_channels,
-            inverse=True
-        )
-        log_det = -self.h * self.w * torch.sum(log_diag_elements, dim=-1)  # (*batch_shape)
-        z = torch.zeros_like(x)
-        for i in range(len(x)):
-            z[i] = torch.conv2d(x[i], kernels[i][:, :, None, None], groups=1, stride=1, padding="same")
-        return z, log_det
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.apply_linear(z, h, forward=False)

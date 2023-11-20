@@ -119,10 +119,12 @@ def test_combination_vector_to_vector(transformer_class: ScalarTransformer, batc
 @pytest.mark.parametrize('image_shape', __test_constants['image_shape'])
 def test_convolution(batch_size: int, image_shape: Tuple):
     torch.manual_seed(0)
-    n_channels = image_shape[0]
-    images = torch.randn(size=(batch_size, *image_shape))
-    parameters = torch.randn(size=(batch_size, n_channels ** 2))
     transformer = Invertible1x1Convolution(image_shape)
+
+    *image_dimensions, n_channels = image_shape
+
+    images = torch.randn(size=(batch_size, *image_shape))
+    parameters = torch.randn(size=(batch_size, *image_dimensions, *transformer.parameter_shape))
     latent_images, log_det_forward = transformer.forward(images, parameters)
     reconstructed_images, log_det_inverse = transformer.inverse(latent_images, parameters)
 
