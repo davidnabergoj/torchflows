@@ -28,10 +28,12 @@ class LUTransformer(TensorTransformer):
         event_size = int(torch.prod(torch.as_tensor(self.event_shape)))
         n_off_diag_el = (event_size ** 2 - event_size) // 2
 
-        u_log_diag = h[..., :event_size]
-        u_diag = torch.exp(u_log_diag) / 10 + 1
+        u_unc_diag = h[..., :event_size]
+        u_diag = torch.exp(u_unc_diag) / 10 + 1
+        u_log_diag = torch.log(u_diag)
+
         u_off_diagonal_elements = h[..., event_size:event_size + n_off_diag_el] / 10
-        l_off_diagonal_elements = h[..., -n_off_diag_el:] / 10
+        l_off_diagonal_elements = h[..., -n_off_diag_el:]
 
         batch_shape = h.shape[:-len(self.parameter_shape)]
 

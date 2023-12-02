@@ -136,5 +136,5 @@ def test_convolution(batch_size: int, image_shape: Tuple):
     assert reconstructed_images.shape == images.shape
     assert torch.isfinite(latent_images).all()
     assert torch.isfinite(reconstructed_images).all()
-    rec_err = torch.max(torch.abs(latent_images - reconstructed_images))
-    assert torch.allclose(latent_images, reconstructed_images, atol=1e-2), f"{rec_err = }"
+    rec_err = torch.max(torch.abs(images - reconstructed_images))
+    assert torch.allclose(images, reconstructed_images, atol=1e-2), f"{rec_err = }"
