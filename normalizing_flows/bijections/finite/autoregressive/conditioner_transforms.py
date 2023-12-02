@@ -1,4 +1,5 @@
 import math
+from typing import Tuple, Union, Type, List
 
 import torch
 import torch.nn as nn
@@ -9,13 +10,41 @@ from normalizing_flows.utils import get_batch_shape, pad_leading_dims
 
 
 class ConditionerTransform(nn.Module):
+    """
+    Module which predicts transformer parameters for the transformation of a tensor y using an input tensor x and
+     possibly a corresponding context tensor c.
+
+    In other words, a conditioner transform f predicts theta = f(x, c) to be used in transformer g with z = g(y; theta).
+    The transformation g is performed elementwise on tensor y.
+    Since g transforms each element of y with a parameter tensor of shape (n_transformer_parameters,),
+     the shape of theta is (*y.shape, n_transformer_parameters).
+    """
+
     def __init__(self,
                  input_event_shape,
                  context_shape,
-                 output_event_shape,
-                 n_predicted_parameters: int,
-                 context_combiner: ContextCombiner = None):
+                 parameter_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_combiner: ContextCombiner = None,
+                 global_parameter_mask: torch.Tensor = None,
+                 initial_global_parameter_value: float = None):
+        """
+        :param input_event_shape: shape of conditioner input tensor x.
+        :param context_shape: shape of conditioner context tensor c.
+        :param parameter_shape: shape of parameter tensor required to transform transformer input y.
+        :param context_combiner: ContextCombiner class which defines how to combine x and c to predict theta.
+        :param global_parameter_mask: boolean tensor which determines which elements of parameter tensors should be
+        learned globally instead of predicted. If an element is set to 1, that element is learned globally.
+         We require that global_parameter_mask.shape = parameter_shape.
+        :param initial_global_parameter_value: initial global parameter value as a single scalar. If None, all initial
+         global parameters are independently drawn from the standard normal distribution.
+        """
         super().__init__()
+        if global_parameter_mask is not None and global_parameter_mask.shape != parameter_shape:
+            raise ValueError(
+                f"Global parameter mask must have shape equal to the output parameter shape {parameter_shape}, "
+                f"but found {global_parameter_mask.shape}"
+            )
+
         if context_shape is None:
             context_combiner = Bypass(input_event_shape)
         elif context_shape is not None and context_combiner is None:
@@ -24,41 +53,69 @@ class ConditionerTransform(nn.Module):
 
         # The conditioner transform receives as input the context combiner output
         self.input_event_shape = input_event_shape
-        self.output_event_shape = output_event_shape
         self.context_shape = context_shape
         self.n_input_event_dims = self.context_combiner.n_output_dims
-        self.n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
-        self.n_predicted_parameters = n_predicted_parameters
+
+        # Setup output parameter attributes
+        self.parameter_shape = parameter_shape
+        self.global_parameter_mask = global_parameter_mask
+        self.n_transformer_parameters = int(torch.prod(torch.as_tensor(self.parameter_shape)))
+        self.n_global_parameters = 0 if global_parameter_mask is None else int(torch.sum(self.global_parameter_mask))
+        self.n_predicted_parameters = self.n_transformer_parameters - self.n_global_parameters
+
+        if initial_global_parameter_value is None:
+            initial_global_theta_flat = torch.randn(size=(self.n_global_parameters,))
+        else:
+            initial_global_theta_flat = torch.full(
+                size=(self.n_global_parameters,),
+                fill_value=initial_global_parameter_value
+            )
+        self.global_theta_flat = nn.Parameter(initial_global_theta_flat)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        # x.shape = (*batch_shape, *input_event_shape)
-        # context.shape = (*batch_shape, *context_shape)
-        # output.shape = (*batch_shape, *output_event_shape, n_predicted_parameters)
+        # x.shape = (*batch_shape, *self.input_event_shape)
+        # context.shape = (*batch_shape, *self.context_shape)
+        # output.shape = (*batch_shape, *self.parameter_shape)
+        batch_shape = get_batch_shape(x, self.input_event_shape)
+        if self.n_global_parameters == 0:
+            # All parameters are predicted
+            return self.predict_theta_flat(x, context).view(*batch_shape, *self.parameter_shape)
+        else:
+            if self.n_global_parameters == self.n_transformer_parameters:
+                # All transformer parameters are learned globally
+                output = torch.zeros(*batch_shape, *self.parameter_shape)
+                output[..., self.global_parameter_mask] = self.global_theta_flat
+                return output
+            else:
+                # Some transformer parameters are learned globally, some are predicted
+                output = torch.zeros(*batch_shape, *self.parameter_shape)
+                output[..., self.global_parameter_mask] = self.global_theta_flat
+                output[..., ~self.global_parameter_mask] = self.predict_theta_flat(x, context)
+                return output
+
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         raise NotImplementedError
 
 
 class Constant(ConditionerTransform):
-    def __init__(self, output_event_shape, n_parameters: int, fill_value: float = None):
+    def __init__(self, event_shape, parameter_shape, fill_value: float = None):
         super().__init__(
-            input_event_shape=None,
+            input_event_shape=event_shape,
             context_shape=None,
-            output_event_shape=output_event_shape,
-            n_predicted_parameters=n_parameters
+            parameter_shape=parameter_shape,
+            initial_global_parameter_value=fill_value,
+            global_parameter_mask=torch.ones(parameter_shape, dtype=torch.bool)
         )
-        if fill_value is None:
-            initial_theta = torch.randn(size=(*self.output_event_shape, n_parameters,))
-        else:
-            initial_theta = torch.full(size=(*self.output_event_shape, n_parameters), fill_value=fill_value)
-        self.theta = nn.Parameter(initial_theta)
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        n_batch_dims = len(x.shape) - len(self.output_event_shape)
-        n_event_dims = len(self.output_event_shape)
-        batch_shape = x.shape[:n_batch_dims]
-        return pad_leading_dims(self.theta, n_batch_dims).repeat(*batch_shape, *([1] * n_event_dims), 1)
 
 
 class MADE(ConditionerTransform):
+    """
+    Masked autoencoder for distribution estimation (MADE).
+
+    MADE is a conditioner transform that receives as input a tensor x. It predicts parameters for the
+     transformer such that each dimension only depends on the previous ones.
+    """
+
     class MaskedLinear(nn.Linear):
         def __init__(self, in_features: int, out_features: int, mask: torch.Tensor):
             super().__init__(in_features=in_features, out_features=out_features)
@@ -68,18 +125,21 @@ class MADE(ConditionerTransform):
             return nn.functional.linear(x, self.weight * self.mask, self.bias)
 
     def __init__(self,
-                 input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
-                 n_predicted_parameters: int,
-                 context_shape: torch.Size = None,
+                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 output_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 parameter_shape_per_element: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  n_hidden: int = None,
-                 n_layers: int = 2):
+                 n_layers: int = 2,
+                 **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
-            output_event_shape=output_event_shape,
-            n_predicted_parameters=n_predicted_parameters
+            parameter_shape=(*output_event_shape, *parameter_shape_per_element),
+            **kwargs
         )
+        n_predicted_parameters_per_element = int(torch.prod(torch.as_tensor(parameter_shape_per_element)))
+        n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
 
         if n_hidden is None:
             n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
@@ -88,7 +148,7 @@ class MADE(ConditionerTransform):
         ms = [
             torch.arange(self.n_input_event_dims) + 1,
             *[(torch.arange(n_hidden) % (self.n_input_event_dims - 1)) + 1 for _ in range(n_layers - 1)],
-            torch.arange(self.n_output_event_dims) + 1
+            torch.arange(n_output_event_dims) + 1
         ]
 
         # Create autoencoder masks
@@ -103,10 +163,9 @@ class MADE(ConditionerTransform):
         layers.extend([
             self.MaskedLinear(
                 masks[-1].shape[1],
-                masks[-1].shape[0] * n_predicted_parameters,
-                torch.repeat_interleave(masks[-1], n_predicted_parameters, dim=0)
-            ),
-            nn.Unflatten(dim=-1, unflattened_size=(*output_event_shape, n_predicted_parameters))
+                masks[-1].shape[0] * n_predicted_parameters_per_element,
+                torch.repeat_interleave(masks[-1], n_predicted_parameters_per_element, dim=0)
+            )
         ])
         self.sequential = nn.Sequential(*layers)
 
@@ -123,61 +182,54 @@ class MADE(ConditionerTransform):
                 masks.append(torch.as_tensor(xx >= yy, dtype=torch.float))
         return masks
 
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        out = self.sequential(self.context_combiner(x, context))
-        batch_shape = get_batch_shape(x, self.input_event_shape)
-        return out.view(*batch_shape, *self.output_event_shape, self.n_predicted_parameters)
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
+        theta = self.sequential(self.context_combiner(x, context))
+        # (*b, *e, *pe)
+
+        if self.global_parameter_mask is None:
+            return torch.flatten(theta, start_dim=len(theta.shape) - len(self.input_event_shape))
+        else:
+            return theta[..., ~self.global_parameter_mask]
 
 
 class LinearMADE(MADE):
-    def __init__(self, input_event_shape: torch.Size, output_event_shape: torch.Size, n_predicted_parameters: int,
-                 **kwargs):
-        super().__init__(input_event_shape, output_event_shape, n_predicted_parameters, n_layers=1, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, n_layers=1, **kwargs)
 
 
 class FeedForward(ConditionerTransform):
     def __init__(self,
                  input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
-                 n_predicted_parameters: int,
+                 parameter_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
-                 n_layers: int = 2):
+                 n_layers: int = 2,
+                 **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
             context_shape=context_shape,
-            output_event_shape=output_event_shape,
-            n_predicted_parameters=n_predicted_parameters
+            parameter_shape=parameter_shape,
+            **kwargs
         )
 
         if n_hidden is None:
             n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
 
-        # If context given, concatenate it to transform input
-        if context_shape is not None:
-            self.n_input_event_dims += self.n_context_dims
-
         layers = []
-
-        # Check the one layer special case
         if n_layers == 1:
-            layers.append(nn.Linear(self.n_input_event_dims, self.n_output_event_dims * n_predicted_parameters))
+            layers.append(nn.Linear(self.n_input_event_dims, self.n_predicted_parameters))
         elif n_layers > 1:
             layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nn.Tanh()])
             for _ in range(n_layers - 2):
                 layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
-            layers.append(nn.Linear(n_hidden, self.n_output_event_dims * n_predicted_parameters))
+            layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         else:
             raise ValueError
-
-        # Reshape the output
-        layers.append(nn.Unflatten(dim=-1, unflattened_size=(*output_event_shape, n_predicted_parameters)))
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
         self.sequential = nn.Sequential(*layers)
 
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        out = self.sequential(self.context_combiner(x, context))
-        batch_shape = get_batch_shape(x, self.input_event_shape)
-        return out.view(*batch_shape, *self.output_event_shape, self.n_predicted_parameters)
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
+        return self.sequential(self.context_combiner(x, context))
 
 
 class Linear(FeedForward):
@@ -186,44 +238,49 @@ class Linear(FeedForward):
 
 
 class ResidualFeedForward(ConditionerTransform):
-    class ResidualLinear(nn.Module):
-        def __init__(self, n_in, n_out):
+    class ResidualBlock(nn.Module):
+        def __init__(self, event_size: int, hidden_size: int, block_size: int):
             super().__init__()
-            self.linear = nn.Linear(n_in, n_out)
+            if block_size < 2:
+                raise ValueError(f"block_size must be at least 2 but found {block_size}. "
+                                 f"For block_size = 1, use the FeedForward class instead.")
+            layers = []
+            layers.extend([nn.Linear(event_size, hidden_size), nn.ReLU()])
+            for _ in range(block_size - 2):
+                layers.extend([nn.Linear(hidden_size, hidden_size), nn.ReLU()])
+            layers.extend([nn.Linear(hidden_size, event_size)])
+            self.sequential = nn.Sequential(*layers)
 
         def forward(self, x):
-            return x + self.linear(x)
+            return x + self.sequential(x)
 
     def __init__(self,
                  input_event_shape: torch.Size,
-                 output_event_shape: torch.Size,
-                 n_predicted_parameters: int,
+                 parameter_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 n_layers: int = 2):
-        super().__init__(input_event_shape, context_shape, output_event_shape, n_predicted_parameters)
+                 n_hidden: int = None,
+                 n_layers: int = 3,
+                 block_size: int = 2,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            context_shape=context_shape,
+            parameter_shape=parameter_shape,
+            **kwargs
+        )
 
-        # If context given, concatenate it to transform input
-        if context_shape is not None:
-            self.n_input_event_dims += self.n_context_dims
+        if n_hidden is None:
+            n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
 
-        layers = []
+        if n_layers <= 2:
+            raise ValueError(f"Number of layers in ResidualFeedForward must be at least 3, but found {n_layers}")
 
-        # Check the one layer special case
-        if n_layers == 1:
-            layers.append(nn.Linear(self.n_input_event_dims, self.n_output_event_dims * n_predicted_parameters))
-        elif n_layers > 1:
-            layers.extend([self.ResidualLinear(self.n_input_event_dims, self.n_input_event_dims), nn.Tanh()])
-            for _ in range(n_layers - 2):
-                layers.extend([self.ResidualLinear(self.n_input_event_dims, self.n_input_event_dims), nn.Tanh()])
-            layers.append(nn.Linear(self.n_input_event_dims, self.n_output_event_dims * n_predicted_parameters))
-        else:
-            raise ValueError
-
-        # Reshape the output
-        layers.append(nn.Unflatten(dim=-1, unflattened_size=(*output_event_shape, n_predicted_parameters)))
+        layers = [nn.Linear(self.n_input_event_dims, n_hidden), nn.ReLU()]
+        for _ in range(n_layers - 2):
+            layers.append(self.ResidualBlock(n_hidden, n_hidden, block_size))
+        layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
+        layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
         self.sequential = nn.Sequential(*layers)
 
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
-        out = self.sequential(self.context_combiner(x, context))
-        batch_shape = get_batch_shape(x, self.input_event_shape)
-        return out.view(*batch_shape, *self.output_event_shape, self.n_predicted_parameters)
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
+        return self.sequential(self.context_combiner(x, context))

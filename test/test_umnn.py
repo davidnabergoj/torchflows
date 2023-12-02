@@ -15,7 +15,7 @@ def test_umnn(batch_shape: Tuple, event_shape: Tuple):
     x = torch.randn(*batch_shape, *event_shape) / 100
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*batch_shape, *event_shape, len(transformer.default_parameters))
+    h = torch.randn(size=(*batch_shape, *transformer.parameter_shape))
     z, log_det_forward = transformer.forward(x, h)
     xr, log_det_inverse = transformer.inverse(z, h)
 
@@ -36,7 +36,7 @@ def test_umnn_forward():
     x = torch.cat([x0, x1]).view(2, 1)
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*event_shape, len(transformer.default_parameters))
+    h = torch.randn(*event_shape, *transformer.parameter_shape_per_element)
 
     z0, log_det_forward0 = transformer.forward(x0, h)
     z1, log_det_forward1 = transformer.forward(x1, h)
@@ -55,7 +55,7 @@ def test_umnn_inverse():
     x = torch.cat([x0, x1]).view(2, 1)
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*event_shape, len(transformer.default_parameters))
+    h = torch.randn(*event_shape, *transformer.parameter_shape_per_element)
 
     z0, log_det_inverse0 = transformer.inverse(x0, h)
     z1, log_det_inverse1 = transformer.inverse(x1, h)
@@ -74,7 +74,7 @@ def test_umnn_reconstruction():
     x = torch.cat([x0, x1]).view(2, 1)
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*event_shape, len(transformer.default_parameters))
+    h = torch.randn(*event_shape, *transformer.parameter_shape_per_element)
 
     z0, log_det_forward0 = transformer.forward(x0, h)
     z1, log_det_forward1 = transformer.forward(x1, h)
@@ -106,7 +106,7 @@ def test_umnn_forward_large_event():
     x = torch.cat([x0, x1, x2]).view(3, 2)
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*event_shape, len(transformer.default_parameters))
+    h = torch.randn(*event_shape, *transformer.parameter_shape_per_element)
 
     z0, log_det_forward0 = transformer.forward(x0, h)
     z1, log_det_forward1 = transformer.forward(x1, h)
@@ -127,7 +127,7 @@ def test_umnn_inverse_large_event():
     x = torch.cat([x0, x1, x2]).view(3, 2)
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*event_shape, len(transformer.default_parameters))
+    h = torch.randn(*event_shape, *transformer.parameter_shape_per_element)
 
     z0, log_det_inverse0 = transformer.inverse(x0, h)
     z1, log_det_inverse1 = transformer.inverse(x1, h)
@@ -148,7 +148,7 @@ def test_umnn_reconstruction_large_event():
     x = torch.cat([x0, x1, x2]).view(3, 2)
 
     transformer = UnconstrainedMonotonicNeuralNetwork(event_shape=event_shape, n_hidden_layers=2, hidden_dim=20)
-    h = torch.randn(*event_shape, len(transformer.default_parameters))
+    h = torch.randn(*event_shape, *transformer.parameter_shape_per_element)
 
     z0, log_det_forward0 = transformer.forward(x0, h)
     z1, log_det_forward1 = transformer.forward(x1, h)

@@ -2,11 +2,11 @@ from typing import Union, Tuple
 
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.utils import sum_except_batch
 
 
-class MonotonicSpline(Transformer):
+class MonotonicSpline(ScalarTransformer):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  min_input: float = -1.0,
@@ -23,7 +23,7 @@ class MonotonicSpline(Transformer):
         self.n_knots = n_bins + 1
 
     @property
-    def n_parameters(self) -> int:
+    def parameter_shape_per_element(self) -> int:
         raise NotImplementedError
 
     def forward_inputs_inside_bounds_mask(self, x):

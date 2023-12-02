@@ -38,15 +38,9 @@ class RationalQuadratic(MonotonicSpline):
         self.boundary_u_delta = math.log(math.expm1(1 - self.min_delta))
 
     @property
-    def n_parameters(self) -> int:
-        return 3 * self.n_bins - 1
+    def parameter_shape_per_element(self) -> torch.Size:
+        return torch.Size((3 * self.n_bins - 1,))
 
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        default_u_x = torch.zeros(size=(self.n_bins,))
-        default_u_y = torch.zeros(size=(self.n_bins,))
-        default_u_d = torch.zeros(size=(self.n_bins - 1,))
-        return torch.cat([default_u_x, default_u_y, default_u_d], dim=0)
 
     def compute_bins(self, u, minimum, maximum):
         bin_sizes = torch.softmax(u, dim=-1)

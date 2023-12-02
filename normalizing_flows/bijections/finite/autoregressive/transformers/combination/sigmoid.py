@@ -2,7 +2,7 @@ import math
 from typing import Tuple, Union, List
 import torch
 import torch.nn as nn
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.base import Combination
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax, \
     log_sigmoid, log_dot
@@ -19,7 +19,7 @@ def inverse_sigmoid(p):
     return torch.log(p) - torch.log1p(-p)
 
 
-class Sigmoid(Transformer):
+class Sigmoid(ScalarTransformer):
     """
     Applies z = inv_sigmoid(w.T @ sigmoid(a * x + b)) where a > 0, w > 0 and sum(w) = 1.
     Note: w, a, b are vectors, so multiplication a * x is broadcast.
@@ -40,12 +40,8 @@ class Sigmoid(Transformer):
         super().__init__(event_shape)
 
     @property
-    def n_parameters(self) -> int:
-        return 3 * self.hidden_dim
-
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(self.n_parameters,))
+    def parameter_shape_per_element(self) -> Union[torch.Size, Tuple[int, ...]]:
+        return (3 * self.hidden_dim,)
 
     def extract_parameters(self, h: torch.Tensor):
         """
@@ -212,7 +208,7 @@ class DenseSigmoidInnerTransform(nn.Module):
         return z, log_det.view(*x.shape[:2])
 
 
-class DenseSigmoid(Transformer):
+class DenseSigmoid(ScalarTransformer):
     """
     Apply y = f1 \\circ f2 \\circ ... \\circ fn (x) where
     * f1 is a dense sigmoid inner transform which maps from 1 to h dimensions;
@@ -234,12 +230,12 @@ class DenseSigmoid(Transformer):
         self.layers = nn.ModuleList(layers)
 
     @property
-    def n_parameters(self) -> int:
-        return sum([layer.n_parameters for layer in self.layers])
+    def parameter_shape_per_element(self) -> Union[torch.Size, Tuple[int, ...]]:
+        return (sum([layer.n_parameters for layer in self.layers]),)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(self.n_parameters,))  # TODO set up parametrization with deltas so this holds
+        return torch.zeros(size=self.parameter_shape)  # TODO set up parametrization with deltas so this holds
 
     def split_parameters(self, h):
         # split parameters h into parameters for several layers

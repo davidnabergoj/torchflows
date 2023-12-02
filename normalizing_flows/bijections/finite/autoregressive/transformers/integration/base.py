@@ -3,12 +3,12 @@ from typing import Union, Tuple, List
 
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.numerical_inversion import bisection
 from normalizing_flows.utils import get_batch_shape, sum_except_batch
 
 
-class Integration(Transformer):
+class Integration(ScalarTransformer):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 100.0, eps: float = 1e-6):
         """
         :param bound: specifies the initial interval [-bound, bound] where numerical inversion is performed.
@@ -61,16 +61,16 @@ class Integration(Transformer):
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         x.shape = (*batch_shape, *event_shape)
-        h.shape = (*batch_shape, *event_shape, n_parameters)
+        h.shape = (*batch_shape, *parameter_shape)
         """
-        z_flat, log_det_flat = self.forward_1d(x.view(-1), h.view(-1, self.n_parameters))
+        z_flat, log_det_flat = self.forward_1d(x.view(-1), h.view(-1, self.n_parameters_per_element))
         z = z_flat.view_as(x)
         batch_shape = get_batch_shape(x, self.event_shape)
         log_det = sum_except_batch(log_det_flat.view(*batch_shape, *self.event_shape), self.event_shape)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        x_flat, log_det_flat = self.inverse_1d(z.view(-1), h.view(-1, self.n_parameters))
+        x_flat, log_det_flat = self.inverse_1d(z.view(-1), h.view(-1, self.n_parameters_per_element))
         x = x_flat.view_as(z)
         batch_shape = get_batch_shape(z, self.event_shape)
         log_det = sum_except_batch(log_det_flat.view(*batch_shape, *self.event_shape), self.event_shape)

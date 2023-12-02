@@ -2,7 +2,6 @@ from typing import Union, Tuple, List, Optional, Dict
 
 import torch
 import torch.nn as nn
-from torchdiffeq import odeint
 
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.bijections.continuous.layers import DiffEqLayer
@@ -306,6 +305,10 @@ class ContinuousBijection(Bijection):
         :param kwargs:
         :return:
         """
+
+        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
+        from torchdiffeq import odeint
+
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
@@ -399,6 +402,9 @@ class ApproximateContinuousBijection(ContinuousBijection):
         :param kwargs:
         :return:
         """
+        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
+        from torchdiffeq import odeint
+
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))

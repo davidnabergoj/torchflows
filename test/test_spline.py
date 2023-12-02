@@ -12,7 +12,7 @@ def test_linear_rational():
     torch.manual_seed(0)
     x = torch.tensor([-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0])
     spline = LinearRational(event_shape=(1,))
-    h = torch.randn(size=(len(x), spline.n_parameters))
+    h = torch.randn(size=(len(x), *spline.parameter_shape_per_element))
     z, log_det_forward = spline.forward(x, h)
     xr, log_det_inverse = spline.inverse(z, h)
     assert x.shape == z.shape == xr.shape
@@ -36,7 +36,7 @@ def test_1d_spline(spline_class):
         [4.0],
         [-3.6]
     ])
-    h = torch.randn(size=(3, 1, spline.n_parameters))
+    h = torch.randn(size=(3, 1, *spline.parameter_shape_per_element))
     z, log_det = spline(x, h)
     assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(log_det))
@@ -67,7 +67,7 @@ def test_2d_spline(spline_class):
         [4.0, 6.0],
         [-3.6, 0.7]
     ])
-    h = torch.randn(size=(*batch_shape, *event_shape, spline.n_parameters))
+    h = torch.randn(size=(*batch_shape, *spline.parameter_shape))
     z, log_det = spline(x, h)
     assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(log_det))
@@ -95,7 +95,7 @@ def test_spline_exhaustive(spline_class, boundary: float, batch_shape, event_sha
 
     spline = spline_class(event_shape=event_shape, n_bins=8, boundary=boundary)
     x = torch.randn(size=(*batch_shape, *event_shape))
-    h = torch.randn(size=(*batch_shape, *event_shape, spline.n_parameters))
+    h = torch.randn(size=(*batch_shape, *spline.parameter_shape))
     z, log_det = spline(x, h)
     assert torch.all(~torch.isnan(z))
     assert torch.all(~torch.isnan(log_det))
@@ -119,7 +119,7 @@ def test_rq_spline(n_data, n_dim, n_bins, scale):
 
     spline = RationalQuadratic(event_shape=torch.Size((n_dim,)), n_bins=n_bins)
     x = torch.randn(n_data, n_dim) * scale
-    h = torch.randn(n_data, n_dim, spline.n_parameters)
+    h = torch.randn(n_data, n_dim, *spline.parameter_shape_per_element)
     z, log_det_forward = spline.forward(x, h)
 
     assert z.shape == x.shape

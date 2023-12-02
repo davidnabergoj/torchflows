@@ -3,11 +3,11 @@ from typing import Tuple
 
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import Transformer
+from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.utils import get_batch_shape, sum_except_batch
 
 
-class Affine(Transformer):
+class Affine(ScalarTransformer):
     """
     Affine transformer.
 
@@ -23,14 +23,12 @@ class Affine(Transformer):
         self.const = 2
 
     @property
-    def n_parameters(self) -> int:
-        return 2
+    def parameter_shape_per_element(self):
+        return (2,)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        default_u_alpha = torch.zeros(size=(1,))
-        default_u_beta = torch.zeros(size=(1,))
-        return torch.cat([default_u_alpha, default_u_beta], dim=0)
+        return torch.zeros(self.parameter_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
@@ -55,7 +53,7 @@ class Affine(Transformer):
         return (z - beta) / alpha, log_det
 
 
-class Affine2(Transformer):
+class Affine2(ScalarTransformer):
     """
     Affine transformer with near-identity initialization.
 
@@ -110,17 +108,17 @@ class Affine2(Transformer):
         return (z - beta) / alpha, log_det
 
 
-class Shift(Transformer):
+class Shift(ScalarTransformer):
     def __init__(self, event_shape: torch.Size):
         super().__init__(event_shape=event_shape)
 
     @property
-    def n_parameters(self) -> int:
-        return 1
+    def parameter_shape_per_element(self):
+        return (1,)
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(1,))
+        return torch.zeros(self.parameter_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         beta = h[..., 0]
@@ -135,7 +133,7 @@ class Shift(Transformer):
         return z - beta, log_det
 
 
-class Scale(Transformer):
+class Scale(ScalarTransformer):
     """
     Scaling transformer.
 
@@ -150,11 +148,12 @@ class Scale(Transformer):
         self.u_alpha_1 = math.log(1 - self.m)
 
     @property
-    def n_parameters(self) -> int:
-        return 1
+    def parameter_shape_per_element(self):
+        return (1,)
 
+    @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(size=(1,))
+        return torch.zeros(self.parameter_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
