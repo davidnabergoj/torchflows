@@ -33,7 +33,7 @@ class LUTransformer(TensorTransformer):
         u_log_diag = torch.log(u_diag)
 
         u_off_diagonal_elements = h[..., event_size:event_size + n_off_diag_el] / 10
-        l_off_diagonal_elements = h[..., -n_off_diag_el:]
+        l_off_diagonal_elements = h[..., -n_off_diag_el:] / 10
 
         batch_shape = h.shape[:-len(self.parameter_shape)]
 
