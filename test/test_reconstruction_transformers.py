@@ -9,10 +9,8 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.spline.line
     LinearRational as LinearRationalSpline
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import \
     RationalQuadratic as RationalQuadraticSpline
-from normalizing_flows.bijections.finite.autoregressive.transformers.convolution import Invertible1x1Convolution
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.cubic import Cubic as CubicSpline
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.basis import Basis as BasisSpline
-from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Affine, Scale, Shift
+from normalizing_flows.bijections.finite.autoregressive.transformers.linear.convolution import Invertible1x1Convolution
+from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Scale, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid, \
     DenseSigmoid, DeepDenseSigmoid
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \

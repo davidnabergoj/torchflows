@@ -1,10 +1,10 @@
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import MADE, FeedForward
+from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import FeedForward
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import HalfSplit
 from normalizing_flows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
-from normalizing_flows.bijections.finite.autoregressive.transformers.affine import Scale, Affine, Shift
+from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork

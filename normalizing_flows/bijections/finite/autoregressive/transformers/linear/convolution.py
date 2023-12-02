@@ -19,13 +19,9 @@ class Invertible1x1Convolution(TensorTransformer):
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
-        if len(event_shape) != 3:
-            raise ValueError(
-                f"InvertibleConvolution transformer only supports events with shape (height, width, channels)."
-            )
+        super().__init__(event_shape)
         *self.image_dimensions, self.n_channels = event_shape
         self.invertible_linear: TensorTransformer = LU(event_shape=(self.n_channels,))
-        super().__init__(event_shape)
 
     @property
     def parameter_shape(self) -> Union[torch.Size, Tuple[int, ...]]:

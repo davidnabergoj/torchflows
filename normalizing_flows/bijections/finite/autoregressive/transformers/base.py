@@ -20,9 +20,23 @@ class TensorTransformer(Bijection):
         super().__init__(event_shape=event_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Applies the forward transformation.
+
+        :param torch.Tensor x: input tensor with shape (*batch_shape, *event_shape).
+        :param torch.Tensor h: parameter tensor with shape (*batch_shape, *parameter_shape).
+        :returns: output tensor with shape (*batch_shape, *event_shape).
+        """
         raise NotImplementedError
 
     def inverse(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Applies the inverse transformation.
+
+        :param torch.Tensor x: input tensor with shape (*batch_shape, *event_shape).
+        :param torch.Tensor h: parameter tensor with shape (*batch_shape, *parameter_shape).
+        :returns: output tensor with shape (*batch_shape, *event_shape).
+        """
         raise NotImplementedError
 
     @property
