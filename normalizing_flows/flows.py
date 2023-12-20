@@ -166,7 +166,8 @@ class Flow(nn.Module):
             context_train,
             "training",
             batch_size=batch_size,
-            shuffle=shuffle
+            shuffle=shuffle,
+            event_shape=self.bijection.event_shape
         )
 
         # Process validation data
@@ -177,7 +178,8 @@ class Flow(nn.Module):
                 context_val,
                 "validation",
                 batch_size=batch_size,
-                shuffle=shuffle
+                shuffle=shuffle,
+                event_shape=self.bijection.event_shape
             )
 
             best_val_loss = torch.inf
@@ -190,7 +192,7 @@ class Flow(nn.Module):
 
             batch_log_prob = self.log_prob(batch_x.to(self.loc), context=batch_context)
             batch_weights = batch_weights.to(self.loc)
-            assert batch_log_prob.shape == batch_weights.shape
+            assert batch_log_prob.shape == batch_weights.shape, f"{batch_log_prob.shape = }, {batch_weights.shape = }"
             batch_loss = -reduction(batch_log_prob * batch_weights) / n_event_dims
 
             return batch_loss

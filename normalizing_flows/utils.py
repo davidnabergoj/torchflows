@@ -190,6 +190,7 @@ def create_data_loader(x: torch.Tensor,
                        weights: Optional[torch.Tensor],
                        context: Optional[torch.Tensor],
                        label: str,
+                       event_shape,
                        **kwargs):
     """
     Creates a DataLoader object for NF training.
@@ -198,7 +199,7 @@ def create_data_loader(x: torch.Tensor,
 
     # Set default weights
     if weights is None:
-        weights = torch.ones(len(x))
+        weights = torch.ones(size=get_batch_shape(x, event_shape))
 
     # Create the training dataset and loader
     if len(x) != len(weights):
