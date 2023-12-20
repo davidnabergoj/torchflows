@@ -83,12 +83,12 @@ class ConditionerTransform(nn.Module):
         else:
             if self.n_global_parameters == self.n_transformer_parameters:
                 # All transformer parameters are learned globally
-                output = torch.zeros(*batch_shape, *self.parameter_shape)
+                output = torch.zeros(*batch_shape, *self.parameter_shape, device=x.device)
                 output[..., self.global_parameter_mask] = self.global_theta_flat
                 return output
             else:
                 # Some transformer parameters are learned globally, some are predicted
-                output = torch.zeros(*batch_shape, *self.parameter_shape)
+                output = torch.zeros(*batch_shape, *self.parameter_shape, device=x.device)
                 output[..., self.global_parameter_mask] = self.global_theta_flat
                 output[..., ~self.global_parameter_mask] = self.predict_theta_flat(x, context)
                 return output
