@@ -16,8 +16,8 @@ class LinearRational(MonotonicSpline):
             max_output=boundary,
             **kwargs
         )
-        self.min_bin_width = 1e-5
-        self.min_bin_height = 1e-5
+        self.min_bin_width = 1e-2
+        self.min_bin_height = 1e-2
         self.min_d = 1e-5
         self.const = math.log(math.exp(1 - self.min_d) - 1)  # to ensure identity initialization
         self.eps = 5e-10  # Epsilon for numerical stability when computing forward/inverse
