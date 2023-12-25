@@ -3,7 +3,6 @@ from typing import Tuple, Optional, Union
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.autoregressive.conditioners.base import Conditioner, NullConditioner
 from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant, \
     MADE
 from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import CouplingMask
@@ -15,12 +14,10 @@ from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_sh
 class AutoregressiveBijection(Bijection):
     def __init__(self,
                  event_shape,
-                 conditioner: Optional[Conditioner],
                  transformer: Union[TensorTransformer, ScalarTransformer],
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
         super().__init__(event_shape=event_shape)
-        self.conditioner = conditioner
         self.conditioner_transform = conditioner_transform
         self.transformer = transformer
 
@@ -58,7 +55,7 @@ class CouplingBijection(AutoregressiveBijection):
                  coupling_mask: CouplingMask,
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
-        super().__init__(coupling_mask.event_shape, None, transformer, conditioner_transform, **kwargs)
+        super().__init__(coupling_mask.event_shape, transformer, conditioner_transform, **kwargs)
         self.coupling_mask = coupling_mask
 
         assert conditioner_transform.input_event_shape == (coupling_mask.constant_event_size,)
@@ -113,7 +110,7 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer.event_shape, None, transformer, conditioner_transform)
+        super().__init__(transformer.event_shape, transformer, conditioner_transform)
 
     def apply_conditioner_transformer(self, inputs, context, forward: bool = True):
         h = self.conditioner_transform(inputs, context)
@@ -161,7 +158,6 @@ class ElementwiseBijection(AutoregressiveBijection):
     def __init__(self, transformer: ScalarTransformer, fill_value: float = None):
         super().__init__(
             transformer.event_shape,
-            None,
             transformer,
             None
         )
