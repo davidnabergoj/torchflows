@@ -1,7 +1,7 @@
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import FeedForward
-from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import HalfSplit
+from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import HalfSplit
 from normalizing_flows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift

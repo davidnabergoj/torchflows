@@ -1,12 +1,12 @@
 import math
-from typing import Tuple, Union, Type, List
+from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.autoregressive.conditioners.context import Concatenation, ContextCombiner, \
+from normalizing_flows.bijections.finite.autoregressive.conditioning.context import Concatenation, ContextCombiner, \
     Bypass
-from normalizing_flows.utils import get_batch_shape, pad_leading_dims
+from normalizing_flows.utils import get_batch_shape
 
 
 class ConditionerTransform(nn.Module):

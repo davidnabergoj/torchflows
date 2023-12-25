@@ -1,11 +1,11 @@
-from typing import Tuple, Optional, Union
+from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import ConditionerTransform, Constant, \
+from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform, \
     MADE
-from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import CouplingMask
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import CouplingMask
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
