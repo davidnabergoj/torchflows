@@ -69,7 +69,7 @@ def roulette_log_abs_det_estimator(g: callable,
             # P(N >= k) = 1 - P(N < k) = 1 - P(N <= k - 1) = 1 - cdf(k - 1)
             p_k = 1 - dist.cdf(torch.tensor(k - 1, dtype=torch.long))
             neumann_vjp = neumann_vjp + (-1) ** k / (k * p_k) * w
-    g_value, vjp_jac = torch.autograd.functional.vjp(g, x, neumann_vjp)
+    g_value, vjp_jac = torch.autograd.functional.vjp(g, x, neumann_vjp, create_graph=True)
     # vjp_jac = torch.autograd.grad(g_value, x, neumann_vjp, create_graph=training)[0]
     log_abs_det_jac_f = torch.sum(vjp_jac * noise, dim=-1)
     return g_value, log_abs_det_jac_f
