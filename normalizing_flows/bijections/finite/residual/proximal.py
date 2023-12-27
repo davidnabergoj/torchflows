@@ -120,10 +120,10 @@ class PNN(nn.Sequential):
 
 
 class ProximalResFlowBlockIncrement(nn.Module):
-    def __init__(self, pnn: PNN, gamma: float):
+    def __init__(self, pnn: PNN, gamma: float, max_gamma: float):
         super().__init__()
         self.gamma = gamma
-        self.max_gamma = (pnn.n_layers + 1) / (pnn.n_layers - 1 + 1e-6)
+        self.max_gamma = max_gamma
         assert 0 < gamma < self.max_gamma, f'{gamma = }, {self.max_gamma = }'
         self.phi = pnn
 
@@ -159,14 +159,20 @@ class ProximalResFlowBlock(ResidualBijection):
 
         # Set gamma
         assert n_layers > 0
-        self.max_gamma = (n_layers + 1) / (n_layers - 1 + 1e-6)
+
+        if n_layers > 1:
+            self.max_gamma = (n_layers + 1) / (n_layers - 1)
+        else:
+            self.max_gamma = 1.5
+
         if gamma is None:
             gamma = self.max_gamma - 1e-2
         assert 0 < gamma < self.max_gamma
 
         self.g = ProximalResFlowBlockIncrement(
             pnn=PNN(event_size=self.n_dim, n_layers=n_layers, **kwargs),
-            gamma=gamma
+            gamma=gamma,
+            max_gamma=self.max_gamma
         )
 
     def log_det(self, x, **kwargs):
