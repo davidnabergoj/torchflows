@@ -127,7 +127,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
             g_params = params_and_grad[:len(params_and_grad) // 2]
             grad_params = params_and_grad[len(params_and_grad) // 2:]
 
-            dg_x, *dg_params = torch.autograd.grad(g_value, [x] + g_params, grad_g, allow_unused=True)
+            dg_x, *dg_params = torch.autograd.grad(g_value, [x] + g_params, grad_g, allow_unused=True, retain_graph=training)
 
         # Update based on gradient from log determinant.
         dL = grad_logdetgrad[0].detach()
@@ -140,7 +140,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
             grad_x.add_(dg_x)
             grad_params = tuple([dg.add_(djac) if djac is not None else dg for dg, djac in zip(dg_params, grad_params)])
 
-        return (None, None, grad_x, None, None, None, None) + grad_params
+        return (None, None, grad_x, None, None) + grad_params
 
 
 def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: float = 0.5):
