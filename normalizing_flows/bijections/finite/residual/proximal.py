@@ -69,14 +69,14 @@ class PNNBlock(nn.Module):
         # Initialize b close to 0
         # Initialize t_tilde close to identity
 
-        identity = torch.eye(self.hidden_size, self.event_size)
         divisor = max(self.event_size ** 2, 100)
-        delta_b = torch.randn(self.hidden_size) / divisor
-        delta_t_tilde = torch.randn(self.hidden_size, self.event_size) / divisor
-
-        self.b = nn.Parameter(0 + delta_b)
-        self.t_tilde = nn.Parameter(identity + delta_t_tilde)
+        self.b = nn.Parameter(torch.randn(self.hidden_size) / divisor)
+        self.delta_t_tilde = nn.Parameter(torch.randn(self.hidden_size, self.event_size) / divisor)
         self.act = act
+
+    @property
+    def t_tilde(self):
+        return torch.eye(self.hidden_size, self.event_size) + self.delta_t_tilde
 
     @property
     def stiefel_matrix(self, n_iterations: int = 4):
@@ -185,7 +185,7 @@ class ProximalResFlowBlock(ResidualBijection):
                 z: torch.Tensor,
                 context: torch.Tensor = None,
                 skip_log_det: bool = False,
-                n_iterations: int = 500,
+                n_iterations: int = 25,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         gamma = self.g.gamma
         t = self.g.phi.t

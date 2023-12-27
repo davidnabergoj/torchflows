@@ -32,8 +32,10 @@ class ResFlow(ResidualComposition):
 
 class ProximalResFlow(ResidualComposition):
     def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
-        block = ProximalResFlowBlock(event_shape=event_shape, context_shape=context_shape, **kwargs)
-        blocks = [block for _ in range(n_layers)]  # The same block
+        blocks = [
+            ProximalResFlowBlock(event_shape=event_shape, context_shape=context_shape, gamma=0.01, **kwargs)
+            for _ in range(n_layers)
+        ]
         super().__init__(blocks)
 
 
