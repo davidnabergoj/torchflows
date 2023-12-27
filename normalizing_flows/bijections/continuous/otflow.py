@@ -30,19 +30,21 @@ class OTResNet(nn.Module):
 
         divisor = max(event_size ** 2, 10)
 
-        K0_delta = torch.randn(size=(hidden_size, event_size)) / divisor
-        b0_delta = torch.randn(size=(hidden_size,)) / divisor
+        self.K0_delta = nn.Parameter(torch.randn(size=(hidden_size, event_size)) / divisor)
+        self.b0 = nn.Parameter(torch.randn(size=(hidden_size,)) / divisor)
 
-        K1_delta = torch.randn(size=(hidden_size, hidden_size)) / divisor
-        b1_delta = torch.randn(size=(hidden_size,)) / divisor
-
-        self.K0 = nn.Parameter(torch.eye(hidden_size, event_size) + K0_delta)
-        self.b0 = nn.Parameter(0 + b0_delta)
-
-        self.K1 = nn.Parameter(torch.eye(hidden_size, hidden_size) + K1_delta)
-        self.b1 = nn.Parameter(0 + b1_delta)
+        self.K1_delta = nn.Parameter(torch.randn(size=(hidden_size, hidden_size)) / divisor)
+        self.b1 = nn.Parameter(torch.randn(size=(hidden_size,)) / divisor)
 
         self.step_size = step_size
+
+    @property
+    def K0(self):
+        return torch.eye(*self.K0_delta.shape) + self.K0_delta / 1000
+
+    @property
+    def K1(self):
+        return torch.eye(*self.K1_delta.shape) + self.K1_delta / 1000
 
     @staticmethod
     def sigma(x):
@@ -115,7 +117,7 @@ class OTResNet(nn.Module):
 
         t0 = torch.sum(
             torch.multiply(
-                (self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1),
+                self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1,
                 torch.nn.functional.linear(ones, self.K0[:, :-1] ** 2)
             ),
             dim=1
@@ -164,7 +166,7 @@ class OTPotential(TimeDerivative):
         self.resnet = OTResNet(event_size + 1, hidden_size, **kwargs)  # (x, t) has d+1 elements
 
     def forward(self, t, x):
-        return -self.gradient(concatenate_x_t(x, t))
+        return self.gradient(concatenate_x_t(x, t))
 
     def gradient(self, s):
         # Equation 12
