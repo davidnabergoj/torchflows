@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple
 
 import torch
@@ -138,9 +139,13 @@ class OTResNet(nn.Module):
 
 
 class OTPotential(TimeDerivative):
-    def __init__(self, event_size: int, hidden_size: int, **kwargs):
+    def __init__(self, event_size: int, hidden_size: int = None, **kwargs):
         super().__init__()
+
         # hidden_size = m
+        if hidden_size is None:
+            hidden_size = max(math.log(event_size), 4)
+
         r = min(10, event_size)
 
         # Initialize w to 1
@@ -187,8 +192,8 @@ class OTPotential(TimeDerivative):
 
 
 class OTFlowODEFunction(ExactODEFunction):
-    def __init__(self, n_dim):
-        super().__init__(OTPotential(n_dim, hidden_size=30))
+    def __init__(self, n_dim, **kwargs):
+        super().__init__(OTPotential(n_dim, **kwargs))
 
     def compute_log_det(self, t, x):
         return self.diffeq.hessian_trace(concatenate_x_t(x, t)).view(-1, 1)  # Need an empty dim at the end
