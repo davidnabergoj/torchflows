@@ -166,7 +166,7 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
     assert_valid_reconstruction(bijection, x, context)
 
 
-@pytest.mark.skip(reason="Computation takes too long")
+@pytest.mark.skip(reason="Computation takes too long / inherently inaccurate")
 @pytest.mark.parametrize('bijection_class', [
     ProximalResFlowBlock,
     InvertibleResNetBlock,
