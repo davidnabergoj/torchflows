@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple, Optional
 
 import torch
@@ -104,9 +105,11 @@ class PNN(nn.Sequential):
     Proximal neural network
     """
 
-    def __init__(self, event_size: int, n_layers: int = 1, hidden_size: int = 100, act: ProximityOperator = None):
+    def __init__(self, event_size: int, n_layers: int = 1, hidden_size: int = None, act: ProximityOperator = None):
         if act is None:
             act = TanH()
+        if hidden_size is None:
+            hidden_size = max(math.log(event_size), 4)
         super().__init__(*[PNNBlock(event_size, hidden_size, act) for _ in range(n_layers)])
         self.n_layers = n_layers
         self.act = act
