@@ -152,6 +152,8 @@ class Flow(nn.Module):
         :param early_stopping: if True and validation data is provided, stop the training procedure early once validation loss stops improving for a specified number of consecutive epochs.
         :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
         """
+        self.bijection.train()
+
         # Compute the number of event dimensions
         n_event_dims = int(torch.prod(torch.as_tensor(self.bijection.event_shape)))
 
@@ -248,6 +250,8 @@ class Flow(nn.Module):
 
         if x_val is not None and keep_best_weights:
             self.load_state_dict(best_weights)
+
+        self.bijection.eval()
 
     def variational_fit(self,
                         target,
