@@ -223,8 +223,8 @@ class UMNNMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 n_hidden_layers: int = 1,
-                 hidden_dim: int = 5,
+                 n_hidden_layers: int = None,
+                 hidden_dim: int = None,
                  **kwargs):
         transformer: ScalarTransformer = UnconstrainedMonotonicNeuralNetwork(
             event_shape=event_shape,
