@@ -21,22 +21,24 @@ def power_series_log_abs_det_estimator(g: callable,
     assert n_iterations >= 2
 
     w = noise  # (batch_size, event_size, n_hutchinson_samples)
-    log_abs_det_jac_f = torch.zeros(size=(batch_size,))
+    log_abs_det_jac_f = torch.zeros(size=(batch_size,)).to(x)
     g_value = None
     for k in range(1, n_iterations + 1):
         # Compute VJP, reshape appropriately for hutchinson averaging
         gs_r, ws_r = torch.autograd.functional.vjp(
             g,
             x[..., None].repeat(1, 1, n_hutchinson_samples).view(batch_size * n_hutchinson_samples, event_size),
-            w.view(batch_size * n_hutchinson_samples, event_size)
+            w.view(batch_size * n_hutchinson_samples, event_size),
+            create_graph=training
         )
 
         if g_value is None:
             g_value = gs_r.view(batch_size, event_size, n_hutchinson_samples)[..., 0]
 
         w = ws_r.view(batch_size, event_size, n_hutchinson_samples)
-        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=1).mean(
-            dim=1)  # sum over event dim, average over hutchinson dim
+
+        # sum over event dim, average over hutchinson dim
+        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=1).mean(dim=1)
         assert log_abs_det_jac_f.shape == (batch_size,)
     return g_value, log_abs_det_jac_f
 
@@ -79,7 +81,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
     Autodiff support permits this function to be used in a computation graph.
     """
 
-    # https://github.com/rtqichen/residual-flows/blob/master/lib/layers/iresblock.py#L186
+    # https://github.com/rtqichen/residual-flows/blob/master/resflows/layers/iresblock.py#L249
     @staticmethod
     def forward(ctx,
                 estimator_function: callable,

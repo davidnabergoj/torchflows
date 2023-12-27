@@ -81,4 +81,4 @@ class ResFlowBlock(InvertibleResNetBlock):
         super().__init__(event_shape)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_roulette(self.g, x)[1]
+        return log_det_roulette(self.g, x, **kwargs)[1]

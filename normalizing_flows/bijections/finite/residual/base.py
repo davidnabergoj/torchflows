@@ -17,7 +17,7 @@ class ResidualBijection(Bijection):
         super().__init__(event_shape)
         self.g: callable = None
 
-    def log_det(self, x):
+    def log_det(self, x, **kwargs):
         raise NotImplementedError
 
     def forward(self,
@@ -30,7 +30,9 @@ class ResidualBijection(Bijection):
         if skip_log_det:
             log_det = torch.full(size=batch_shape, fill_value=torch.nan)
         else:
-            log_det = self.log_det(flatten_event(x, self.event_shape))
+            x_flat = flatten_event(x, self.event_shape).clone()
+            x_flat.requires_grad_(True)
+            log_det = self.log_det(x_flat, training=self.training)
 
         return z, log_det
 
@@ -47,7 +49,9 @@ class ResidualBijection(Bijection):
         if skip_log_det:
             log_det = torch.full(size=batch_shape, fill_value=torch.nan)
         else:
-            log_det = -self.log_det(flatten_event(x, self.event_shape))
+            x_flat = flatten_event(x, self.event_shape).clone()
+            x_flat.requires_grad_(True)
+            log_det = -self.log_det(x_flat, training=self.training)
 
         return x, log_det
 
