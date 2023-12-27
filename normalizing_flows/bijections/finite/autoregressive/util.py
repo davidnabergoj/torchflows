@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Tuple, List
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch.autograd
@@ -10,13 +10,13 @@ import torch.autograd
 
 class GaussLegendre(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, f, a: torch.Tensor, b: torch.Tensor, n: int, h: List[torch.Tensor]) -> torch.Tensor:
+    def forward(ctx, f, a: torch.Tensor, b: torch.Tensor, n: int, *h: List[torch.Tensor]) -> torch.Tensor:
         ctx.f, ctx.n = f, n
         ctx.save_for_backward(a, b, *h)
         return GaussLegendre.quadrature(f, a, b, n, h)
 
     @staticmethod
-    def backward(ctx, grad_area: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+    def backward(ctx, grad_area: torch.Tensor) -> Tuple[Optional[torch.Tensor], ...]:
         f, n = ctx.f, ctx.n
         a, b, *h = ctx.saved_tensors
 
@@ -62,4 +62,4 @@ class GaussLegendre(torch.autograd.Function):
 
 
 def gauss_legendre(f, a, b, n, h):
-    return GaussLegendre.apply(f, a, b, n, h)
+    return GaussLegendre.apply(f, a, b, n, *h)
