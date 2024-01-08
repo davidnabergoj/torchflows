@@ -152,6 +152,8 @@ class Flow(nn.Module):
         :param early_stopping: if True and validation data is provided, stop the training procedure early once validation loss stops improving for a specified number of consecutive epochs.
         :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
         """
+        self.bijection.train()
+
         # Compute the number of event dimensions
         n_event_dims = int(torch.prod(torch.as_tensor(self.bijection.event_shape)))
 
@@ -166,7 +168,8 @@ class Flow(nn.Module):
             context_train,
             "training",
             batch_size=batch_size,
-            shuffle=shuffle
+            shuffle=shuffle,
+            event_shape=self.bijection.event_shape
         )
 
         # Process validation data
@@ -177,7 +180,8 @@ class Flow(nn.Module):
                 context_val,
                 "validation",
                 batch_size=batch_size,
-                shuffle=shuffle
+                shuffle=shuffle,
+                event_shape=self.bijection.event_shape
             )
 
             best_val_loss = torch.inf
@@ -190,7 +194,7 @@ class Flow(nn.Module):
 
             batch_log_prob = self.log_prob(batch_x.to(self.loc), context=batch_context)
             batch_weights = batch_weights.to(self.loc)
-            assert batch_log_prob.shape == batch_weights.shape
+            assert batch_log_prob.shape == batch_weights.shape, f"{batch_log_prob.shape = }, {batch_weights.shape = }"
             batch_loss = -reduction(batch_log_prob * batch_weights) / n_event_dims
 
             return batch_loss
@@ -247,27 +251,43 @@ class Flow(nn.Module):
         if x_val is not None and keep_best_weights:
             self.load_state_dict(best_weights)
 
+        self.bijection.eval()
+
     def variational_fit(self,
-                        target,
-                        n_epochs: int = 10,
-                        lr: float = 0.01,
+                        target_log_prob: callable,
+                        n_epochs: int = 500,
+                        lr: float = 0.05,
                         n_samples: int = 1000,
                         show_progress: bool = False):
-        # target must have a .sample method that takes as input the batch shape
+        """
+        Train a normalizing flow with stochastic variational inference.
+        Stochastic variational inference lets us train a normalizing flow using the unnormalized target log density
+        instead of a fixed dataset.
+
+        Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details
+        (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in
+         Algorithm 1).
+
+        :param callable target_log_prob: function that computes the unnormalized target log density for a batch of
+        points. Receives input batch with shape = (*batch_shape, *event_shape) and outputs batch with
+         shape = (*batch_shape).
+        :param int n_epochs: number of training epochs.
+        :param float lr: learning rate for the AdamW optimizer.
+        :param float n_samples: number of samples to estimate the variational loss in each training step.
+        :param bool show_progress: if True, show a progress bar during training.
+        """
+        iterator = tqdm(range(n_epochs), desc='Variational NF fit', disable=not show_progress)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
-        if show_progress:
-            iterator = tqdm(range(n_epochs), desc='Variational NF fit')
-        else:
-            iterator = range(n_epochs)
-        for i in iterator:
-            x_train = target.sample((n_samples,)).to(self.loc.device)  # TODO context!
+
+        for _ in iterator:
             optimizer.zero_grad()
-            loss = -self.log_prob(x_train).mean()
+            flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
+            loss = -torch.mean(target_log_prob(flow_x) + flow_log_prob)
+            if hasattr(self.bijection, 'regularization'):
+                loss += self.bijection.regularization()
             loss.backward()
             optimizer.step()
-
-            if show_progress:
-                iterator.set_postfix_str(f'loss: {float(loss):.4f}')
+            iterator.set_postfix_str(f'Variational loss: {loss:.4f}')
 
 
 class DDNF(Flow):

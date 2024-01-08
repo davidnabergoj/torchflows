@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple
 
 import torch
@@ -10,7 +11,7 @@ from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import 
 class SpectralLinear(nn.Module):
     # https://arxiv.org/pdf/1811.00995.pdf
 
-    def __init__(self, n_inputs: int, n_outputs: int, c: float = 0.97, n_iterations: int = 25):
+    def __init__(self, n_inputs: int, n_outputs: int, c: float = 0.7, n_iterations: int = 5):
         super().__init__()
         self.c = c
         self.n_inputs = n_inputs
@@ -52,7 +53,10 @@ class SpectralLinear(nn.Module):
 
 
 class SpectralNeuralNetwork(nn.Sequential):
-    def __init__(self, n_dim: int, n_hidden: int = 100, n_hidden_layers: int = 2, **kwargs):
+    def __init__(self, n_dim: int, n_hidden: int = None, n_hidden_layers: int = 1, **kwargs):
+        if n_hidden is None:
+            n_hidden = int(3 * max(math.log(n_dim), 4))
+
         layers = []
         if n_hidden_layers == 0:
             layers = [SpectralLinear(n_dim, n_dim, **kwargs)]
@@ -72,13 +76,14 @@ class InvertibleResNetBlock(ResidualBijection):
         self.g = SpectralNeuralNetwork(n_dim=self.n_dim, **kwargs)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_power_series(self.g, x, **kwargs)[1]
+        return log_det_power_series(self.g, x, n_iterations=2, **kwargs)[1]
 
 
 class ResFlowBlock(InvertibleResNetBlock):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], context_shape=None, p: float = 0.5, **kwargs):
         # TODO add context
-        super().__init__(event_shape)
+        self.p = p
+        super().__init__(event_shape, **kwargs)
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_roulette(self.g, x)[1]
+        return log_det_roulette(self.g, x, p=self.p, **kwargs)[1]

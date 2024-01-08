@@ -209,7 +209,7 @@ class ApproximateODEFunction(ODEFunction):
                 s_.requires_grad_(True)
             dy = self.diffeq(t, y, *states[2:])
             divergence = self.divergence_step(dy, y)
-        return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
+        return tuple([dy, divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
 class RegularizedApproximateODEFunction(ApproximateODEFunction):

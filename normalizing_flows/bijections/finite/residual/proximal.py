@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple, Optional
 
 import torch
@@ -68,14 +69,14 @@ class PNNBlock(nn.Module):
         # Initialize b close to 0
         # Initialize t_tilde close to identity
 
-        identity = torch.eye(self.hidden_size, self.event_size)
         divisor = max(self.event_size ** 2, 100)
-        delta_b = torch.randn(self.hidden_size) / divisor
-        delta_t_tilde = torch.randn(self.hidden_size, self.event_size) / divisor
-
-        self.b = nn.Parameter(0 + delta_b)
-        self.t_tilde = nn.Parameter(identity + delta_t_tilde)
+        self.b = nn.Parameter(torch.randn(self.hidden_size) / divisor)
+        self.delta_t_tilde = nn.Parameter(torch.randn(self.hidden_size, self.event_size) / divisor)
         self.act = act
+
+    @property
+    def t_tilde(self):
+        return torch.eye(self.hidden_size, self.event_size) + self.delta_t_tilde
 
     @property
     def stiefel_matrix(self, n_iterations: int = 4):
@@ -104,9 +105,11 @@ class PNN(nn.Sequential):
     Proximal neural network
     """
 
-    def __init__(self, event_size: int, n_layers: int = 1, hidden_size: int = 100, act: ProximityOperator = None):
+    def __init__(self, event_size: int, n_layers: int = 1, hidden_size: int = None, act: ProximityOperator = None):
         if act is None:
             act = TanH()
+        if hidden_size is None:
+            hidden_size = max(math.log(event_size), 4)
         super().__init__(*[PNNBlock(event_size, hidden_size, act) for _ in range(n_layers)])
         self.n_layers = n_layers
         self.act = act
@@ -117,10 +120,10 @@ class PNN(nn.Sequential):
 
 
 class ProximalResFlowBlockIncrement(nn.Module):
-    def __init__(self, pnn: PNN, gamma: float):
+    def __init__(self, pnn: PNN, gamma: float, max_gamma: float):
         super().__init__()
         self.gamma = gamma
-        self.max_gamma = (pnn.n_layers + 1) / (pnn.n_layers - 1 + 1e-6)
+        self.max_gamma = max_gamma
         assert 0 < gamma < self.max_gamma, f'{gamma = }, {self.max_gamma = }'
         self.phi = pnn
 
@@ -156,14 +159,20 @@ class ProximalResFlowBlock(ResidualBijection):
 
         # Set gamma
         assert n_layers > 0
-        self.max_gamma = (n_layers + 1) / (n_layers - 1 + 1e-6)
+
+        if n_layers > 1:
+            self.max_gamma = (n_layers + 1) / (n_layers - 1)
+        else:
+            self.max_gamma = 1.5
+
         if gamma is None:
             gamma = self.max_gamma - 1e-2
         assert 0 < gamma < self.max_gamma
 
         self.g = ProximalResFlowBlockIncrement(
             pnn=PNN(event_size=self.n_dim, n_layers=n_layers, **kwargs),
-            gamma=gamma
+            gamma=gamma,
+            max_gamma=self.max_gamma
         )
 
     def log_det(self, x, **kwargs):
@@ -176,7 +185,7 @@ class ProximalResFlowBlock(ResidualBijection):
                 z: torch.Tensor,
                 context: torch.Tensor = None,
                 skip_log_det: bool = False,
-                n_iterations: int = 500,
+                n_iterations: int = 25,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         gamma = self.g.gamma
         t = self.g.phi.t

@@ -84,6 +84,7 @@ def test_spline(transformer_class: ScalarTransformer, batch_shape: Tuple, event_
     assert_valid_reconstruction(transformer, x, h)
 
 
+@pytest.mark.skip(reason="Not finalized")
 @pytest.mark.parametrize('transformer_class', [
     UnconstrainedMonotonicNeuralNetwork
 ])

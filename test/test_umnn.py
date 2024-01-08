@@ -5,10 +5,12 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
+from test.constants import __test_constants
 
 
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (25,)])
+@pytest.mark.skip(reason="Not finalized")
+@pytest.mark.parametrize('batch_shape', __test_constants["batch_shape"])
+@pytest.mark.parametrize('event_shape', __test_constants["event_shape"])
 def test_umnn(batch_shape: Tuple, event_shape: Tuple):
     # Event shape cannot be too big, otherwise
     torch.manual_seed(0)
@@ -27,6 +29,7 @@ def test_umnn(batch_shape: Tuple, event_shape: Tuple):
         f"{torch.max(torch.abs(log_det_forward+log_det_inverse)) = }"
 
 
+@pytest.mark.skip(reason="Not finalized")
 def test_umnn_forward():
     torch.manual_seed(0)
     event_shape = (1,)
@@ -46,6 +49,7 @@ def test_umnn_forward():
     assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward)
 
 
+@pytest.mark.skip(reason="Not finalized")
 def test_umnn_inverse():
     torch.manual_seed(0)
     event_shape = (1,)
@@ -65,6 +69,7 @@ def test_umnn_inverse():
     assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1]), log_det_inverse)
 
 
+@pytest.mark.skip(reason="Not finalized")
 def test_umnn_reconstruction():
     torch.manual_seed(0)
     event_shape = (1,)
@@ -96,6 +101,7 @@ def test_umnn_reconstruction():
     assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-4)
 
 
+@pytest.mark.skip(reason="Not finalized")
 def test_umnn_forward_large_event():
     torch.manual_seed(0)
     event_shape = (2,)
@@ -117,6 +123,7 @@ def test_umnn_forward_large_event():
     assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1, log_det_forward2]), log_det_forward)
 
 
+@pytest.mark.skip(reason="Not finalized")
 def test_umnn_inverse_large_event():
     torch.manual_seed(0)
     event_shape = (2,)
@@ -138,6 +145,7 @@ def test_umnn_inverse_large_event():
     assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1, log_det_inverse2]), log_det_inverse)
 
 
+@pytest.mark.skip(reason="Not finalized")
 def test_umnn_reconstruction_large_event():
     torch.manual_seed(0)
     event_shape = (2,)

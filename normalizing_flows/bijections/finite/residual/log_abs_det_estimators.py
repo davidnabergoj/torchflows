@@ -21,22 +21,24 @@ def power_series_log_abs_det_estimator(g: callable,
     assert n_iterations >= 2
 
     w = noise  # (batch_size, event_size, n_hutchinson_samples)
-    log_abs_det_jac_f = torch.zeros(size=(batch_size,))
+    log_abs_det_jac_f = torch.zeros(size=(batch_size,)).to(x)
     g_value = None
     for k in range(1, n_iterations + 1):
         # Compute VJP, reshape appropriately for hutchinson averaging
         gs_r, ws_r = torch.autograd.functional.vjp(
             g,
             x[..., None].repeat(1, 1, n_hutchinson_samples).view(batch_size * n_hutchinson_samples, event_size),
-            w.view(batch_size * n_hutchinson_samples, event_size)
+            w.view(batch_size * n_hutchinson_samples, event_size),
+            create_graph=training
         )
 
         if g_value is None:
             g_value = gs_r.view(batch_size, event_size, n_hutchinson_samples)[..., 0]
 
         w = ws_r.view(batch_size, event_size, n_hutchinson_samples)
-        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=1).mean(
-            dim=1)  # sum over event dim, average over hutchinson dim
+
+        # sum over event dim, average over hutchinson dim
+        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=1).mean(dim=1)
         assert log_abs_det_jac_f.shape == (batch_size,)
     return g_value, log_abs_det_jac_f
 
@@ -67,7 +69,7 @@ def roulette_log_abs_det_estimator(g: callable,
             # P(N >= k) = 1 - P(N < k) = 1 - P(N <= k - 1) = 1 - cdf(k - 1)
             p_k = 1 - dist.cdf(torch.tensor(k - 1, dtype=torch.long))
             neumann_vjp = neumann_vjp + (-1) ** k / (k * p_k) * w
-    g_value, vjp_jac = torch.autograd.functional.vjp(g, x, neumann_vjp)
+    g_value, vjp_jac = torch.autograd.functional.vjp(g, x, neumann_vjp, create_graph=training)
     # vjp_jac = torch.autograd.grad(g_value, x, neumann_vjp, create_graph=training)[0]
     log_abs_det_jac_f = torch.sum(vjp_jac * noise, dim=-1)
     return g_value, log_abs_det_jac_f
@@ -79,7 +81,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
     Autodiff support permits this function to be used in a computation graph.
     """
 
-    # https://github.com/rtqichen/residual-flows/blob/master/lib/layers/iresblock.py#L186
+    # https://github.com/rtqichen/residual-flows/blob/master/resflows/layers/iresblock.py#L249
     @staticmethod
     def forward(ctx,
                 estimator_function: callable,
@@ -125,7 +127,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
             g_params = params_and_grad[:len(params_and_grad) // 2]
             grad_params = params_and_grad[len(params_and_grad) // 2:]
 
-            dg_x, *dg_params = torch.autograd.grad(g_value, [x] + g_params, grad_g, allow_unused=True)
+            dg_x, *dg_params = torch.autograd.grad(g_value, [x] + g_params, grad_g, allow_unused=True, retain_graph=training)
 
         # Update based on gradient from log determinant.
         dL = grad_logdetgrad[0].detach()
@@ -138,7 +140,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
             grad_x.add_(dg_x)
             grad_params = tuple([dg.add_(djac) if djac is not None else dg for dg, djac in zip(dg_params, grad_params)])
 
-        return (None, None, grad_x, None, None, None, None) + grad_params
+        return (None, None, grad_x, None, None) + grad_params
 
 
 def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: float = 0.5):

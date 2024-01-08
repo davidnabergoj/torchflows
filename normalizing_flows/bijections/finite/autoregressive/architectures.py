@@ -180,7 +180,7 @@ class CouplingDSF(BijectiveComposition):
 
 
 class UMNNMAF(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 1, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]

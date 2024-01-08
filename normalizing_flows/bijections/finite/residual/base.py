@@ -2,6 +2,7 @@ from typing import Union, Tuple, List
 
 import torch
 
+from normalizing_flows.bijections.finite.autoregressive.layers import ElementwiseAffine
 from normalizing_flows.bijections.base import Bijection, BijectiveComposition
 from normalizing_flows.utils import get_batch_shape, unflatten_event, flatten_event
 
@@ -17,7 +18,7 @@ class ResidualBijection(Bijection):
         super().__init__(event_shape)
         self.g: callable = None
 
-    def log_det(self, x):
+    def log_det(self, x, **kwargs):
         raise NotImplementedError
 
     def forward(self,
@@ -30,7 +31,9 @@ class ResidualBijection(Bijection):
         if skip_log_det:
             log_det = torch.full(size=batch_shape, fill_value=torch.nan)
         else:
-            log_det = self.log_det(flatten_event(x, self.event_shape))
+            x_flat = flatten_event(x, self.event_shape).clone()
+            x_flat.requires_grad_(True)
+            log_det = -self.log_det(x_flat, training=self.training)
 
         return z, log_det
 
@@ -47,7 +50,9 @@ class ResidualBijection(Bijection):
         if skip_log_det:
             log_det = torch.full(size=batch_shape, fill_value=torch.nan)
         else:
-            log_det = -self.log_det(flatten_event(x, self.event_shape))
+            x_flat = flatten_event(x, self.event_shape).clone()
+            x_flat.requires_grad_(True)
+            log_det = -self.log_det(x_flat, training=self.training)
 
         return x, log_det
 
@@ -55,8 +60,15 @@ class ResidualBijection(Bijection):
 class ResidualComposition(BijectiveComposition):
     def __init__(self, blocks: List[ResidualBijection]):
         assert len(blocks) > 0
+        event_shape = blocks[0].event_shape
+
+        updated_layers = [ElementwiseAffine(event_shape)]
+        for i in range(len(blocks)):
+            updated_layers.append(blocks[i])
+            updated_layers.append(ElementwiseAffine(event_shape))
+
         super().__init__(
-            event_shape=blocks[0].event_shape,
-            layers=blocks,
-            context_shape=blocks[0].context_shape
+            event_shape=updated_layers[0].event_shape,
+            layers=updated_layers,
+            context_shape=updated_layers[0].context_shape
         )

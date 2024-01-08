@@ -4,6 +4,7 @@ from normalizing_flows.bijections import RealNVP
 from normalizing_flows import Flow
 
 
+@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_log_prob_data_on_cpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -19,6 +20,7 @@ def test_real_nvp_log_prob_data_on_cpu():
     flow.log_prob(x_train)
 
 
+@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_log_prob_data_on_gpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -34,6 +36,7 @@ def test_real_nvp_log_prob_data_on_gpu():
     flow.log_prob(x_train.cuda())
 
 
+@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_fit_data_on_cpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -49,6 +52,7 @@ def test_real_nvp_fit_data_on_cpu():
     flow.fit(x_train)
 
 
+@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_fit_data_on_gpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")

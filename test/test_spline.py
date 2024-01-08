@@ -6,6 +6,7 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.spline.line
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.cubic import Cubic
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.basis import Basis
+from test.constants import __test_constants
 
 
 def test_linear_rational():
@@ -81,8 +82,8 @@ def test_2d_spline(spline_class):
 
 
 @pytest.mark.parametrize('boundary', [1.0, 5.0, 50.0])
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (10,), (100,), (2, 5, 6, 3)])
-@pytest.mark.parametrize('event_shape', [(1,), (2,), (10,), (100,), (3, 4, 1)])
+@pytest.mark.parametrize('batch_shape', __test_constants["batch_shape"])
+@pytest.mark.parametrize('event_shape', __test_constants["event_shape"])
 @pytest.mark.parametrize('spline_class', [
     RationalQuadratic,
     LinearRational,
