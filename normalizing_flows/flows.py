@@ -248,26 +248,22 @@ class Flow(nn.Module):
             self.load_state_dict(best_weights)
 
     def variational_fit(self,
-                        target,
-                        n_epochs: int = 10,
-                        lr: float = 0.01,
+                        target_log_prob: callable,
+                        n_epochs: int = 500,
+                        lr: float = 0.05,
                         n_samples: int = 1000,
                         show_progress: bool = False):
-        # target must have a .sample method that takes as input the batch shape
+        iterator = tqdm(range(n_epochs), desc='Variational NF fit', disable=not show_progress)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
-        if show_progress:
-            iterator = tqdm(range(n_epochs), desc='Variational NF fit')
-        else:
-            iterator = range(n_epochs)
-        for i in iterator:
-            x_train = target.sample((n_samples,)).to(self.loc.device)  # TODO context!
+
+        for _ in iterator:
             optimizer.zero_grad()
-            loss = -self.log_prob(x_train).mean()
+            loss = -torch.mean(target_log_prob(self.sample(n_samples)))
+            if hasattr(self.bijection, 'regularization'):
+                loss += self.bijection.regularization()
             loss.backward()
             optimizer.step()
-
-            if show_progress:
-                iterator.set_postfix_str(f'loss: {float(loss):.4f}')
+            iterator.set_postfix_str(f'Variational loss: {loss:.4f}')
 
 
 class DDNF(Flow):
