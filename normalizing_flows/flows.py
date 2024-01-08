@@ -253,12 +253,30 @@ class Flow(nn.Module):
                         lr: float = 0.05,
                         n_samples: int = 1000,
                         show_progress: bool = False):
+        """
+        Train a normalizing flow with stochastic variational inference.
+        Stochastic variational inference lets us train a normalizing flow using the unnormalized target log density
+        instead of a fixed dataset.
+
+        Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details
+        (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in
+         Algorithm 1).
+
+        :param callable target_log_prob: function that computes the unnormalized target log density for a batch of
+        points. Receives input batch with shape = (*batch_shape, *event_shape) and outputs batch with
+         shape = (*batch_shape).
+        :param int n_epochs: number of training epochs.
+        :param float lr: learning rate for the AdamW optimizer.
+        :param float n_samples: number of samples to estimate the variational loss in each training step.
+        :param bool show_progress: if True, show a progress bar during training.
+        """
         iterator = tqdm(range(n_epochs), desc='Variational NF fit', disable=not show_progress)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
 
         for _ in iterator:
             optimizer.zero_grad()
-            loss = -torch.mean(target_log_prob(self.sample(n_samples)))
+            flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
+            loss = -torch.mean(target_log_prob(flow_x) + flow_log_prob)
             if hasattr(self.bijection, 'regularization'):
                 loss += self.bijection.regularization()
             loss.backward()
