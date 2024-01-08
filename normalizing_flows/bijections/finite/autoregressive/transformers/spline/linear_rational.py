@@ -83,9 +83,9 @@ class LinearRational(MonotonicSpline):
         # u_y acts as a delta
         # u_d acts as a delta
         knots_x = self.compute_bins(u_x, self.min_input, self.max_input, self.min_bin_width)
-        knots_y = self.compute_bins(u_x + u_y / 1000, self.min_output, self.max_output, self.min_bin_height)
+        knots_y = self.compute_bins(u_x + u_y / 100, self.min_output, self.max_output, self.min_bin_height)
         knots_lambda = torch.sigmoid(u_l)
-        knots_d = self.compute_derivatives(self.const + u_d / 1000)
+        knots_d = self.compute_derivatives(self.const + u_d / 100)
         return knots_x, knots_y, knots_d, knots_lambda
 
     def forward_1d(self, x, h):

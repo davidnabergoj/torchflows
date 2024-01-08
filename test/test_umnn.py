@@ -5,11 +5,12 @@ import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
+from test.constants import __test_constants
 
 
 @pytest.mark.skip(reason="Not finalized")
-@pytest.mark.parametrize('batch_shape', [(1,), (2,), (5,), (2, 4), (100,), (5, 1, 6, 7), (3, 13, 8)])
-@pytest.mark.parametrize('event_shape', [(2,), (3,), (2, 4), (25,)])
+@pytest.mark.parametrize('batch_shape', __test_constants["batch_shape"])
+@pytest.mark.parametrize('event_shape', __test_constants["event_shape"])
 def test_umnn(batch_shape: Tuple, event_shape: Tuple):
     # Event shape cannot be too big, otherwise
     torch.manual_seed(0)

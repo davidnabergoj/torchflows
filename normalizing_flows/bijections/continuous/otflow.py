@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple
 
 import torch
@@ -29,19 +30,21 @@ class OTResNet(nn.Module):
 
         divisor = max(event_size ** 2, 10)
 
-        K0_delta = torch.randn(size=(hidden_size, event_size)) / divisor
-        b0_delta = torch.randn(size=(hidden_size,)) / divisor
+        self.K0_delta = nn.Parameter(torch.randn(size=(hidden_size, event_size)) / divisor)
+        self.b0 = nn.Parameter(torch.randn(size=(hidden_size,)) / divisor)
 
-        K1_delta = torch.randn(size=(hidden_size, hidden_size)) / divisor
-        b1_delta = torch.randn(size=(hidden_size,)) / divisor
-
-        self.K0 = nn.Parameter(torch.eye(hidden_size, event_size) + K0_delta)
-        self.b0 = nn.Parameter(0 + b0_delta)
-
-        self.K1 = nn.Parameter(torch.eye(hidden_size, hidden_size) + K1_delta)
-        self.b1 = nn.Parameter(0 + b1_delta)
+        self.K1_delta = nn.Parameter(torch.randn(size=(hidden_size, hidden_size)) / divisor)
+        self.b1 = nn.Parameter(torch.randn(size=(hidden_size,)) / divisor)
 
         self.step_size = step_size
+
+    @property
+    def K0(self):
+        return torch.eye(*self.K0_delta.shape) + self.K0_delta / 1000
+
+    @property
+    def K1(self):
+        return torch.eye(*self.K1_delta.shape) + self.K1_delta / 1000
 
     @staticmethod
     def sigma(x):
@@ -114,7 +117,7 @@ class OTResNet(nn.Module):
 
         t0 = torch.sum(
             torch.multiply(
-                (self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1),
+                self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1,
                 torch.nn.functional.linear(ones, self.K0[:, :-1] ** 2)
             ),
             dim=1
@@ -138,9 +141,13 @@ class OTResNet(nn.Module):
 
 
 class OTPotential(TimeDerivative):
-    def __init__(self, event_size: int, hidden_size: int, **kwargs):
+    def __init__(self, event_size: int, hidden_size: int = None, **kwargs):
         super().__init__()
+
         # hidden_size = m
+        if hidden_size is None:
+            hidden_size = max(math.log(event_size), 4)
+
         r = min(10, event_size)
 
         # Initialize w to 1
@@ -159,7 +166,7 @@ class OTPotential(TimeDerivative):
         self.resnet = OTResNet(event_size + 1, hidden_size, **kwargs)  # (x, t) has d+1 elements
 
     def forward(self, t, x):
-        return -self.gradient(concatenate_x_t(x, t))
+        return self.gradient(concatenate_x_t(x, t))
 
     def gradient(self, s):
         # Equation 12
@@ -187,8 +194,8 @@ class OTPotential(TimeDerivative):
 
 
 class OTFlowODEFunction(ExactODEFunction):
-    def __init__(self, n_dim):
-        super().__init__(OTPotential(n_dim, hidden_size=30))
+    def __init__(self, n_dim, **kwargs):
+        super().__init__(OTPotential(n_dim, **kwargs))
 
     def compute_log_det(self, t, x):
         return self.diffeq.hessian_trace(concatenate_x_t(x, t)).view(-1, 1)  # Need an empty dim at the end

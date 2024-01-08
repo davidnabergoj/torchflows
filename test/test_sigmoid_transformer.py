@@ -5,10 +5,11 @@ from normalizing_flows import Flow
 from normalizing_flows.bijections import DSCoupling, CouplingDSF
 from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid
 from normalizing_flows.bijections.base import invert
+from test.constants import __test_constants
 
 
-@pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
-@pytest.mark.parametrize('event_shape', [(5,), (1,), (100,), (3, 56, 2)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_sigmoid_transformer(event_shape, batch_shape):
     torch.manual_seed(0)
 
@@ -38,8 +39,8 @@ def test_sigmoid_transformer(event_shape, batch_shape):
     assert torch.all(~torch.isinf(log_det_inverse))
 
 
-@pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
-@pytest.mark.parametrize('event_shape', [(1,), (5,), (100,), (3, 56, 2)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('hidden_dim', [1, 2, 4, 8, 16, 32])
 def test_deep_sigmoid_transformer(event_shape, batch_shape, hidden_dim):
     torch.manual_seed(0)
@@ -70,8 +71,8 @@ def test_deep_sigmoid_transformer(event_shape, batch_shape, hidden_dim):
     assert torch.all(~torch.isinf(log_det_inverse))
 
 
-@pytest.mark.parametrize('batch_shape', [(7,), (25,), (13,), (2, 37)])
-@pytest.mark.parametrize('event_shape', [(3, 56, 2), (2,), (5,), (100,)])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 def test_deep_sigmoid_coupling(event_shape, batch_shape):
     torch.manual_seed(0)
 
@@ -99,22 +100,13 @@ def test_deep_sigmoid_coupling(event_shape, batch_shape):
     assert torch.all(~torch.isinf(log_det_inverse))
 
 
-@pytest.mark.parametrize('batch_shape', [
-    (2, 37),
-    (7,),
-    (13,),
-    (25,),
-])
-@pytest.mark.parametrize('n_dim', [
-    1000,
-    2,
-    5,
-    100,
-])
-def test_deep_sigmoid_coupling_flow(n_dim, batch_shape):
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+def test_deep_sigmoid_coupling_flow(event_shape, batch_shape):
     torch.manual_seed(0)
 
-    event_shape = torch.Size((n_dim,))
+    n_dim = int(torch.prod(torch.tensor(event_shape)))
+    event_shape = (n_dim,)  # Overwrite
 
     forward_flow = Flow(CouplingDSF(event_shape))
     x = torch.randn(size=(*batch_shape, n_dim))

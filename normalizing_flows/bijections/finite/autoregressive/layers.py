@@ -1,7 +1,7 @@
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.conditioner_transforms import FeedForward
-from normalizing_flows.bijections.finite.autoregressive.conditioners.coupling_masks import HalfSplit
+from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import HalfSplit
 from normalizing_flows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift
@@ -223,8 +223,8 @@ class UMNNMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 n_hidden_layers: int = 1,
-                 hidden_dim: int = 5,
+                 n_hidden_layers: int = None,
+                 hidden_dim: int = None,
                  **kwargs):
         transformer: ScalarTransformer = UnconstrainedMonotonicNeuralNetwork(
             event_shape=event_shape,

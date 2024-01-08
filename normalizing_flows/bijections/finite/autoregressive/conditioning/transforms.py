@@ -1,12 +1,12 @@
 import math
-from typing import Tuple, Union, Type, List
+from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.autoregressive.conditioners.context import Concatenation, ContextCombiner, \
+from normalizing_flows.bijections.finite.autoregressive.conditioning.context import Concatenation, ContextCombiner, \
     Bypass
-from normalizing_flows.utils import get_batch_shape, pad_leading_dims
+from normalizing_flows.utils import get_batch_shape
 
 
 class ConditionerTransform(nn.Module):
@@ -83,12 +83,12 @@ class ConditionerTransform(nn.Module):
         else:
             if self.n_global_parameters == self.n_transformer_parameters:
                 # All transformer parameters are learned globally
-                output = torch.zeros(*batch_shape, *self.parameter_shape)
+                output = torch.zeros(*batch_shape, *self.parameter_shape, device=x.device)
                 output[..., self.global_parameter_mask] = self.global_theta_flat
                 return output
             else:
                 # Some transformer parameters are learned globally, some are predicted
-                output = torch.zeros(*batch_shape, *self.parameter_shape)
+                output = torch.zeros(*batch_shape, *self.parameter_shape, device=x.device)
                 output[..., self.global_parameter_mask] = self.global_theta_flat
                 output[..., ~self.global_parameter_mask] = self.predict_theta_flat(x, context)
                 return output
