@@ -29,6 +29,9 @@ class Flow(nn.Module):
         self.register_buffer('loc', torch.zeros(self.bijection.n_dim))
         self.register_buffer('covariance_matrix', torch.eye(self.bijection.n_dim))
 
+    def get_device(self):
+        return self.loc.device
+
     @property
     def base(self) -> torch.distributions.Distribution:
         """
