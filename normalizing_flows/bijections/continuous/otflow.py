@@ -146,7 +146,7 @@ class OTPotential(TimeDerivative):
 
         # hidden_size = m
         if hidden_size is None:
-            hidden_size = max(math.log(event_size), 4)
+            hidden_size = max(int(math.log(event_size)), 4)
 
         r = min(10, event_size)
 
