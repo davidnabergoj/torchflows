@@ -40,11 +40,11 @@ class OTResNet(nn.Module):
 
     @property
     def K0(self):
-        return torch.eye(*self.K0_delta.shape) + self.K0_delta / 1000
+        return torch.eye(*self.K0_delta.shape).to(self.K0_delta) + self.K0_delta / 1000
 
     @property
     def K1(self):
-        return torch.eye(*self.K1_delta.shape) + self.K1_delta / 1000
+        return torch.eye(*self.K1_delta.shape).to(self.K1_delta) + self.K1_delta / 1000
 
     @staticmethod
     def sigma(x):
@@ -113,7 +113,7 @@ class OTResNet(nn.Module):
 
         # Compute the first term in Equation 14
 
-        ones = torch.ones(size=(self.K0.shape[1] - 1,))
+        ones = torch.ones(size=(self.K0.shape[1] - 1,)).to(s)
 
         t0 = torch.sum(
             torch.multiply(
