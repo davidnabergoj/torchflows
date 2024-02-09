@@ -26,10 +26,9 @@ class NICE(BijectiveComposition):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
-            bijections.extend([
-                ReversePermutation(event_shape=event_shape),
-                ShiftCoupling(event_shape=event_shape, edge_list=edge_list)
-            ])
+            if edge_list is None:
+                bijections.append(ReversePermutation(event_shape=event_shape))
+            bijections.append(ShiftCoupling(event_shape=event_shape, edge_list=edge_list))
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
@@ -40,10 +39,9 @@ class RealNVP(BijectiveComposition):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
-            bijections.extend([
-                ReversePermutation(event_shape=event_shape),
-                AffineCoupling(event_shape=event_shape, edge_list=edge_list)
-            ])
+            if edge_list is None:
+                bijections.append(ReversePermutation(event_shape=event_shape))
+            bijections.append(AffineCoupling(event_shape=event_shape, edge_list=edge_list))
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
@@ -54,10 +52,9 @@ class InverseRealNVP(BijectiveComposition):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
-            bijections.extend([
-                ReversePermutation(event_shape=event_shape),
-                InverseAffineCoupling(event_shape=event_shape, edge_list=edge_list)
-            ])
+            if edge_list is None:
+                bijections.append(ReversePermutation(event_shape=event_shape))
+            bijections.append(InverseAffineCoupling(event_shape=event_shape, edge_list=edge_list))
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
@@ -100,10 +97,9 @@ class CouplingRQNSF(BijectiveComposition):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
-            bijections.extend([
-                ReversePermutation(event_shape=event_shape),
-                RQSCoupling(event_shape=event_shape, edge_list=edge_list)
-            ])
+            if edge_list is None:
+                bijections.append(ReversePermutation(event_shape=event_shape))
+            bijections.append(RQSCoupling(event_shape=event_shape, edge_list=edge_list))
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
@@ -132,10 +128,9 @@ class CouplingLRS(BijectiveComposition):
             event_shape = (event_shape,)
         bijections = [ElementwiseShift(event_shape=event_shape)]
         for _ in range(n_layers):
-            bijections.extend([
-                ReversePermutation(event_shape=event_shape),
-                LRSCoupling(event_shape=event_shape, edge_list=edge_list)
-            ])
+            if edge_list is None:
+                bijections.append(ReversePermutation(event_shape=event_shape))
+            bijections.append(LRSCoupling(event_shape=event_shape, edge_list=edge_list))
         bijections.append(ElementwiseShift(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
@@ -174,10 +169,9 @@ class CouplingDSF(BijectiveComposition):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
-            bijections.extend([
-                ReversePermutation(event_shape=event_shape),
-                DSCoupling(event_shape=event_shape, edge_list=edge_list)  # TODO specify percent of global parameters
-            ])
+            if edge_list is None:
+                bijections.append(ReversePermutation(event_shape=event_shape))
+            bijections.append(DSCoupling(event_shape=event_shape, edge_list=edge_list))
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
