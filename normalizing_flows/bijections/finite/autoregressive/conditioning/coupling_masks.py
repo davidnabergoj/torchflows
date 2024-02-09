@@ -54,8 +54,16 @@ class Coupling(PartialCoupling):
 
 class GraphicalCoupling(PartialCoupling):
     def __init__(self, event_shape, edge_list: List[Tuple[int, int]]):
-        source_mask = torch.tensor(sorted(list(set([e[0] for e in edge_list]))))
-        target_mask = torch.tensor(sorted(list(set([e[1] for e in edge_list]))))
+        if len(event_shape) != 1:
+            raise ValueError("GraphicalCoupling is currently only implemented for vector data")
+
+        source_dims = torch.tensor(sorted(list(set([e[0] for e in edge_list]))))
+        target_dims = torch.tensor(sorted(list(set([e[1] for e in edge_list]))))
+
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
+        source_mask = torch.isin(torch.arange(event_size), source_dims)
+        target_mask = torch.isin(torch.arange(event_size), target_dims)
+
         super().__init__(event_shape, source_mask, target_mask)
 
 
