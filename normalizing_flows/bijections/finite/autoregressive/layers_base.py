@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform, \
     MADE
-from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import Coupling
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import PartialCoupling
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
@@ -52,7 +52,7 @@ class CouplingBijection(AutoregressiveBijection):
 
     def __init__(self,
                  transformer: TensorTransformer,
-                 coupling: Coupling,
+                 coupling: PartialCoupling,
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
         super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)

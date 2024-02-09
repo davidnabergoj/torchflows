@@ -1,7 +1,9 @@
+from typing import Tuple, List
+
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
-from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import HalfSplit
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import HalfSplit, GraphicalCoupling
 from normalizing_flows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift
@@ -49,6 +51,25 @@ class AffineCoupling(CouplingBijection):
         if event_shape == (1,):
             raise ValueError
         coupling = HalfSplit(event_shape)
+        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
+        conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling.source_event_size,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
+            context_shape=context_shape,
+            **kwargs
+        )
+        super().__init__(transformer, coupling, conditioner_transform)
+
+
+class GraphicalAffine(CouplingBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 edge_list: List[Tuple[int, int]] = None,
+                 context_shape: torch.Size = None,
+                 **kwargs):
+        if event_shape == (1,):
+            raise ValueError
+        coupling = GraphicalCoupling(event_shape, edge_list=edge_list)
         transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),

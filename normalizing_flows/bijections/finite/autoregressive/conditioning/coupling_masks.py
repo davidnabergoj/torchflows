@@ -1,3 +1,5 @@
+from typing import Tuple, List
+
 import torch
 
 
@@ -54,3 +56,10 @@ class HalfSplit(Coupling):
     def __init__(self, event_shape):
         event_size = int(torch.prod(torch.as_tensor(event_shape)))
         super().__init__(event_shape, mask=torch.less(torch.arange(event_size).view(*event_shape), event_size // 2))
+
+
+class GraphicalCoupling(PartialCoupling):
+    def __init__(self, event_shape, edge_list: List[Tuple[int, int]]):
+        source_mask = torch.tensor(sorted(list(set([e[0] for e in edge_list]))))
+        target_mask = torch.tensor(sorted(list(set([e[1] for e in edge_list]))))
+        super().__init__(event_shape, source_mask, target_mask)
