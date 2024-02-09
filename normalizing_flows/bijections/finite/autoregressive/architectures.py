@@ -1,3 +1,5 @@
+from typing import Tuple, List
+
 from normalizing_flows.bijections.finite.autoregressive.layers import (
     ShiftCoupling,
     AffineCoupling,
@@ -11,49 +13,50 @@ from normalizing_flows.bijections.finite.autoregressive.layers import (
     ElementwiseAffine,
     UMNNMaskedAutoregressive,
     LRSCoupling,
-    LRSForwardMaskedAutoregressive, ElementwiseShift
+    LRSForwardMaskedAutoregressive,
+    ElementwiseShift
 )
 from normalizing_flows.bijections.base import BijectiveComposition
 from normalizing_flows.bijections.finite.linear import ReversePermutation
 
 
 class NICE(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, edge_list: List[Tuple[int, int]] = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                ShiftCoupling(event_shape=event_shape)
+                ShiftCoupling(event_shape=event_shape, edge_list=edge_list)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
 
 class RealNVP(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, edge_list: List[Tuple[int, int]] = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                AffineCoupling(event_shape=event_shape)
+                AffineCoupling(event_shape=event_shape, edge_list=edge_list)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
 
 
 class InverseRealNVP(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, edge_list: List[Tuple[int, int]] = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                InverseAffineCoupling(event_shape=event_shape)
+                InverseAffineCoupling(event_shape=event_shape, edge_list=edge_list)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
@@ -92,14 +95,14 @@ class IAF(BijectiveComposition):
 
 
 class CouplingRQNSF(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, edge_list: List[Tuple[int, int]] = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                RQSCoupling(event_shape=event_shape)
+                RQSCoupling(event_shape=event_shape, edge_list=edge_list)
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
@@ -124,14 +127,14 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
 
 
 class CouplingLRS(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, edge_list: List[Tuple[int, int]] = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseShift(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                LRSCoupling(event_shape=event_shape)
+                LRSCoupling(event_shape=event_shape, edge_list=edge_list)
             ])
         bijections.append(ElementwiseShift(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)
@@ -166,14 +169,14 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
 
 
 class CouplingDSF(BijectiveComposition):
-    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+    def __init__(self, event_shape, n_layers: int = 2, edge_list: List[Tuple[int, int]] = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             bijections.extend([
                 ReversePermutation(event_shape=event_shape),
-                DSCoupling(event_shape=event_shape)  # TODO specify percent of global parameters
+                DSCoupling(event_shape=event_shape, edge_list=edge_list)  # TODO specify percent of global parameters
             ])
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         super().__init__(event_shape, bijections, **kwargs)

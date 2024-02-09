@@ -3,7 +3,7 @@ from typing import Tuple, List
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
-from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import HalfSplit, GraphicalCoupling
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import make_coupling
 from normalizing_flows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift
@@ -18,7 +18,6 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.combination
 from normalizing_flows.bijections.base import invert
 
 
-# TODO move elementwise bijections, coupling bijections, and masked autoregressive bijections into separate files.
 class ElementwiseAffine(ElementwiseBijection):
     def __init__(self, event_shape, **kwargs):
         transformer = Affine(event_shape, **kwargs)
@@ -47,29 +46,11 @@ class AffineCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
-                 **kwargs):
-        if event_shape == (1,):
-            raise ValueError
-        coupling = HalfSplit(event_shape)
-        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
-        conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling.source_event_size,)),
-            parameter_shape=torch.Size(transformer.parameter_shape),
-            context_shape=context_shape,
-            **kwargs
-        )
-        super().__init__(transformer, coupling, conditioner_transform)
-
-
-class GraphicalAffine(CouplingBijection):
-    def __init__(self,
-                 event_shape: torch.Size,
                  edge_list: List[Tuple[int, int]] = None,
-                 context_shape: torch.Size = None,
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        coupling = GraphicalCoupling(event_shape, edge_list=edge_list)
+        coupling = make_coupling(event_shape, edge_list)
         transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -84,10 +65,11 @@ class InverseAffineCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
+                 edge_list: List[Tuple[int, int]] = None,
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        coupling = HalfSplit(event_shape)
+        coupling = make_coupling(event_shape, edge_list)
         transformer = Affine(event_shape=torch.Size((coupling.target_event_size,))).invert()
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -102,8 +84,9 @@ class ShiftCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
+                 edge_list: List[Tuple[int, int]] = None,
                  **kwargs):
-        coupling = HalfSplit(event_shape)
+        coupling = make_coupling(event_shape, edge_list)
         transformer = Shift(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -119,9 +102,10 @@ class LRSCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
+                 edge_list: List[Tuple[int, int]] = None,
                  **kwargs):
         assert n_bins >= 1
-        coupling = HalfSplit(event_shape)
+        coupling = make_coupling(event_shape, edge_list)
         transformer = LinearRational(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -137,8 +121,9 @@ class RQSCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
+                 edge_list: List[Tuple[int, int]] = None,
                  **kwargs):
-        coupling = HalfSplit(event_shape)
+        coupling = make_coupling(event_shape, edge_list)
         transformer = RationalQuadratic(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -154,8 +139,9 @@ class DSCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_hidden_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
                  **kwargs):
-        coupling = HalfSplit(event_shape)
+        coupling = make_coupling(event_shape, edge_list)
         transformer = DeepSigmoid(
             event_shape=torch.Size((coupling.target_event_size,)),
             n_hidden_layers=n_hidden_layers
