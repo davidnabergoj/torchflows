@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform, \
     MADE
-from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import CouplingMask
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import Coupling
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
@@ -52,14 +52,14 @@ class CouplingBijection(AutoregressiveBijection):
 
     def __init__(self,
                  transformer: TensorTransformer,
-                 coupling_mask: CouplingMask,
+                 coupling: Coupling,
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
-        super().__init__(coupling_mask.event_shape, transformer, conditioner_transform, **kwargs)
-        self.coupling_mask = coupling_mask
+        super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)
+        self.coupling = coupling
 
-        assert conditioner_transform.input_event_shape == (coupling_mask.constant_event_size,)
-        assert transformer.event_shape == (self.coupling_mask.transformed_event_size,)
+        assert conditioner_transform.input_event_shape == (coupling.source_event_size,)
+        assert transformer.event_shape == (self.coupling.target_event_size,)
 
     def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
         """
@@ -70,20 +70,26 @@ class CouplingBijection(AutoregressiveBijection):
         :return: parameter tensor h with h.shape = (*batch_shape, *parameter_shape).
         """
         # Predict transformer parameters for output dimensions
-        x_a = x[..., self.coupling_mask.mask]  # (*b, constant_event_size)
+        x_a = x[..., self.coupling.source_mask]  # (*b, constant_event_size)
         h_b = self.conditioner_transform(x_a, context=context)  # (*b, *p)
         return h_b
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         z = x.clone()
         h_b = self.partition_and_predict_parameters(x, context)
-        z[..., ~self.coupling_mask.mask], log_det = self.transformer.forward(x[..., ~self.coupling_mask.mask], h_b)
+        z[..., self.coupling.target_mask], log_det = self.transformer.forward(
+            x[..., self.coupling.target_mask],
+            h_b
+        )
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         x = z.clone()
         h_b = self.partition_and_predict_parameters(x, context)
-        x[..., ~self.coupling_mask.mask], log_det = self.transformer.inverse(z[..., ~self.coupling_mask.mask], h_b)
+        x[..., self.coupling.target_mask], log_det = self.transformer.inverse(
+            z[..., self.coupling.target_mask],
+            h_b
+        )
         return x, log_det
 
 

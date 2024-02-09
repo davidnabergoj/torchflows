@@ -48,15 +48,15 @@ class AffineCoupling(CouplingBijection):
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        coupling_mask = HalfSplit(event_shape)
-        transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
+        coupling = HalfSplit(event_shape)
+        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer, coupling_mask, conditioner_transform)
+        super().__init__(transformer, coupling, conditioner_transform)
 
 
 class InverseAffineCoupling(CouplingBijection):
@@ -66,15 +66,15 @@ class InverseAffineCoupling(CouplingBijection):
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        coupling_mask = HalfSplit(event_shape)
-        transformer = Affine(event_shape=torch.Size((coupling_mask.transformed_event_size,))).invert()
+        coupling = HalfSplit(event_shape)
+        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,))).invert()
         conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer, coupling_mask, conditioner_transform)
+        super().__init__(transformer, coupling, conditioner_transform)
 
 
 class ShiftCoupling(CouplingBijection):
@@ -82,15 +82,15 @@ class ShiftCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  **kwargs):
-        coupling_mask = HalfSplit(event_shape)
-        transformer = Shift(event_shape=torch.Size((coupling_mask.transformed_event_size,)))
+        coupling = HalfSplit(event_shape)
+        transformer = Shift(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer, coupling_mask, conditioner_transform)
+        super().__init__(transformer, coupling, conditioner_transform)
 
 
 class LRSCoupling(CouplingBijection):
@@ -100,15 +100,15 @@ class LRSCoupling(CouplingBijection):
                  n_bins: int = 8,
                  **kwargs):
         assert n_bins >= 1
-        coupling_mask = HalfSplit(event_shape)
-        transformer = LinearRational(event_shape=torch.Size((coupling_mask.transformed_event_size,)), n_bins=n_bins)
+        coupling = HalfSplit(event_shape)
+        transformer = LinearRational(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer, coupling_mask, conditioner_transform)
+        super().__init__(transformer, coupling, conditioner_transform)
 
 
 class RQSCoupling(CouplingBijection):
@@ -117,15 +117,15 @@ class RQSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  **kwargs):
-        coupling_mask = HalfSplit(event_shape)
-        transformer = RationalQuadratic(event_shape=torch.Size((coupling_mask.transformed_event_size,)), n_bins=n_bins)
+        coupling = HalfSplit(event_shape)
+        transformer = RationalQuadratic(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer, coupling_mask, conditioner_transform)
+        super().__init__(transformer, coupling, conditioner_transform)
 
 
 class DSCoupling(CouplingBijection):
@@ -134,20 +134,20 @@ class DSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_hidden_layers: int = 2,
                  **kwargs):
-        coupling_mask = HalfSplit(event_shape)
+        coupling = HalfSplit(event_shape)
         transformer = DeepSigmoid(
-            event_shape=torch.Size((coupling_mask.transformed_event_size,)),
+            event_shape=torch.Size((coupling.target_event_size,)),
             n_hidden_layers=n_hidden_layers
         )
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
         conditioner_transform = FeedForward(
-            input_event_shape=torch.Size((coupling_mask.constant_event_size,)),
+            input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
             **kwargs
         )
-        super().__init__(transformer, coupling_mask, conditioner_transform)
+        super().__init__(transformer, coupling, conditioner_transform)
 
 
 class LinearAffineCoupling(AffineCoupling):
