@@ -302,8 +302,13 @@ class Flow(BaseFlow):
 
 
 class FlowMixture(BaseFlow):
-    def __init__(self, flows: List[Flow], weights: List[float]):
+    def __init__(self, flows: List[Flow], weights: List[float] = None):
         super().__init__(event_shape=flows[0].event_shape)
+
+        # Use uniform weights by default
+        if weights is None:
+            weights = [1.0 / len(flows)] * len(flows)
+
         assert len(weights) == len(flows)
         assert all([w > 0.0 for w in weights])
         assert np.isclose(sum(weights), 1.0)
@@ -334,7 +339,10 @@ class FlowMixture(BaseFlow):
             flow_samples = torch.stack(flow_samples)  # (n_flows, n, *event_shape)
             categorical_samples = self.categorical_distribution.sample(sample_shape=torch.Size((n,)))  # (n,)
             one_hot = torch.nn.functional.one_hot(categorical_samples, num_classes=len(flow_samples)).T  # (n_flows, n)
-            samples = torch.sum(one_hot * flow_samples, dim=0)  # (n, *event_shape)
+            one_hot_reshaped = one_hot.view(*one_hot.shape, *([1] * len(self.event_shape)))
+            # (n_flows, n, *event_shape)
+
+            samples = torch.sum(one_hot_reshaped * flow_samples, dim=0)  # (n, *event_shape)
 
         if return_log_prob:
             flow_log_probs = torch.stack(flow_log_probs)  # (n_flows, n)
