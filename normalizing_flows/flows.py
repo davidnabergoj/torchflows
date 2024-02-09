@@ -302,7 +302,7 @@ class Flow(BaseFlow):
 
 
 class FlowMixture(BaseFlow):
-    def __init__(self, flows: List[Flow], weights: List[float] = None):
+    def __init__(self, flows: List[Flow], weights: List[float] = None, trainable_weights: bool = False):
         super().__init__(event_shape=flows[0].event_shape)
 
         # Use uniform weights by default
@@ -313,17 +313,18 @@ class FlowMixture(BaseFlow):
         assert all([w > 0.0 for w in weights])
         assert np.isclose(sum(weights), 1.0)
 
-        self.flows = flows
-        self.weights = torch.tensor(weights)
-        self.log_weights = torch.log(self.weights)
-        self.categorical_distribution = torch.distributions.Categorical(probs=self.weights)
+        self.flows = nn.ModuleList(flows)
+        if trainable_weights:
+            self.logit_weights = nn.Parameter(torch.log(torch.tensor(weights)))
+        else:
+            self.logit_weights = torch.log(torch.tensor(weights))
 
     def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         flow_log_probs = torch.stack([flow.log_prob(x, context=context) for flow in self.flows])
         # (n_flows, *batch_shape)
 
         batch_shape = flow_log_probs.shape[1:]
-        log_weights_reshaped = self.log_weights.view(-1, *([1] * len(batch_shape)))
+        log_weights_reshaped = self.logit_weights.view(-1, *([1] * len(batch_shape)))
         log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # batch_shape
         return log_prob
 
@@ -335,18 +336,19 @@ class FlowMixture(BaseFlow):
             flow_samples.append(flow_x)
             flow_log_probs.append(flow_log_prob)
 
-        with torch.no_grad():
-            flow_samples = torch.stack(flow_samples)  # (n_flows, n, *event_shape)
-            categorical_samples = self.categorical_distribution.sample(sample_shape=torch.Size((n,)))  # (n,)
-            one_hot = torch.nn.functional.one_hot(categorical_samples, num_classes=len(flow_samples)).T  # (n_flows, n)
-            one_hot_reshaped = one_hot.view(*one_hot.shape, *([1] * len(self.event_shape)))
-            # (n_flows, n, *event_shape)
+        flow_samples = torch.stack(flow_samples)  # (n_flows, n, *event_shape)
+        categorical_samples = torch.distributions.Categorical(logits=self.logit_weights).sample(
+            sample_shape=torch.Size((n,))
+        )  # (n,)
+        one_hot = torch.nn.functional.one_hot(categorical_samples, num_classes=len(flow_samples)).T  # (n_flows, n)
+        one_hot_reshaped = one_hot.view(*one_hot.shape, *([1] * len(self.event_shape)))
+        # (n_flows, n, *event_shape)
 
-            samples = torch.sum(one_hot_reshaped * flow_samples, dim=0)  # (n, *event_shape)
+        samples = torch.sum(one_hot_reshaped * flow_samples, dim=0)  # (n, *event_shape)
 
         if return_log_prob:
             flow_log_probs = torch.stack(flow_log_probs)  # (n_flows, n)
-            log_weights_reshaped = self.log_weights[:, None]  # (n_flows, 1)
+            log_weights_reshaped = self.logit_weights[:, None]  # (n_flows, 1)
             log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # (n,)
             return samples, log_prob
         else:
