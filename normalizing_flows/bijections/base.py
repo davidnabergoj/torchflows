@@ -11,7 +11,8 @@ from normalizing_flows.utils import get_batch_shape
 class Bijection(nn.Module):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 context_shape: Union[torch.Size, Tuple[int, ...]] = None):
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 **kwargs):
         """
         Bijection class.
         """
@@ -93,7 +94,8 @@ class BijectiveComposition(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  layers: List[Bijection],
-                 context_shape: Union[torch.Size, Tuple[int, ...]] = None):
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 **kwargs):
         super().__init__(event_shape=event_shape, context_shape=context_shape)
         self.layers = nn.ModuleList(layers)
 
