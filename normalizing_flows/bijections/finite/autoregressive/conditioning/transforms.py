@@ -284,3 +284,68 @@ class ResidualFeedForward(ConditionerTransform):
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         return self.sequential(self.context_combiner(x, context))
+
+
+class CombinedConditioner(nn.Module):
+    """
+    Class that uses two different conditioners (each acting on different dimensions) to predict transformation
+    parameters. Transformation parameters are combined in a single vector.
+    """
+
+    def __init__(self,
+                 conditioner1: ConditionerTransform,
+                 conditioner2: ConditionerTransform,
+                 conditioner1_input_mask: torch.Tensor,
+                 conditioner2_input_mask: torch.Tensor):
+        super().__init__()
+        self.conditioner1 = conditioner1
+        self.conditioner2 = conditioner2
+        self.mask1 = conditioner1_input_mask
+        self.mask2 = conditioner2_input_mask
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        h1 = self.conditioner1(x[..., self.mask1], context)
+        h2 = self.conditioner1(x[..., self.mask1], context)
+        return h1 + h2
+
+
+class RegularizedCombinedConditioner(CombinedConditioner):
+    def __init__(self,
+                 conditioner1: ConditionerTransform,
+                 conditioner2: ConditionerTransform,
+                 conditioner1_input_mask: torch.Tensor,
+                 conditioner2_input_mask: torch.Tensor,
+                 regularization_coefficient_1: float,
+                 regularization_coefficient_2: float):
+        super().__init__(
+            conditioner1,
+            conditioner2,
+            conditioner1_input_mask,
+            conditioner2_input_mask
+        )
+        self.c1 = regularization_coefficient_1
+        self.c2 = regularization_coefficient_2
+
+    @property
+    def regularization(self):
+        # L2 aka Gaussian prior
+        c1_reg = self.c1 * sum([(p ** 2).sum() for p in self.conditioner1.parameters()])
+        c2_reg = self.c2 * sum([(p ** 2).sum() for p in self.conditioner2.parameters()])
+        return c1_reg + c2_reg
+
+
+class RegularizedGraphicalConditioner(RegularizedCombinedConditioner):
+    def __init__(self,
+                 interacting_dimensions_conditioner: ConditionerTransform,
+                 auxiliary_dimensions_conditioner: ConditionerTransform,
+                 interacting_dimensions_mask: torch.Tensor,
+                 auxiliary_dimensions_mask: torch.Tensor,
+                 coefficient: float = 0.1):
+        super().__init__(
+            interacting_dimensions_conditioner,
+            auxiliary_dimensions_conditioner,
+            interacting_dimensions_mask,
+            auxiliary_dimensions_mask,
+            regularization_coefficient_1=0.0,
+            regularization_coefficient_2=coefficient
+        )
