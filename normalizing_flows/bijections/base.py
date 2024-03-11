@@ -114,3 +114,6 @@ class BijectiveComposition(Bijection):
             log_det += log_det_layer
         x = z
         return x, log_det
+
+    def regularization(self):
+        return sum([layer.regularization() for layer in self.layers])
