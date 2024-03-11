@@ -96,6 +96,9 @@ class ConditionerTransform(nn.Module):
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         raise NotImplementedError
 
+    def regularization(self):
+        return sum([torch.sum(torch.square(p)) for p in self.parameters()])
+
 
 class Constant(ConditionerTransform):
     def __init__(self, event_shape, parameter_shape, fill_value: float = None):
@@ -308,6 +311,9 @@ class CombinedConditioner(nn.Module):
         h2 = self.conditioner1(x[..., self.mask1], context)
         return h1 + h2
 
+    def regularization(self):
+        return self.conditioner1.regularization() + self.conditioner2.regularization()
+
 
 class RegularizedCombinedConditioner(CombinedConditioner):
     def __init__(self,
@@ -326,12 +332,8 @@ class RegularizedCombinedConditioner(CombinedConditioner):
         self.c1 = regularization_coefficient_1
         self.c2 = regularization_coefficient_2
 
-    @property
     def regularization(self):
-        # L2 aka Gaussian prior
-        c1_reg = self.c1 * sum([(p ** 2).sum() for p in self.conditioner1.parameters()])
-        c2_reg = self.c2 * sum([(p ** 2).sum() for p in self.conditioner2.parameters()])
-        return c1_reg + c2_reg
+        return self.c1 * self.conditioner1.regularization() + self.c2 * self.conditioner2.regularization()
 
 
 class RegularizedGraphicalConditioner(RegularizedCombinedConditioner):

@@ -31,6 +31,9 @@ class AutoregressiveBijection(Bijection):
         x, log_det = self.transformer.inverse(z, h)
         return x, log_det
 
+    def regularization(self):
+        return self.conditioner_transform.regularization()
+
 
 class CouplingBijection(AutoregressiveBijection):
     """
