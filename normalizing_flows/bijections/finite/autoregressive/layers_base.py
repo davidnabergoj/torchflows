@@ -32,7 +32,7 @@ class AutoregressiveBijection(Bijection):
         return x, log_det
 
     def regularization(self):
-        return self.conditioner_transform.regularization()
+        return self.conditioner_transform.regularization() if self.conditioner_transform is not None else 0.0
 
 
 class CouplingBijection(AutoregressiveBijection):

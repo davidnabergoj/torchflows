@@ -81,6 +81,8 @@ class Bijection(nn.Module):
         assert log_dets.shape == batch_shape
         return outputs, log_dets
 
+    def regularization(self):
+        return 0.0
 
 def invert(bijection):
     """
