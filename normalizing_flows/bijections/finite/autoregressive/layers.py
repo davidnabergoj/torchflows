@@ -70,7 +70,7 @@ class InverseAffineCoupling(CouplingBijection):
         if event_shape == (1,):
             raise ValueError
         coupling = make_coupling(event_shape, edge_list)
-        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,))).invert()
+        transformer = invert(Affine(event_shape=torch.Size((coupling.target_event_size,))))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
