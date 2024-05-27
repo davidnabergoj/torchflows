@@ -46,8 +46,8 @@ class TensorTrain(dist.Distribution):
 
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
-                 basis_size: int,
-                 bond_dimension: int,
+                 basis_size: int = 10,
+                 bond_dimension: int = 10,
                  unnormalized_target_density: callable = None):
         assert basis_size > 0
         assert bond_dimension > 0
@@ -208,8 +208,8 @@ class UnconstrainedTensorTrain(TensorTrain):
     This is done with the inverse TanH transform.
     """
 
-    def __init__(self, event_shape: Union[Tuple[int, ...], torch.Size], basis_size: int, bond_dimension: int):
-        super().__init__(event_shape, basis_size, bond_dimension)
+    def __init__(self, event_shape: Union[Tuple[int, ...], torch.Size], **kwargs):
+        super().__init__(event_shape, **kwargs)
 
     @staticmethod
     def inverse_tanh(x: torch.Tensor) -> torch.Tensor:
@@ -240,7 +240,7 @@ class UnconstrainedTensorTrain(TensorTrain):
 
 if __name__ == '__main__':
     def dens(x):
-        return torch.exp(-torch.sum(x ** 2 / 100, dim=-1))
+        return torch.exp(-torch.sum(UnconstrainedTensorTrain.inverse_tanh(x) ** 2 / 10, dim=-1))
 
 
     torch.manual_seed(0)
