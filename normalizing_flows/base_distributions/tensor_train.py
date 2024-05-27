@@ -44,7 +44,11 @@ class TensorTrain(dist.Distribution):
     Reference paper: Khoo et al. "Tensorizing flows: a tool for variational inference" (2023), arxiv: 2305.02460.
     """
 
-    def __init__(self, event_shape: Union[Tuple[int, ...], torch.Size], basis_size: int, bond_dimension: int):
+    def __init__(self,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 basis_size: int,
+                 bond_dimension: int,
+                 unnormalized_target_density: callable = None):
         assert basis_size > 0
         assert bond_dimension > 0
 
@@ -57,7 +61,14 @@ class TensorTrain(dist.Distribution):
         self.basis_size = basis_size
         self.bond_dimension = bond_dimension
         self.basis = create_orthogonal_polynomials(basis_size)
-        tt = tn.rand([self.basis_size] * self.event_size, ranks_tt=bond_dimension)
+
+        if unnormalized_target_density is None:
+            # Random normal initialization
+            tt = tn.randn([self.basis_size] * self.event_size, ranks_tt=bond_dimension)
+        else:
+            # TT-Cross initialization
+            domain = [torch.linspace(-1, 1, basis_size)] * self.event_size
+            tt = tn.cross(unnormalized_target_density, domain=domain, function_arg='matrix', ranks_tt=bond_dimension)
 
         # Apply left-orthogonalization, end up with QQQQQ...QQQQR
         for core_index in range(self.event_size - 1):
@@ -228,8 +239,12 @@ class UnconstrainedTensorTrain(TensorTrain):
 
 
 if __name__ == '__main__':
+    def dens(x):
+        return torch.exp(-torch.sum(x ** 2 / 100, dim=-1))
+
+
     torch.manual_seed(0)
-    base_distribution = TensorTrain(event_shape=(4,), basis_size=3, bond_dimension=7)
+    base_distribution = TensorTrain(event_shape=(4,), basis_size=3, bond_dimension=7, unnormalized_target_density=dens)
 
     # Inputs need to be between -1 and 1 for the Legendre polynomials
     data_points = torch.rand(size=(10, base_distribution.event_size)) * 2 - 1
