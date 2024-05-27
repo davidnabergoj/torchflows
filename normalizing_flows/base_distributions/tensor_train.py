@@ -57,16 +57,18 @@ class TensorTrain(dist.Distribution):
         self.basis_size = basis_size
         self.bond_dimension = bond_dimension
         self.basis = create_orthogonal_polynomials(basis_size)
-        self.tt = tn.rand([self.basis_size] * self.event_size, ranks_tt=bond_dimension)
+        tt = tn.rand([self.basis_size] * self.event_size, ranks_tt=bond_dimension)
 
         # Apply left-orthogonalization, end up with QQQQQ...QQQQR
         for core_index in range(self.event_size - 1):
-            self.tt.left_orthogonalize(mu=core_index)
+            tt.left_orthogonalize(mu=core_index)
 
         # Check orthonormality
         for core_index in range(self.event_size - 1):
-            if not is_orthonormal(self.tt.cores[core_index]):
+            if not is_orthonormal(tt.cores[core_index]):
                 raise ValueError(f"Core {core_index} not orthonormal")
+
+        self.cores = [c for c in tt.cores]
 
     @staticmethod
     def sample_marginal(sample_shape: torch.Size, cdf_1d: callable) -> torch.Tensor:
@@ -97,36 +99,36 @@ class TensorTrain(dist.Distribution):
 
         # Contract with rightmost core (R)
         core_index = self.event_size - 1
-        v = torch.einsum('ij,...j->...i', self.tt.cores[core_index][..., 0], phi[..., core_index, :])
-        matrices_b = torch.einsum('...k,ijk->...ji', v, self.tt.cores[core_index])
+        v = torch.einsum('ij,...j->...i', self.cores[core_index][..., 0], phi[..., core_index, :])
+        matrices_b = torch.einsum('...k,ijk->...ji', v, self.cores[core_index])
         matrices_a = torch.einsum('...ij,...kj->...ik', matrices_b, matrices_b)
         f = torch.einsum('...ij,...i,...j->...', matrices_a, phi[..., core_index, :], phi[..., core_index, :])
         fs[core_index] = f
 
         # Contract with orthonormal cores (Q)
-        for core_index in range(len(self.tt.cores) - 2, -1, -1):
-            matrices_b = torch.einsum('...k,ijk->...ji', v, self.tt.cores[core_index])
+        for core_index in range(len(self.cores) - 2, -1, -1):
+            matrices_b = torch.einsum('...k,ijk->...ji', v, self.cores[core_index])
             matrices_a = torch.einsum('...ij,...kj->...ik', matrices_b, matrices_b)
             f = torch.einsum('...ij,...i,...j->...', matrices_a, phi[..., core_index, :], phi[..., core_index, :])
             fs[core_index] = f
-            v = torch.einsum('ijk,...k,...j->...i', self.tt.cores[core_index], v, phi[..., core_index, :])
+            v = torch.einsum('ijk,...k,...j->...i', self.cores[core_index], v, phi[..., core_index, :])
 
         # fs[0] is the joint density of all dimensions, i.e. the data density.
         return fs  # The density of input data points
 
     def compute_f_v(self, x: torch.Tensor, v: torch.Tensor, core_index: int):
         phi = self.apply_basis(x)
-        matrices_b = torch.einsum('...k,ijk->...ji', v, self.tt.cores[core_index])
+        matrices_b = torch.einsum('...k,ijk->...ji', v, self.cores[core_index])
         matrices_a = torch.einsum('...ij,...kj->...ik', matrices_b, matrices_b)
         f = torch.einsum('...ij,...i,...j->...', matrices_a, phi, phi)
-        v = torch.einsum('ijk,...k,...j->...i', self.tt.cores[core_index], v, phi)
+        v = torch.einsum('ijk,...k,...j->...i', self.cores[core_index], v, phi)
         return f, v
 
     def compute_f_v_first(self, x: torch.Tensor):
         core_index = self.event_size - 1
         phi = self.apply_basis(x)
-        v = torch.einsum('ij,...j->...i', self.tt.cores[core_index][..., 0], phi)
-        matrices_b = torch.einsum('...k,ijk->...ji', v, self.tt.cores[core_index])
+        v = torch.einsum('ij,...j->...i', self.cores[core_index][..., 0], phi)
+        matrices_b = torch.einsum('...k,ijk->...ji', v, self.cores[core_index])
         matrices_a = torch.einsum('...ij,...kj->...ik', matrices_b, matrices_b)
         f = torch.einsum('...ij,...i,...j->...', matrices_a, phi, phi)
         return f, v
@@ -168,7 +170,7 @@ class TensorTrain(dist.Distribution):
         x[..., core_index] = x_d
 
         # Contract with orthonormal cores (Q)
-        for core_index in range(len(self.tt.cores) - 2, -1, -1):
+        for core_index in range(len(self.cores) - 2, -1, -1):
             # f, v = self.compute_f_v(x[..., core_index], v, core_index)
             x_d, v_d, f_d = self.sample_dim(core_index, sample_shape=sample_shape, v=v_d)
             x[..., core_index] = x_d
