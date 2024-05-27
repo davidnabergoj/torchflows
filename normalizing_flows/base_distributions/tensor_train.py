@@ -7,6 +7,7 @@ from scipy.special import legendre
 import tntorch as tn
 
 from normalizing_flows.bijections.numerical_inversion import bisection_no_gradient
+from normalizing_flows.utils import sum_except_batch
 
 
 def is_orthonormal(core):
@@ -151,29 +152,8 @@ class TensorTrain(dist.Distribution):
         f_dim = f[x_indices]
         return x_dim, v_dim, f_dim
 
-    def sample(self, sample_shape: Union[torch.Size, Tuple[int, ...]] = torch.Size()) -> torch.Tensor:
-        """
-        Sample dimensions autoregressively with a root-finding algorithm.
-
-        :param sample_shape:
-        :return:
-        """
-        x = torch.zeros(size=(*sample_shape, self.event_size))
-
-        # Contract with rightmost core (R)
-        core_index = self.event_size - 1
-        x_d, v_d, f_d = self.sample_dim(core_index, sample_shape=sample_shape)
-        x[..., core_index] = x_d
-
-        # Contract with orthonormal cores (Q)
-        for core_index in range(len(self.tt.cores) - 2, -1, -1):
-            # f, v = self.compute_f_v(x[..., core_index], v, core_index)
-            x_d, v_d, f_d = self.sample_dim(core_index, sample_shape=sample_shape, v=v_d)
-            x[..., core_index] = x_d
-
-        return x
-
-    def sample_with_log_prob(self, sample_shape: Union[torch.Size, Tuple[int, ...]] = torch.Size()) -> Tuple[torch.Tensor, torch.Tensor]:
+    def sample_with_log_prob(self, sample_shape: Union[torch.Size, Tuple[int, ...]] = torch.Size()) -> Tuple[
+        torch.Tensor, torch.Tensor]:
         """
         Sample dimensions autoregressively with a root-finding algorithm.
 
@@ -195,8 +175,54 @@ class TensorTrain(dist.Distribution):
 
         return x, torch.log(f_d)
 
+    def sample(self, sample_shape: Union[torch.Size, Tuple[int, ...]] = torch.Size()) -> torch.Tensor:
+        """
+        Sample dimensions autoregressively with a root-finding algorithm.
+
+        :param sample_shape:
+        :return:
+        """
+
+        return self.sample_with_log_prob(sample_shape)[0]
+
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         return self.contract(self.apply_basis(x))[0]
+
+
+class UnconstrainedTensorTrain(TensorTrain):
+    """
+    TensorTrain-Based distribution with support for the entire Euclidean space, not only [-1, 1]^d.
+    This is done with the inverse TanH transform.
+    """
+
+    def __init__(self, event_shape: Union[Tuple[int, ...], torch.Size], basis_size: int, bond_dimension: int):
+        super().__init__(event_shape, basis_size, bond_dimension)
+
+    @staticmethod
+    def inverse_tanh(x: torch.Tensor) -> torch.Tensor:
+        x_unconstrained = 0.5 * (torch.log1p(x) - torch.log1p(-x))
+        return x_unconstrained
+
+    @staticmethod
+    def log_d_dx_tanh(x_unconstrained: torch.Tensor):
+        return torch.log1p(-torch.tanh(x_unconstrained) ** 2)
+
+    @staticmethod
+    def log_d_dx_tanh_inverse(x_constrained: torch.Tensor):
+        return -torch.log1p(-x_constrained ** 2)
+
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        base_log_prob = super().log_prob(torch.tanh(x))
+        log_det = sum_except_batch(self.log_d_dx_tanh(x), (self.event_size,))
+        return base_log_prob + log_det
+
+    def sample_with_log_prob(self,
+                             sample_shape: Union[torch.Size, Tuple[int, ...]] = torch.Size()) -> Tuple[
+        torch.Tensor, torch.Tensor]:
+        x_constrained, base_log_prob = super().sample_with_log_prob(sample_shape)
+        x_unconstrained = self.inverse_tanh(x_constrained)
+        log_prob = base_log_prob + sum_except_batch(self.log_d_dx_tanh_inverse(x_constrained), (self.event_size,))
+        return x_unconstrained, log_prob
 
 
 if __name__ == '__main__':
@@ -215,3 +241,8 @@ if __name__ == '__main__':
     base_samples, log_prob = base_distribution.sample_with_log_prob((10,))
     print(base_samples.shape)
     print(log_prob.shape)
+
+    base_distribution = UnconstrainedTensorTrain(event_shape=(4,), basis_size=3, bond_dimension=7)
+    ret = base_distribution.sample((10,))
+    print(ret.shape)
+    print(ret)
