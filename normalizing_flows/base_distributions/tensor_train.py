@@ -173,6 +173,28 @@ class TensorTrain(dist.Distribution):
 
         return x
 
+    def sample_with_log_prob(self, sample_shape: Union[torch.Size, Tuple[int, ...]] = torch.Size()) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Sample dimensions autoregressively with a root-finding algorithm.
+
+        :param sample_shape:
+        :return:
+        """
+        x = torch.zeros(size=(*sample_shape, self.event_size))
+
+        # Contract with rightmost core (R)
+        core_index = self.event_size - 1
+        x_d, v_d, f_d = self.sample_dim(core_index, sample_shape=sample_shape)
+        x[..., core_index] = x_d
+
+        # Contract with orthonormal cores (Q)
+        for core_index in range(len(self.tt.cores) - 2, -1, -1):
+            # f, v = self.compute_f_v(x[..., core_index], v, core_index)
+            x_d, v_d, f_d = self.sample_dim(core_index, sample_shape=sample_shape, v=v_d)
+            x[..., core_index] = x_d
+
+        return x, torch.log(f_d)
+
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         return self.contract(self.apply_basis(x))[0]
 
@@ -180,9 +202,16 @@ class TensorTrain(dist.Distribution):
 if __name__ == '__main__':
     torch.manual_seed(0)
     base_distribution = TensorTrain(event_shape=(4,), basis_size=3, bond_dimension=7)
-    data_points = torch.rand(size=(10, base_distribution.event_size)) * 2 - 1
+
     # Inputs need to be between -1 and 1 for the Legendre polynomials
+    data_points = torch.rand(size=(10, base_distribution.event_size)) * 2 - 1
     print(base_distribution.log_prob(data_points))
 
     base_samples = base_distribution.sample((10,))
     print(f'{base_samples.shape = }')
+    print(torch.isfinite(base_samples).all())
+    print(base_samples)
+
+    base_samples, log_prob = base_distribution.sample_with_log_prob((10,))
+    print(base_samples.shape)
+    print(log_prob.shape)
