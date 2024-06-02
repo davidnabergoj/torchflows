@@ -1,12 +1,10 @@
 from typing import Union, Tuple
-
+import numpy as np
 import torch
 import torch.distributions as dist
 import torch.nn as nn
 from scipy.special import legendre
 import tntorch as tn
-
-from normalizing_flows.bijections.numerical_inversion import bisection_no_gradient
 from normalizing_flows.utils import sum_except_batch
 
 
@@ -48,9 +46,11 @@ class TensorTrain(dist.Distribution):
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  basis_size: int = 10,
                  bond_dimension: int = 10,
-                 unnormalized_target_density: callable = None):
+                 n_quadrature_points: int = 30,
+                 unnormalized_target_log_prob: callable = None):
         assert basis_size > 0
         assert bond_dimension > 0
+        print("Initializing TensorTrain...")
 
         super().__init__(
             batch_shape=torch.Size(),
@@ -59,35 +59,51 @@ class TensorTrain(dist.Distribution):
         )
         self.event_size = int(torch.prod(torch.as_tensor(event_shape)))
         self.basis_size = basis_size
+        self.n_quadrature_points = n_quadrature_points
         self.bond_dimension = bond_dimension
         self.basis = create_orthogonal_polynomials(basis_size)
 
-        if unnormalized_target_density is None:
+        if unnormalized_target_log_prob is None:
             # Random normal initialization
             tt = tn.randn([self.basis_size] * self.event_size, ranks_tt=bond_dimension)
-        else:
-            # TT-Cross initialization
-            domain = [torch.linspace(-1, 1, basis_size)] * self.event_size
-            tt = tn.cross(unnormalized_target_density, domain=domain, function_arg='matrix', ranks_tt=bond_dimension)
 
-        # Apply left-orthogonalization, end up with QQQQQ...QQQQR
-        for core_index in range(self.event_size - 1):
-            tt.left_orthogonalize(mu=core_index)
+            # Apply left-orthogonalization, end up with QQQQQ...QQQQR
+            for core_index in range(self.event_size - 1):
+                tt.left_orthogonalize(mu=core_index)
+
+            cores = tt.cores
+        else:
+            tt = tn.Tensor(self.estimate_tensor_train_coefficients(unnormalized_target_log_prob))
+            # Apply left-orthogonalization, end up with QQQQQ...QQQQR
+            for core_index in range(self.event_size - 1):
+                tt.left_orthogonalize(mu=core_index)
+            tt.cores[-1] /= tt.cores[-1].norm()  # Normalize the non-orthogonal core
+            cores = tt.cores
 
         # Check orthonormality
         for core_index in range(self.event_size - 1):
-            if not is_orthonormal(tt.cores[core_index]):
+            if not is_orthonormal(cores[core_index]):
                 raise ValueError(f"Core {core_index} not orthonormal")
 
-        self.cores = [c for c in tt.cores]
+        self.cores = cores
 
-    @staticmethod
-    def sample_marginal(sample_shape: torch.Size, cdf_1d: callable) -> torch.Tensor:
-        # Sample uniform random numbers
-        u = torch.rand(size=sample_shape)
+    def estimate_tensor_train_coefficients(self, unnormalized_target_log_prob: callable):
+        domain = [torch.linspace(-1 + 1e-6, 1 - 1e-6, self.n_quadrature_points)] * self.event_size
+        t = tn.cross(
+            lambda inputs: torch.exp(0.5 * unnormalized_target_log_prob(inputs)),
+            domain=domain,
+            function_arg='matrix'
+        )
+        x, w = np.polynomial.legendre.leggauss(self.n_quadrature_points)
+        weight_matrix = (self.apply_basis(torch.as_tensor(x)) * torch.as_tensor(w[:, None])).T.float()
+        # weight_matrix.shape = (self.basis_size, n_quadrature_points)
 
-        # Apply bisection to the CDF
-        return bisection_no_gradient(cdf_1d, u)  # TODO use the gradient to optimize TT cores
+        b_cores = []
+        for core_index in range(len(t.cores)):
+            t_core = t.cores[core_index]
+            b_cores.append(torch.einsum('nm,imj->inj', weight_matrix, t_core))
+
+        return b_cores
 
     def apply_basis(self, inputs: torch.Tensor) -> torch.Tensor:
         """
@@ -199,7 +215,7 @@ class TensorTrain(dist.Distribution):
         return self.sample_with_log_prob(sample_shape)[0]
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
-        return self.contract(self.apply_basis(x))[0]
+        raise NotImplementedError
 
 
 class UnconstrainedTensorTrain(TensorTrain):
@@ -208,25 +224,36 @@ class UnconstrainedTensorTrain(TensorTrain):
     This is done with the inverse TanH transform.
     """
 
-    def __init__(self, event_shape: Union[Tuple[int, ...], torch.Size], **kwargs):
-        super().__init__(event_shape, **kwargs)
+    def __init__(self,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 unnormalized_target_log_prob: callable = None,
+                 **kwargs):
+        if unnormalized_target_log_prob is not None:
+            super().__init__(
+                event_shape,
+                **kwargs,
+                unnormalized_target_log_prob=lambda bounded_inputs: (
+                        unnormalized_target_log_prob(self.inverse_tanh(bounded_inputs))
+                        + self.log_d_dx_tanh_inverse(bounded_inputs)
+                )
+            )
+        else:
+            super().__init__(event_shape, **kwargs)
 
     @staticmethod
     def inverse_tanh(x: torch.Tensor) -> torch.Tensor:
         x_unconstrained = 0.5 * (torch.log1p(x) - torch.log1p(-x))
         return x_unconstrained
 
-    @staticmethod
-    def log_d_dx_tanh(x_unconstrained: torch.Tensor):
-        return torch.log1p(-torch.tanh(x_unconstrained) ** 2)
+    def log_d_dx_tanh(self, x_unconstrained: torch.Tensor):
+        return sum_except_batch(torch.log1p(-torch.tanh(x_unconstrained) ** 2), (self.event_size,))
 
-    @staticmethod
-    def log_d_dx_tanh_inverse(x_constrained: torch.Tensor):
-        return -torch.log1p(-x_constrained ** 2)
+    def log_d_dx_tanh_inverse(self, x_constrained: torch.Tensor):
+        return sum_except_batch(-torch.log1p(-x_constrained ** 2), (self.event_size,))
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         base_log_prob = super().log_prob(torch.tanh(x))
-        log_det = sum_except_batch(self.log_d_dx_tanh(x), (self.event_size,))
+        log_det = self.log_d_dx_tanh(x)
         return base_log_prob + log_det
 
     def sample_with_log_prob(self,
@@ -234,7 +261,7 @@ class UnconstrainedTensorTrain(TensorTrain):
         torch.Tensor, torch.Tensor]:
         x_constrained, base_log_prob = super().sample_with_log_prob(sample_shape)
         x_unconstrained = self.inverse_tanh(x_constrained)
-        log_prob = base_log_prob + sum_except_batch(self.log_d_dx_tanh_inverse(x_constrained), (self.event_size,))
+        log_prob = base_log_prob + self.log_d_dx_tanh_inverse(x_constrained)
         return x_unconstrained, log_prob
 
 
@@ -244,11 +271,12 @@ if __name__ == '__main__':
 
 
     torch.manual_seed(0)
-    base_distribution = TensorTrain(event_shape=(4,), basis_size=3, bond_dimension=7, unnormalized_target_density=dens)
+    base_distribution = TensorTrain(event_shape=(4,), basis_size=13, bond_dimension=7,
+                                    unnormalized_target_log_prob=dens)
 
     # Inputs need to be between -1 and 1 for the Legendre polynomials
     data_points = torch.rand(size=(10, base_distribution.event_size)) * 2 - 1
-    print(base_distribution.log_prob(data_points))
+    # print(base_distribution.log_prob(data_points))
 
     base_samples = base_distribution.sample((10,))
     print(f'{base_samples.shape = }')

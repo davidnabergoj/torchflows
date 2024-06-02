@@ -10,22 +10,21 @@ from normalizing_flows.utils import flatten_event, unflatten_event, create_data_
 
 
 class BaseFlow(nn.Module):
-    def __init__(self, event_shape):
+    def __init__(self, event_shape, base_distribution: torch.distributions.Distribution = None):
         super().__init__()
         self.event_shape = event_shape
         self.event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        self.register_buffer('loc', torch.zeros(self.event_size))
-        self.register_buffer('covariance_matrix', torch.eye(self.event_size))
+        self.base_distribution = base_distribution
+        if base_distribution is None:
+            self.register_buffer('loc', torch.zeros(self.event_size))
+            self.register_buffer('covariance_matrix', torch.eye(self.event_size))
+            self.base = torch.distributions.MultivariateNormal(loc=self.loc, covariance_matrix=self.covariance_matrix)
+        else:
+            self.register_buffer('loc', torch.zeros(self.event_size))  # Inaccurate
+            self.base = base_distribution
 
     def get_device(self):
         return self.loc.device
-
-    @property
-    def base(self) -> torch.distributions.Distribution:
-        """
-        :return: base distribution of the normalizing flow.
-        """
-        return torch.distributions.MultivariateNormal(loc=self.loc, covariance_matrix=self.covariance_matrix)
 
     def base_log_prob(self, z: torch.Tensor):
         """
@@ -229,12 +228,12 @@ class Flow(BaseFlow):
     A normalizing flow is itself a distribution which we can sample from or use it to compute the density of inputs.
     """
 
-    def __init__(self, bijection: Bijection):
+    def __init__(self, bijection: Bijection, **kwargs):
         """
 
         :param bijection: transformation component of the normalizing flow.
         """
-        super().__init__(event_shape=bijection.event_shape)
+        super().__init__(event_shape=bijection.event_shape, **kwargs)
         self.register_module('bijection', bijection)
 
     def forward_with_log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
@@ -302,8 +301,8 @@ class Flow(BaseFlow):
 
 
 class FlowMixture(BaseFlow):
-    def __init__(self, flows: List[Flow], weights: List[float] = None, trainable_weights: bool = False):
-        super().__init__(event_shape=flows[0].event_shape)
+    def __init__(self, flows: List[Flow], weights: List[float] = None, trainable_weights: bool = False, **kwargs):
+        super().__init__(event_shape=flows[0].event_shape, **kwargs)
 
         # Use uniform weights by default
         if weights is None:
