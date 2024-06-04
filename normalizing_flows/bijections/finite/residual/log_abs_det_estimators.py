@@ -144,7 +144,7 @@ class LogDeterminantEstimator(torch.autograd.Function):
 
 
 def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: float = 0.5):
-    noise = torch.randn_like(x)
+    noise = torch.randn_like(x).to(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: roulette_log_abs_det_estimator(*args, **kwargs, p=p),
         g,
@@ -157,7 +157,7 @@ def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: f
 
 def log_det_power_series(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8,
                          n_hutchinson_samples: int = 1):
-    noise = torch.randn(size=(*x.shape, n_hutchinson_samples))
+    noise = torch.randn(size=(*x.shape, n_hutchinson_samples)).to(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: power_series_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
         g,
