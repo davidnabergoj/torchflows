@@ -20,7 +20,7 @@ class BaseFlow(nn.Module):
             self.register_buffer('covariance_matrix', torch.eye(self.event_size))
             self.base = torch.distributions.MultivariateNormal(loc=self.loc, covariance_matrix=self.covariance_matrix)
         else:
-            self.register_buffer('loc', torch.zeros(self.event_size))  # Inaccurate
+            self.register_buffer('loc', torch.zeros(self.event_size))  # Hack
             self.base = base_distribution
 
     def get_device(self):
