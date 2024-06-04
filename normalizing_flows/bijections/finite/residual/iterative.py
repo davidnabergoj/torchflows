@@ -15,7 +15,7 @@ class SpectralLinear(nn.Module):
         super().__init__()
         self.c = c
         self.n_inputs = n_inputs
-        self.w = torch.randn(n_outputs, n_inputs)
+        self.w = nn.Parameter(torch.randn(n_outputs, n_inputs))
         self.bias = nn.Parameter(torch.randn(n_outputs))
         self.n_iterations = n_iterations
 
@@ -25,7 +25,7 @@ class SpectralLinear(nn.Module):
         # Spectral Normalization for Generative Adversarial Networks - Miyato et al. - 2018
 
         # Get maximum singular value of rectangular matrix w
-        u = torch.randn(self.n_inputs, 1)
+        u = torch.randn(self.n_inputs, 1).to(w)
         v = None
 
         w = w.T
