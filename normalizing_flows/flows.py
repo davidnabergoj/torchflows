@@ -275,6 +275,7 @@ class Flow(BaseFlow):
         :return: samples with shape (n, *event_shape) if no context given or (n, *c, *event_shape) if context given.
         """
         # TODO refactor
+        # TODO handle device better
         if context is not None:
             if hasattr(self.base, 'sample_with_log_prob') and return_log_prob:
                 z, log_base = self.base.sample_with_log_prob(sample_shape=torch.Size((n, len(context))))
@@ -288,6 +289,11 @@ class Flow(BaseFlow):
             else:
                 z = self.base_sample(sample_shape=torch.Size((n,)))
 
+        # Handle device
+        if context is not None:
+            context = context.to(self.get_device())
+        z = z.to(self.get_device())
+
         if no_grad:
             z = z.detach()
             with torch.no_grad():
@@ -298,7 +304,7 @@ class Flow(BaseFlow):
 
         if return_log_prob:
             if hasattr(self.base, 'sample_with_log_prob'):
-                log_prob = log_base + log_det
+                log_prob = log_base.to(z) + log_det
             else:
                 log_prob = self.base_log_prob(z) + log_det
             return x, log_prob

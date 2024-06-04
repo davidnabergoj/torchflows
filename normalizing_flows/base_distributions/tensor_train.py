@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple
 import numpy as np
 import torch
@@ -72,9 +73,17 @@ class TensorTrain(dist.Distribution):
         if unnormalized_target_log_prob is None:
             # Random normal initialization
             tt = tn.randn([self.basis_size] * self.event_size, ranks_tt=bond_dimension)
+            # modify cores for stability
+            for core_index in range(len(tt.cores) - 1):
+                tt.cores[core_index] = (
+                        tt.cores[core_index] / math.sqrt(self.event_size)
+                        + torch.eye(*tt.cores[core_index].shape[1:])[None]
+                )
 
             # Apply left-orthogonalization, end up with QQQQQ...QQQQR
             for core_index in range(self.event_size - 1):
+                # tt.cores[core_index] += torch.randn_like(tt.cores[core_index]) / self.event_size
+                tt.cores[core_index] /= tt.cores[core_index].norm()
                 tt.left_orthogonalize(mu=core_index)
             tt.cores[-1] /= tt.cores[-1].norm()  # Normalize the non-orthogonal core
             cores = tt.cores
@@ -82,6 +91,7 @@ class TensorTrain(dist.Distribution):
             tt = tn.Tensor(self.estimate_tensor_train_coefficients(unnormalized_target_log_prob))
             # Apply left-orthogonalization, end up with QQQQQ...QQQQR
             for core_index in range(self.event_size - 1):
+                tt.cores[core_index] /= tt.cores[core_index].norm()
                 tt.left_orthogonalize(mu=core_index)
             tt.cores[-1] /= tt.cores[-1].norm()  # Normalize the non-orthogonal core
             cores = tt.cores
@@ -90,6 +100,12 @@ class TensorTrain(dist.Distribution):
         for core_index in range(self.event_size - 1):
             if not is_orthonormal(cores[core_index]):
                 raise ValueError(f"Core {core_index} not orthonormal")
+
+        for core_index in range(self.event_size):
+            if cores[core_index].max() == cores[core_index].min() == 0.0:
+                raise ValueError(f"Core {core_index} contains only zeros")
+            if not torch.isfinite(cores[core_index]).all():
+                raise ValueError(f'Core {core_index} is not finite')
 
         self.cores = cores
         for i in range(len(self.cores)):
