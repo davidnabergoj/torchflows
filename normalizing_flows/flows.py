@@ -274,12 +274,20 @@ class Flow(BaseFlow):
         :param no_grad: if True, do not track gradients in the inverse pass.
         :return: samples with shape (n, *event_shape) if no context given or (n, *c, *event_shape) if context given.
         """
+        # TODO refactor
         if context is not None:
-            z = self.base_sample(sample_shape=torch.Size((n, len(context))))
+            if hasattr(self.base, 'sample_with_log_prob') and return_log_prob:
+                z, log_base = self.base.sample_with_log_prob(sample_shape=torch.Size((n, len(context))))
+            else:
+                z = self.base_sample(sample_shape=torch.Size((n, len(context))))
             context = context[None].repeat(*[n, *([1] * len(context.shape))])  # Make context shape match z shape
             assert z.shape[:2] == context.shape[:2]
         else:
-            z = self.base_sample(sample_shape=torch.Size((n,)))
+            if hasattr(self.base, 'sample_with_log_prob') and return_log_prob:
+                z, log_base = self.base.sample_with_log_prob(sample_shape=torch.Size((n,)))
+            else:
+                z = self.base_sample(sample_shape=torch.Size((n,)))
+
         if no_grad:
             z = z.detach()
             with torch.no_grad():
@@ -289,7 +297,10 @@ class Flow(BaseFlow):
         x = x.to(self.get_device())
 
         if return_log_prob:
-            log_prob = self.base_log_prob(z) + log_det
+            if hasattr(self.base, 'sample_with_log_prob'):
+                log_prob = log_base + log_det
+            else:
+                log_prob = self.base_log_prob(z) + log_det
             return x, log_prob
         return x
 
