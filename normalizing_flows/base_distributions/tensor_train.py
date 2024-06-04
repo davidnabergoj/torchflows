@@ -86,6 +86,8 @@ class TensorTrain(dist.Distribution):
                 raise ValueError(f"Core {core_index} not orthonormal")
 
         self.cores = cores
+        for i in range(len(self.cores)):
+            self.cores[i].requires_grad_(False)
 
     def estimate_tensor_train_coefficients(self, unnormalized_target_log_prob: callable):
         domain = [torch.linspace(-1 + 1e-6, 1 - 1e-6, self.n_quadrature_points)] * self.event_size
@@ -164,8 +166,9 @@ class TensorTrain(dist.Distribution):
                    dim: int,
                    sample_shape: torch.Size,
                    v: torch.Tensor = None,
-                   n_grid_points: int = 1000):
-        x_grid = torch.linspace(-1, 1, steps=n_grid_points)
+                   n_grid_points: int = 1000,
+                   epsilon: float = 1e-4):
+        x_grid = torch.linspace(-1 + epsilon, 1 - epsilon, steps=n_grid_points)
         if dim == self.event_size - 1:
             f, v = self.compute_f_v_first(x_grid)
         else:
