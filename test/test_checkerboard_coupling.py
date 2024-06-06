@@ -44,3 +44,19 @@ def test_checkerboard_medium():
         ], dtype=torch.bool)[None].repeat(3, 1, 1)
     )
     assert torch.allclose(coupling.target_mask, ~coupling.source_mask)
+
+
+def test_checkerboard_small_inverted():
+    torch.manual_seed(0)
+    image_shape = (3, 4, 4)
+    coupling = Checkerboard(image_shape, resolution=2, invert=True)
+    assert torch.allclose(
+        coupling.source_mask,
+        ~torch.tensor([
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+        ], dtype=torch.bool)[None].repeat(3, 1, 1)
+    )
+    assert torch.allclose(coupling.target_mask, ~coupling.source_mask)
