@@ -54,7 +54,6 @@ class TensorTrain(dist.Distribution):
                  unnormalized_target_log_prob: callable = None):
         assert basis_size > 0
         assert bond_dimension > 0
-        print("Initializing TensorTrain...")
 
         super().__init__(
             batch_shape=torch.Size(),
@@ -241,7 +240,15 @@ class TensorTrain(dist.Distribution):
         return self.sample_with_log_prob(sample_shape)[0]
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
+        # Contract with rightmost core (R)
+        core_index = self.event_size - 1
+        f_d, v_d = self.compute_f_v_first(x[..., core_index])
+
+        # Contract with orthonormal cores (Q)
+        for core_index in range(len(self.cores) - 2, -1, -1):
+            f_d, v_d = self.compute_f_v(x[..., core_index], v_d, core_index)
+
+        return torch.log(f_d)
 
 
 class UnconstrainedTensorTrain(TensorTrain):
