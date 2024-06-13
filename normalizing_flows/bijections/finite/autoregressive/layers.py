@@ -47,10 +47,13 @@ class AffineCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        coupling = make_coupling(event_shape, edge_list)
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -66,10 +69,13 @@ class InverseAffineCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
                  **kwargs):
         if event_shape == (1,):
             raise ValueError
-        coupling = make_coupling(event_shape, edge_list)
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = invert(Affine(event_shape=torch.Size((coupling.target_event_size,))))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -85,8 +91,11 @@ class ShiftCoupling(CouplingBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
                  **kwargs):
-        coupling = make_coupling(event_shape, edge_list)
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = Shift(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -103,9 +112,12 @@ class LRSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
                  **kwargs):
         assert n_bins >= 1
-        coupling = make_coupling(event_shape, edge_list)
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = LinearRational(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -122,8 +134,11 @@ class RQSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_bins: int = 8,
                  edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
                  **kwargs):
-        coupling = make_coupling(event_shape, edge_list)
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = RationalQuadratic(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
@@ -140,8 +155,11 @@ class DSCoupling(CouplingBijection):
                  context_shape: torch.Size = None,
                  n_hidden_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
                  **kwargs):
-        coupling = make_coupling(event_shape, edge_list)
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = DeepSigmoid(
             event_shape=torch.Size((coupling.target_event_size,)),
             n_hidden_layers=n_hidden_layers

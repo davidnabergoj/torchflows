@@ -26,7 +26,8 @@ class ConditionerTransform(nn.Module):
                  parameter_shape: Union[torch.Size, Tuple[int, ...]],
                  context_combiner: ContextCombiner = None,
                  global_parameter_mask: torch.Tensor = None,
-                 initial_global_parameter_value: float = None):
+                 initial_global_parameter_value: float = None,
+                 **kwargs):
         """
         :param input_event_shape: shape of conditioner input tensor x.
         :param context_shape: shape of conditioner context tensor c.

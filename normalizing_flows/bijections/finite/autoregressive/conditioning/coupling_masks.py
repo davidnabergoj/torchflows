@@ -101,8 +101,27 @@ class Checkerboard(Coupling):
         super().__init__(event_shape, mask)
 
 
-def make_coupling(event_shape, edge_list: List[Tuple[int, int]] = None):
-    if edge_list is None:
-        return HalfSplit(event_shape)
-    else:
+def make_coupling(event_shape, edge_list: List[Tuple[int, int]] = None, coupling_type: str = 'half_split', **kwargs):
+    """
+
+    :param event_shape:
+    :param coupling_type: one of ['half_split', 'checkerboard', 'checkerboard_inverted', 'channel_wise',
+        'channel_wise_inverted'].
+    :param edge_list:
+    :return:
+    """
+    if edge_list is not None:
         return GraphicalCoupling(event_shape, edge_list)
+    else:
+        if coupling_type == 'half_split':
+            return HalfSplit(event_shape)
+        elif coupling_type == 'checkerboard':
+            return Checkerboard(event_shape, invert=False, **kwargs)
+        elif coupling_type == 'checkerboard_inverted':
+            return Checkerboard(event_shape, invert=True, **kwargs)
+        elif coupling_type == 'channel_wise':
+            raise NotImplementedError
+        elif coupling_type == 'channel_wise_inverted':
+            raise NotImplementedError
+        else:
+            raise ValueError
