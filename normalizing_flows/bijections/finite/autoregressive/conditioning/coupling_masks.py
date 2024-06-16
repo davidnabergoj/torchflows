@@ -86,7 +86,7 @@ class Checkerboard(Coupling):
         and smaller than image width.
         :param invert: invert the checkerboard mask.
         """
-        n_channels, height, width = event_shape
+        height, width = event_shape[-2:]
         assert width % resolution == 0
         square_side_length = width // resolution
         assert resolution % 2 == 0
@@ -96,8 +96,25 @@ class Checkerboard(Coupling):
         mask = mask.bool()
         if invert:
             mask = ~mask
-        self.source_shape = (n_channels, height // resolution, width // resolution)
-        self.target_shape = (n_channels, height // resolution, width // resolution)
+        super().__init__(event_shape, mask)
+
+
+class ChannelWiseHalfSplit(Coupling):
+    """
+    Channel-wise coupling for image data.
+    """
+
+    def __init__(self, event_shape, invert: bool = False):
+        """
+        :param event_shape: image shape with the form (n_channels, height, width). Note: width and height must be equal
+        and a power of two.
+        :param invert: invert the checkerboard mask.
+        """
+        n_channels, height, width = event_shape
+        mask = torch.as_tensor(torch.arange(start=0, end=n_channels) < (n_channels // 2))
+        mask = mask[:, None, None].repeat(1, height, width)
+        if invert:
+            mask = ~mask
         super().__init__(event_shape, mask)
 
 
@@ -120,8 +137,8 @@ def make_coupling(event_shape, edge_list: List[Tuple[int, int]] = None, coupling
         elif coupling_type == 'checkerboard_inverted':
             return Checkerboard(event_shape, invert=True, **kwargs)
         elif coupling_type == 'channel_wise':
-            raise NotImplementedError
+            return ChannelWiseHalfSplit(event_shape, invert=False)
         elif coupling_type == 'channel_wise_inverted':
-            raise NotImplementedError
+            return ChannelWiseHalfSplit(event_shape, invert=True)
         else:
             raise ValueError
