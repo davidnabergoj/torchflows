@@ -1,5 +1,7 @@
-from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import Checkerboard
+
 import torch
+
+from normalizing_flows.bijections.finite.multiscale.coupling import Checkerboard
 
 
 def test_checkerboard_small():

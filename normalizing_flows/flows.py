@@ -275,18 +275,22 @@ class Flow(BaseFlow):
         :param no_grad: if True, do not track gradients in the inverse pass.
         :return: samples with shape (n, *event_shape) if no context given or (n, *c, *event_shape) if context given.
         """
+
         if context is not None:
-            z = self.base_sample(sample_shape=torch.Size((n, len(context))))
+            sample_shape = torch.Size((n, len(context)))
+            z = self.base_sample(sample_shape=sample_shape)
             context = context[None].repeat(*[n, *([1] * len(context.shape))])  # Make context shape match z shape
             assert z.shape[:2] == context.shape[:2]
         else:
-            z = self.base_sample(sample_shape=torch.Size((n,)))
+            sample_shape = torch.Size((n,))
+            z = self.base_sample(sample_shape=sample_shape)
+
         if no_grad:
             z = z.detach()
             with torch.no_grad():
-                x, log_det = self.bijection.inverse(z, context=context)
+                x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.transformed_shape), context=context)
         else:
-            x, log_det = self.bijection.inverse(z, context=context)
+            x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.transformed_shape), context=context)
         x = x.to(self.get_device())
 
         if return_log_prob:

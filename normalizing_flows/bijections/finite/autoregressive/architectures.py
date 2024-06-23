@@ -21,24 +21,6 @@ from normalizing_flows.bijections.finite.autoregressive.layers_base import Coupl
 from normalizing_flows.bijections.finite.linear import ReversePermutation
 
 
-def make_layers(base_bijection: Type[
-    Union[CouplingBijection, MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection]],
-                event_shape,
-                n_layers: int = 2,
-                edge_list: List[Tuple[int, int]] = None,
-                image_coupling: bool = False):
-    if image_coupling:
-        if len(event_shape) == 2:
-            bijections = make_image_layers_single_channel(base_bijection, event_shape, n_layers)
-        elif len(event_shape) == 3:
-            bijections = make_image_layers_multichannel(base_bijection, event_shape, n_layers)
-        else:
-            raise ValueError
-    else:
-        bijections = make_basic_layers(base_bijection, event_shape, n_layers, edge_list)
-    return bijections
-
-
 def make_basic_layers(base_bijection: Type[
     Union[CouplingBijection, MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection]],
                       event_shape,
@@ -56,100 +38,15 @@ def make_basic_layers(base_bijection: Type[
     return bijections
 
 
-def make_image_layers_single_channel(base_bijection: Type[
-    Union[CouplingBijection, MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection]],
-                                     event_shape,
-                                     n_layers: int = 2,
-                                     checkerboard_resolution: int = 2):
-    """
-    Returns a list of bijections for transformations of images with a single channel.
-
-    Each layer consists of two coupling transforms:
-        1. checkerboard,
-        2. checkerboard_inverted.
-    """
-    if len(event_shape) != 2:
-        raise ValueError("Single-channel image transformation are only possible for inputs with two axes.")
-
-    bijections = [ElementwiseAffine(event_shape=event_shape)]
-    for _ in range(n_layers):
-        bijections.append(base_bijection(
-            event_shape=event_shape,
-            coupling_kwargs={
-                'coupling_type': 'checkerboard',
-                'resolution': checkerboard_resolution,
-            }
-        ))
-        bijections.append(base_bijection(
-            event_shape=event_shape,
-            coupling_kwargs={
-                'coupling_type': 'checkerboard_inverted',
-                'resolution': checkerboard_resolution,
-            }
-        ))
-    bijections.append(ElementwiseAffine(event_shape=event_shape))
-    return bijections
-
-
-def make_image_layers_multichannel(base_bijection: Type[
-    Union[CouplingBijection, MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection]],
-                                   event_shape,
-                                   n_layers: int = 2,
-                                   checkerboard_resolution: int = 2):
-    """
-    Returns a list of bijections for transformations of images with multiple channels.
-
-    Each layer consists of four coupling transforms:
-        1. checkerboard,
-        2. channel_wise,
-        3. checkerboard_inverted,
-        4. channel_wise_inverted.
-    """
-    if len(event_shape) != 3:
-        raise ValueError("Multichannel image transformation are only possible for inputs with three axes.")
-
-    bijections = [ElementwiseAffine(event_shape=event_shape)]
-    for _ in range(n_layers):
-        bijections.append(base_bijection(
-            event_shape=event_shape,
-            coupling_kwargs={
-                'coupling_type': 'checkerboard',
-                'resolution': checkerboard_resolution,
-            }
-        ))
-        bijections.append(base_bijection(
-            event_shape=event_shape,
-            coupling_kwargs={
-                'coupling_type': 'channel_wise'
-            }
-        ))
-        bijections.append(base_bijection(
-            event_shape=event_shape,
-            coupling_kwargs={
-                'coupling_type': 'checkerboard_inverted',
-                'resolution': checkerboard_resolution,
-            }
-        ))
-        bijections.append(base_bijection(
-            event_shape=event_shape,
-            coupling_kwargs={
-                'coupling_type': 'channel_wise_inverted'
-            }
-        ))
-    bijections.append(ElementwiseAffine(event_shape=event_shape))
-    return bijections
-
-
 class NICE(BijectiveComposition):
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
-                 image_coupling: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_layers(ShiftCoupling, event_shape, n_layers, edge_list, image_coupling)
+        bijections = make_basic_layers(ShiftCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -158,11 +55,10 @@ class RealNVP(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
-                 image_coupling: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_layers(AffineCoupling, event_shape, n_layers, edge_list, image_coupling)
+        bijections = make_basic_layers(AffineCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -171,11 +67,10 @@ class InverseRealNVP(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
-                 image_coupling: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_layers(InverseAffineCoupling, event_shape, n_layers, edge_list, image_coupling)
+        bijections = make_basic_layers(InverseAffineCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -204,11 +99,10 @@ class CouplingRQNSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
-                 image_coupling: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_layers(RQSCoupling, event_shape, n_layers, edge_list, image_coupling)
+        bijections = make_basic_layers(RQSCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -229,11 +123,10 @@ class CouplingLRS(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
-                 image_coupling: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_layers(LRSCoupling, event_shape, n_layers, edge_list, image_coupling)
+        bijections = make_basic_layers(LRSCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -258,11 +151,10 @@ class CouplingDSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
-                 image_coupling: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_layers(DSCoupling, event_shape, n_layers, edge_list, image_coupling)
+        bijections = make_basic_layers(DSCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
