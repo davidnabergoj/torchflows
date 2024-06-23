@@ -98,6 +98,22 @@ class Squeeze(Bijection):
 
         return out, log_det
 
+    def forward2(self, x, context=None):
+        batch_shape = get_batch_shape(x, self.event_shape)
+        log_det = torch.zeros(*batch_shape, device=x.device, dtype=x.dtype)
+
+        channels, height, width = x.shape[-3:]
+        assert height % 2 == 0
+        assert width % 2 == 0
+
+        out = torch.concatenate([
+            x[..., ::2, ::2],
+            x[..., ::2, 1::2],
+            x[..., 1::2, ::2],
+            x[..., 1::2, 1::2]
+        ], dim=1)
+        return out, log_det
+
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Squeeze tensor with shape (*batch_shape, 4 * channels, height // 2, width // 2) into tensor with shape
