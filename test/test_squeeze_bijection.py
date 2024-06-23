@@ -32,3 +32,18 @@ def test_efficient_forward():
     z, log_det_forward = layer.forward(x)
     z2, log_det_forward2 = layer.forward2(x)
     assert torch.allclose(z, z2)
+
+
+def test_efficient_inverse():
+    x = torch.tensor([
+        [1, 2, 5, 6],
+        [3, 4, 7, 8],
+        [9, 10, 13, 14],
+        [11, 12, 15, 16]
+    ])[None, None]
+    layer = Squeeze(event_shape=x.shape[-3:])
+    z, log_det_forward = layer.forward(x)
+
+    xr, _ = layer.inverse2(z)
+
+    assert torch.allclose(x, xr)

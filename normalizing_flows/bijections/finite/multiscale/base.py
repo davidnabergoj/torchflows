@@ -146,6 +146,23 @@ class Squeeze(Bijection):
 
         return out, log_det
 
+    def inverse2(self, z, context=None):
+        batch_shape = get_batch_shape(z, self.transformed_event_shape)
+        log_det = torch.zeros(*batch_shape, device=z.device, dtype=z.dtype)
+
+        four_channels, half_height, half_width = z.shape[-3:]
+        assert four_channels % 4 == 0
+        width = 2 * half_width
+        height = 2 * half_height
+        channels = four_channels // 4
+
+        out = torch.empty(size=(*batch_shape, channels, height, width), device=z.device, dtype=z.dtype)
+        out[..., ::2, ::2] = z[..., 0, :, :]
+        out[..., ::2, 1::2] = z[..., 1, :, :]
+        out[..., 1::2, ::2] = z[..., 2, :, :]
+        out[..., 1::2, 1::2] = z[..., 3, :, :]
+        return out, log_det
+
 
 class MultiscaleBijection(BijectiveComposition):
     def __init__(self,
