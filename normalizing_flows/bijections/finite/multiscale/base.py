@@ -3,15 +3,58 @@ from typing import Type, Union, Tuple
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections import BijectiveComposition, CouplingBijection
-from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import FeedForward, ResidualFeedForward
+from normalizing_flows.bijections import BijectiveComposition
+from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
 from normalizing_flows.bijections.base import Bijection
+from normalizing_flows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer
-from normalizing_flows.bijections.finite.multiscale.coupling import make_image_coupling
+from normalizing_flows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
+    ChannelWiseHalfSplit
 from normalizing_flows.utils import get_batch_shape
 
 
-class CheckerboardCoupling(CouplingBijection):
+class ResNet(ConditionerTransform):
+    pass
+
+
+class ConvolutionalCouplingBijection(CouplingBijection):
+    def __init__(self,
+                 transformer: TensorTransformer,
+                 coupling: Union[Checkerboard, ChannelWiseHalfSplit],
+                 **kwargs):
+        conditioner_transform = ResNet()
+        super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)
+        self.coupling = coupling
+
+    def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x: tensor with shape (*b, channels, height, width).
+        :return: tensor with shape (*b, constant_channels, constant_height, constant_width).
+        """
+        batch_shape = get_batch_shape(x, self.event_shape)
+        return x[..., self.coupling.source_mask].view(*batch_shape, *self.coupling.constant_shape)
+
+    def get_transformed_part(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x: tensor with shape (*b, channels, height, width).
+        :return: tensor with shape (*b, transformed_channels, transformed_height, constant_width).
+        """
+        batch_shape = get_batch_shape(x, self.event_shape)
+        return x[..., self.coupling.target_mask].view(*batch_shape, *self.coupling.transformed_shape)
+
+    def set_transformed_part(self, x: torch.Tensor, x_transformed: torch.Tensor):
+        """
+
+        :param x: tensor with shape (*b, channels, height, width).
+        :param x_transformed: tensor with shape (*b, transformed_channels, transformed_height, transformed_width).
+        """
+        batch_shape = get_batch_shape(x, self.event_shape)
+        return x[..., self.coupling.target_mask].view(*batch_shape, *self.coupling.transformed_shape)
+
+
+class CheckerboardCoupling(ConvolutionalCouplingBijection):
     def __init__(self,
                  event_shape,
                  transformer_class: Type[TensorTransformer],
@@ -22,16 +65,10 @@ class CheckerboardCoupling(CouplingBijection):
             coupling_type='checkerboard' if not alternate else 'checkerboard_inverted'
         )
         transformer = transformer_class(event_shape=torch.Size((coupling.target_event_size,)))
-        conditioner_transform = ResidualFeedForward(
-            input_event_shape=torch.Size((coupling.source_event_size,)),
-            parameter_shape=torch.Size(transformer.parameter_shape),
-            nonlinearity=nn.Tanh,
-            **kwargs
-        )
-        super().__init__(transformer, coupling, conditioner_transform, **kwargs)
+        super().__init__(transformer, coupling, **kwargs)
 
 
-class ChannelWiseCoupling(CouplingBijection):
+class ChannelWiseCoupling(ConvolutionalCouplingBijection):
     def __init__(self,
                  event_shape,
                  transformer_class: Type[TensorTransformer],
@@ -42,13 +79,7 @@ class ChannelWiseCoupling(CouplingBijection):
             coupling_type='channel_wise' if not alternate else 'channel_wise_inverted'
         )
         transformer = transformer_class(event_shape=torch.Size((coupling.target_event_size,)))
-        conditioner_transform = ResidualFeedForward(
-            input_event_shape=torch.Size((coupling.source_event_size,)),
-            parameter_shape=torch.Size(transformer.parameter_shape),
-            nonlinearity=nn.Tanh,
-            **kwargs
-        )
-        super().__init__(transformer, coupling, conditioner_transform, **kwargs)
+        super().__init__(transformer, coupling, **kwargs)
 
 
 class Squeeze(Bijection):
