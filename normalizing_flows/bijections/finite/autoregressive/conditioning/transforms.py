@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Union
+from typing import Tuple, Union, Type
 
 import torch
 import torch.nn as nn
@@ -208,6 +208,7 @@ class FeedForward(ConditionerTransform):
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
                  n_layers: int = 2,
+                 nonlinearity: Type[nn.Module] = nn.Tanh,
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
@@ -223,9 +224,9 @@ class FeedForward(ConditionerTransform):
         if n_layers == 1:
             layers.append(nn.Linear(self.n_input_event_dims, self.n_predicted_parameters))
         elif n_layers > 1:
-            layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nn.Tanh()])
+            layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nonlinearity()])
             for _ in range(n_layers - 2):
-                layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
+                layers.extend([nn.Linear(n_hidden, n_hidden), nonlinearity()])
             layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         else:
             raise ValueError
@@ -243,15 +244,15 @@ class Linear(FeedForward):
 
 class ResidualFeedForward(ConditionerTransform):
     class ResidualBlock(nn.Module):
-        def __init__(self, event_size: int, hidden_size: int, block_size: int):
+        def __init__(self, event_size: int, hidden_size: int, block_size: int, nonlinearity: Type[nn.Module]):
             super().__init__()
             if block_size < 2:
                 raise ValueError(f"block_size must be at least 2 but found {block_size}. "
                                  f"For block_size = 1, use the FeedForward class instead.")
             layers = []
-            layers.extend([nn.Linear(event_size, hidden_size), nn.ReLU()])
+            layers.extend([nn.Linear(event_size, hidden_size), nonlinearity()])
             for _ in range(block_size - 2):
-                layers.extend([nn.Linear(hidden_size, hidden_size), nn.ReLU()])
+                layers.extend([nn.Linear(hidden_size, hidden_size), nonlinearity()])
             layers.extend([nn.Linear(hidden_size, event_size)])
             self.sequential = nn.Sequential(*layers)
 
@@ -265,6 +266,7 @@ class ResidualFeedForward(ConditionerTransform):
                  n_hidden: int = None,
                  n_layers: int = 3,
                  block_size: int = 2,
+                 nonlinearity: Type[nn.Module] = nn.ReLU,
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
@@ -279,9 +281,9 @@ class ResidualFeedForward(ConditionerTransform):
         if n_layers <= 2:
             raise ValueError(f"Number of layers in ResidualFeedForward must be at least 3, but found {n_layers}")
 
-        layers = [nn.Linear(self.n_input_event_dims, n_hidden), nn.ReLU()]
+        layers = [nn.Linear(self.n_input_event_dims, n_hidden), nonlinearity()]
         for _ in range(n_layers - 2):
-            layers.append(self.ResidualBlock(n_hidden, n_hidden, block_size))
+            layers.append(self.ResidualBlock(n_hidden, n_hidden, block_size, nonlinearity=nonlinearity))
         layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
         self.sequential = nn.Sequential(*layers)
