@@ -138,7 +138,7 @@ def make_resnet152(image_width, n_outputs):
 
 if __name__ == '__main__':
     n_images = 2
-    image_shape = (3, 270, 270)
+    image_shape = (3, 32, 32)
 
     net = make_resnet18(image_width=image_shape[-1], n_outputs=15)
     y = net(torch.randn(n_images, *image_shape))
