@@ -8,32 +8,23 @@ class Checkerboard(Coupling):
     Checkerboard coupling for image data.
     """
 
-    def __init__(self, event_shape, resolution: int = 2, invert: bool = False):
+    def __init__(self, event_shape, invert: bool = False):
         """
         :param event_shape: image shape with the form (n_channels, height, width). Note: width and height must be equal
         and a power of two.
-        :param resolution: resolution of the checkerboard along one axis - the number of squares. Must be a power of two
-        and smaller than image width.
         :param invert: invert the checkerboard mask.
         """
         channels, height, width = event_shape
-        assert width % resolution == 0
-        square_side_length = width // resolution
-        assert resolution % 2 == 0
-        half_resolution = resolution // 2
-        a = torch.tensor([[1, 0] * half_resolution, [0, 1] * half_resolution] * half_resolution)
-        mask = torch.kron(a, torch.ones((square_side_length, square_side_length)))
-        mask = mask.bool()
+        mask = (torch.arange(height * width) % 2).view(height, width).bool()
         mask = mask[None].repeat(channels, 1, 1)  # (channels, height, width)
         if invert:
             mask = ~mask
-        self.resolution = resolution
         super().__init__(event_shape, mask)
 
     @property
     def constant_shape(self):
-        n_channels, _, _ = self.event_shape
-        return n_channels, self.resolution, self.resolution
+        n_channels, height, width = self.event_shape
+        return n_channels, height // 2, width  # rectangular shape
 
     @property
     def transformed_shape(self):

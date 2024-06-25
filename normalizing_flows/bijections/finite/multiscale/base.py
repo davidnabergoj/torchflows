@@ -1,7 +1,6 @@
 from typing import Type, Union, Tuple
 
 import torch
-import torch.nn as nn
 
 from normalizing_flows.bijections import BijectiveComposition
 from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
@@ -10,11 +9,30 @@ from normalizing_flows.bijections.finite.autoregressive.layers_base import Coupl
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from normalizing_flows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
     ChannelWiseHalfSplit
+from normalizing_flows.neural_networks.convnet import ConvNet
 from normalizing_flows.utils import get_batch_shape
 
 
-class ResNet(ConditionerTransform):
-    pass
+class ConvNetConditioner(ConditionerTransform):
+    def __init__(self,
+                 input_event_shape: torch.Size,
+                 parameter_shape: torch.Size,
+                 kernels: Tuple[int, ...] = None,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            context_shape=None,
+            parameter_shape=parameter_shape,
+            **kwargs
+        )
+        self.network = ConvNet(
+            input_shape=input_event_shape,
+            n_outputs=self.n_transformer_parameters,
+            kernels=kernels,
+        )
+
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        return self.network(x)
 
 
 class ConvolutionalCouplingBijection(CouplingBijection):
@@ -22,8 +40,12 @@ class ConvolutionalCouplingBijection(CouplingBijection):
                  transformer: TensorTransformer,
                  coupling: Union[Checkerboard, ChannelWiseHalfSplit],
                  **kwargs):
-        conditioner_transform = ResNet()
-        super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)
+        conditioner_transform = ConvNetConditioner(
+            input_event_shape=coupling.constant_shape,
+            parameter_shape=transformer.parameter_shape,
+            **kwargs
+        )
+        super().__init__(transformer, coupling, conditioner_transform, **kwargs)
         self.coupling = coupling
 
     def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
@@ -53,6 +75,12 @@ class ConvolutionalCouplingBijection(CouplingBijection):
         batch_shape = get_batch_shape(x, self.event_shape)
         return x[..., self.coupling.target_mask].view(*batch_shape, *self.coupling.transformed_shape)
 
+    def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
+        batch_shape = get_batch_shape(x, self.event_shape)
+        super_out = super().partition_and_predict_parameters(x, context)
+        return super_out.view(*batch_shape, *self.coupling.transformed_shape,
+                              *self.transformer.parameter_shape_per_element)
+
 
 class CheckerboardCoupling(ConvolutionalCouplingBijection):
     def __init__(self,
@@ -64,7 +92,7 @@ class CheckerboardCoupling(ConvolutionalCouplingBijection):
             event_shape,
             coupling_type='checkerboard' if not alternate else 'checkerboard_inverted'
         )
-        transformer = transformer_class(event_shape=torch.Size((coupling.target_event_size,)))
+        transformer = transformer_class(event_shape=coupling.transformed_shape)
         super().__init__(transformer, coupling, **kwargs)
 
 
@@ -78,7 +106,7 @@ class ChannelWiseCoupling(ConvolutionalCouplingBijection):
             event_shape,
             coupling_type='channel_wise' if not alternate else 'channel_wise_inverted'
         )
-        transformer = transformer_class(event_shape=torch.Size((coupling.target_event_size,)))
+        transformer = transformer_class(event_shape=coupling.transformed_shape)
         super().__init__(transformer, coupling, **kwargs)
 
 
@@ -151,14 +179,11 @@ class MultiscaleBijection(BijectiveComposition):
                  n_channel_wise_layers: int = 3,
                  use_squeeze_layer: bool = True,
                  **kwargs):
-        channels, height, width = input_event_shape[-3:]
-        resolution = min(width, height) // 2
         checkerboard_layers = [
             CheckerboardCoupling(
                 input_event_shape,
                 transformer_class,
-                alternate=i % 2 == 1,
-                resolution=resolution
+                alternate=i % 2 == 1
             )
             for i in range(n_checkerboard_layers)
         ]
@@ -167,8 +192,7 @@ class MultiscaleBijection(BijectiveComposition):
             ChannelWiseCoupling(
                 squeeze_layer.transformed_event_shape,
                 transformer_class,
-                alternate=i % 2 == 1,
-                resolution=resolution
+                alternate=i % 2 == 1
             )
             for i in range(n_channel_wise_layers)
         ]
