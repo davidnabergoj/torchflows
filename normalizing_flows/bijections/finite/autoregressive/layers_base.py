@@ -61,9 +61,6 @@ class CouplingBijection(AutoregressiveBijection):
         super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)
         self.coupling = coupling
 
-        assert conditioner_transform.input_event_shape == (coupling.source_event_size,)
-        assert transformer.event_shape == (self.coupling.target_event_size,)
-
     def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
         return x[..., self.coupling.source_mask]
 
