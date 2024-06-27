@@ -26,4 +26,9 @@ from normalizing_flows.bijections.finite.residual.architectures import (
     Sylvester
 )
 
-from normalizing_flows.bijections.finite.multiscale.architectures import MultiscaleRealNVP
+from normalizing_flows.bijections.finite.multiscale.architectures import (
+    MultiscaleRealNVP,
+    MultiscaleRQNSF,
+    MultiscaleLRSNSF,
+    MultiscaleNICE
+)
