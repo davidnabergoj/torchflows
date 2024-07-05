@@ -8,8 +8,8 @@ def test_basic():
 
     bijection = FactoredBijection(
         event_shape=(6, 6),
-        transformed_event_shape=(3, 3),
-        transformed_event_mask=torch.tensor([
+        small_bijection_event_shape=(3, 3),
+        small_bijection_mask=torch.tensor([
             [True, True, True, False, False, False],
             [True, True, True, False, False, False],
             [True, True, True, False, False, False],

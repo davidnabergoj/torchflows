@@ -23,17 +23,14 @@ class FactoredBijection(Bijection):
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 transformed_event_shape: Union[torch.Size, Tuple[int, ...]],
                  small_bijection: Bijection,
-                 transformed_event_mask: torch.Tensor,
+                 small_bijection_mask: torch.Tensor,
                  **kwargs):
         """
 
         :param event_shape: shape of input event x.
-        :param transformed_event_shape: shape of transformed event x_A.
-        :param constant_event_shape: shape of constant event x_B.
         :param small_bijection: bijection applied to transformed event x_A.
-        :param transformed_event_mask: boolean mask that selects which elements of event x correspond to the transformed
+        :param small_bijection_mask: boolean mask that selects which elements of event x correspond to the transformed
             event x_A.
         :param kwargs:
         """
@@ -41,20 +38,18 @@ class FactoredBijection(Bijection):
 
         # Check that shapes are correct
         event_size = torch.prod(torch.as_tensor(event_shape))
-        transformed_event_size = torch.prod(torch.as_tensor(transformed_event_shape))
+        transformed_event_size = torch.prod(torch.as_tensor(small_bijection.event_shape))
         assert event_size >= transformed_event_size
 
-        assert transformed_event_mask.shape == event_shape
-        assert small_bijection.event_shape == transformed_event_shape
+        assert small_bijection_mask.shape == event_shape
 
-        self.transformed_event_mask = transformed_event_mask
-        self.transformed_event_shape = transformed_event_shape
+        self.transformed_event_mask = small_bijection_mask
         self.small_bijection = small_bijection
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(x, self.event_shape)
         transformed, log_det = self.small_bijection.forward(
-            x[..., self.transformed_event_mask].view(*batch_shape, *self.transformed_event_shape),
+            x[..., self.transformed_event_mask].view(*batch_shape, *self.small_bijection.event_shape),
             context
         )
         out = x.clone()
@@ -64,7 +59,7 @@ class FactoredBijection(Bijection):
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
         transformed, log_det = self.small_bijection.inverse(
-            z[..., self.transformed_event_mask].view(*batch_shape, *self.transformed_event_shape),
+            z[..., self.transformed_event_mask].view(*batch_shape, *self.small_bijection.transformed_shape),
             context
         )
         out = z.clone()
