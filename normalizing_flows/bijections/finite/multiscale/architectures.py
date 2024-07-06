@@ -4,14 +4,48 @@ from normalizing_flows.bijections.finite.autoregressive.layers import Elementwis
 from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Shift
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear as LinearRational
+from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
+    DeepSigmoid,
+    DeepDenseSigmoid,
+    DenseSigmoid
+)
 from normalizing_flows.bijections import BijectiveComposition
 from normalizing_flows.bijections.finite.multiscale.base import MultiscaleBijection, FactoredBijection
-import math
+
+
+def check_image_shape_for_multiscale_flow(event_shape, n_layers):
+    if len(event_shape) != 3:
+        raise ValueError("Multichannel image transformation are only possible for inputs with 3 axes.")
+    if event_shape[1] % 2 != 0 or event_shape[2] % 2 != 0:
+        raise ValueError("Image height and width must be divisible by 2.")
+    if n_layers is not None and n_layers < 1:
+        raise ValueError("Need at least one layer for multiscale flow.")
+
+    # Check image height and width
+    if n_layers is not None:
+        if event_shape[1] % (2 ** n_layers) != 0:
+            raise ValueError("Image height must be divisible by pow(2, n_layers).")
+        elif event_shape[2] % (2 ** n_layers) != 0:
+            raise ValueError("Image width must be divisible by pow(2, n_layers).")
+
+
+def automatically_determine_n_layers(event_shape):
+    if event_shape[1] % (2 ** 3) == 0 and event_shape[2] % (2 ** 3) == 0:
+        # Try using 3 layers
+        n_layers = 3
+    elif event_shape[1] % (2 ** 2) == 0 and event_shape[2] % (2 ** 2) == 0:
+        # Try using 2 layers
+        n_layers = 2
+    elif event_shape[1] % 2 == 0 and event_shape[2] % 2 == 0:
+        n_layers = 1
+    else:
+        raise ValueError("Image height and width must be divisible by 2.")
+    return n_layers
 
 
 def make_factored_image_layers(event_shape,
                                transformer_class,
-                               n_layers: int = 2):
+                               n_layers: int = None):
     """
     Creates a list of image transformations consisting of coupling layers and squeeze layers.
     After each coupling, squeeze, coupling mapping, half of the channels are kept as is (not transformed anymore).
@@ -21,19 +55,10 @@ def make_factored_image_layers(event_shape,
     :param n_layers:
     :return:
     """
-    if len(event_shape) != 3:
-        raise ValueError("Multichannel image transformation are only possible for inputs with three axes.")
-    if bin(event_shape[1]).count("1") != 1:
-        raise ValueError("Image height must be a power of two.")
-    if bin(event_shape[2]).count("1") != 1:
-        raise ValueError("Image width must be a power of two.")
-    if n_layers < 1:
-        raise ValueError
-
-    log_height = math.log2(event_shape[1])
-    log_width = math.log2(event_shape[2])
-    if n_layers > min(log_height, log_width):
-        raise ValueError("Too many layers for input image size")
+    check_image_shape_for_multiscale_flow(event_shape, n_layers)
+    if n_layers is None:
+        n_layers = automatically_determine_n_layers(event_shape)
+    check_image_shape_for_multiscale_flow(event_shape, n_layers)
 
     def recursive_layer_builder(event_shape_, n_layers_):
         msb = MultiscaleBijection(
@@ -70,16 +95,17 @@ def make_factored_image_layers(event_shape,
 
 def make_image_layers_non_factored(event_shape,
                                    transformer_class,
-                                   n_layers: int = 2):
+                                   n_layers: int = None):
     """
     Returns a list of bijections for transformations of images with multiple channels.
+
+    Let n be the number of layers. This sequence of bijections takes as input an image with shape (c, h, w) and outputs
+    an image with shape (4 ** n * c, h / 2 ** n, w / 2 ** n). We require h and w to be divisible by 2 ** n.
     """
-    if len(event_shape) != 3:
-        raise ValueError("Multichannel image transformation are only possible for inputs with three axes.")
-
-    assert n_layers >= 1
-
-    # TODO check that image shape is big enough for this number of layers (divisibility by 2)
+    check_image_shape_for_multiscale_flow(event_shape, n_layers)
+    if n_layers is None:
+        n_layers = automatically_determine_n_layers(event_shape)
+    check_image_shape_for_multiscale_flow(event_shape, n_layers)
 
     bijections = [ElementwiseAffine(event_shape=event_shape)]
     for _ in range(n_layers - 1):
@@ -112,7 +138,7 @@ def make_image_layers(*args, factored: bool = False, **kwargs):
 class MultiscaleRealNVP(BijectiveComposition):
     def __init__(self,
                  event_shape,
-                 n_layers: int = 3,
+                 n_layers: int = None,
                  factored: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
@@ -125,7 +151,7 @@ class MultiscaleRealNVP(BijectiveComposition):
 class MultiscaleNICE(BijectiveComposition):
     def __init__(self,
                  event_shape,
-                 n_layers: int = 3,
+                 n_layers: int = None,
                  factored: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
@@ -138,7 +164,7 @@ class MultiscaleNICE(BijectiveComposition):
 class MultiscaleRQNSF(BijectiveComposition):
     def __init__(self,
                  event_shape,
-                 n_layers: int = 3,
+                 n_layers: int = None,
                  factored: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
@@ -151,7 +177,7 @@ class MultiscaleRQNSF(BijectiveComposition):
 class MultiscaleLRSNSF(BijectiveComposition):
     def __init__(self,
                  event_shape,
-                 n_layers: int = 3,
+                 n_layers: int = None,
                  factored: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
