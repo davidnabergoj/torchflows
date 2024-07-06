@@ -11,7 +11,8 @@ from normalizing_flows.utils import get_batch_shape
 class Bijection(nn.Module):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 context_shape: Union[torch.Size, Tuple[int, ...]] = None):
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 **kwargs):
         """
         Bijection class.
         """
@@ -19,6 +20,7 @@ class Bijection(nn.Module):
         self.event_shape = event_shape
         self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         self.context_shape = context_shape
+        self.transformed_shape = self.event_shape  # Overwritten in multiscale flows TODO make into property
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -80,6 +82,8 @@ class Bijection(nn.Module):
         assert log_dets.shape == batch_shape
         return outputs, log_dets
 
+    def regularization(self):
+        return 0.0
 
 def invert(bijection):
     """
@@ -93,7 +97,8 @@ class BijectiveComposition(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  layers: List[Bijection],
-                 context_shape: Union[torch.Size, Tuple[int, ...]] = None):
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 **kwargs):
         super().__init__(event_shape=event_shape, context_shape=context_shape)
         self.layers = nn.ModuleList(layers)
 
@@ -112,3 +117,6 @@ class BijectiveComposition(Bijection):
             log_det += log_det_layer
         x = z
         return x, log_det
+
+    def regularization(self):
+        return sum([layer.regularization() for layer in self.layers])

@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, Union
+from typing import Tuple, Union, Type
 
 import torch
 import torch.nn as nn
@@ -26,7 +26,8 @@ class ConditionerTransform(nn.Module):
                  parameter_shape: Union[torch.Size, Tuple[int, ...]],
                  context_combiner: ContextCombiner = None,
                  global_parameter_mask: torch.Tensor = None,
-                 initial_global_parameter_value: float = None):
+                 initial_global_parameter_value: float = None,
+                 **kwargs):
         """
         :param input_event_shape: shape of conditioner input tensor x.
         :param context_shape: shape of conditioner context tensor c.
@@ -95,6 +96,9 @@ class ConditionerTransform(nn.Module):
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         raise NotImplementedError
+
+    def regularization(self):
+        return sum([torch.sum(torch.square(p)) for p in self.parameters()])
 
 
 class Constant(ConditionerTransform):
@@ -204,6 +208,7 @@ class FeedForward(ConditionerTransform):
                  context_shape: torch.Size = None,
                  n_hidden: int = None,
                  n_layers: int = 2,
+                 nonlinearity: Type[nn.Module] = nn.Tanh,
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
@@ -219,9 +224,9 @@ class FeedForward(ConditionerTransform):
         if n_layers == 1:
             layers.append(nn.Linear(self.n_input_event_dims, self.n_predicted_parameters))
         elif n_layers > 1:
-            layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nn.Tanh()])
+            layers.extend([nn.Linear(self.n_input_event_dims, n_hidden), nonlinearity()])
             for _ in range(n_layers - 2):
-                layers.extend([nn.Linear(n_hidden, n_hidden), nn.Tanh()])
+                layers.extend([nn.Linear(n_hidden, n_hidden), nonlinearity()])
             layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         else:
             raise ValueError
@@ -239,15 +244,15 @@ class Linear(FeedForward):
 
 class ResidualFeedForward(ConditionerTransform):
     class ResidualBlock(nn.Module):
-        def __init__(self, event_size: int, hidden_size: int, block_size: int):
+        def __init__(self, event_size: int, hidden_size: int, block_size: int, nonlinearity: Type[nn.Module]):
             super().__init__()
             if block_size < 2:
                 raise ValueError(f"block_size must be at least 2 but found {block_size}. "
                                  f"For block_size = 1, use the FeedForward class instead.")
             layers = []
-            layers.extend([nn.Linear(event_size, hidden_size), nn.ReLU()])
+            layers.extend([nn.Linear(event_size, hidden_size), nonlinearity()])
             for _ in range(block_size - 2):
-                layers.extend([nn.Linear(hidden_size, hidden_size), nn.ReLU()])
+                layers.extend([nn.Linear(hidden_size, hidden_size), nonlinearity()])
             layers.extend([nn.Linear(hidden_size, event_size)])
             self.sequential = nn.Sequential(*layers)
 
@@ -261,6 +266,7 @@ class ResidualFeedForward(ConditionerTransform):
                  n_hidden: int = None,
                  n_layers: int = 3,
                  block_size: int = 2,
+                 nonlinearity: Type[nn.Module] = nn.ReLU,
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
@@ -275,12 +281,76 @@ class ResidualFeedForward(ConditionerTransform):
         if n_layers <= 2:
             raise ValueError(f"Number of layers in ResidualFeedForward must be at least 3, but found {n_layers}")
 
-        layers = [nn.Linear(self.n_input_event_dims, n_hidden), nn.ReLU()]
+        layers = [nn.Linear(self.n_input_event_dims, n_hidden), nonlinearity()]
         for _ in range(n_layers - 2):
-            layers.append(self.ResidualBlock(n_hidden, n_hidden, block_size))
+            layers.append(self.ResidualBlock(n_hidden, n_hidden, block_size, nonlinearity=nonlinearity))
         layers.append(nn.Linear(n_hidden, self.n_predicted_parameters))
         layers.append(nn.Unflatten(dim=-1, unflattened_size=self.parameter_shape))
         self.sequential = nn.Sequential(*layers)
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         return self.sequential(self.context_combiner(x, context))
+
+
+class CombinedConditioner(nn.Module):
+    """
+    Class that uses two different conditioners (each acting on different dimensions) to predict transformation
+    parameters. Transformation parameters are combined in a single vector.
+    """
+
+    def __init__(self,
+                 conditioner1: ConditionerTransform,
+                 conditioner2: ConditionerTransform,
+                 conditioner1_input_mask: torch.Tensor,
+                 conditioner2_input_mask: torch.Tensor):
+        super().__init__()
+        self.conditioner1 = conditioner1
+        self.conditioner2 = conditioner2
+        self.mask1 = conditioner1_input_mask
+        self.mask2 = conditioner2_input_mask
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None):
+        h1 = self.conditioner1(x[..., self.mask1], context)
+        h2 = self.conditioner1(x[..., self.mask1], context)
+        return h1 + h2
+
+    def regularization(self):
+        return self.conditioner1.regularization() + self.conditioner2.regularization()
+
+
+class RegularizedCombinedConditioner(CombinedConditioner):
+    def __init__(self,
+                 conditioner1: ConditionerTransform,
+                 conditioner2: ConditionerTransform,
+                 conditioner1_input_mask: torch.Tensor,
+                 conditioner2_input_mask: torch.Tensor,
+                 regularization_coefficient_1: float,
+                 regularization_coefficient_2: float):
+        super().__init__(
+            conditioner1,
+            conditioner2,
+            conditioner1_input_mask,
+            conditioner2_input_mask
+        )
+        self.c1 = regularization_coefficient_1
+        self.c2 = regularization_coefficient_2
+
+    def regularization(self):
+        return self.c1 * self.conditioner1.regularization() + self.c2 * self.conditioner2.regularization()
+
+
+class RegularizedGraphicalConditioner(RegularizedCombinedConditioner):
+    def __init__(self,
+                 interacting_dimensions_conditioner: ConditionerTransform,
+                 auxiliary_dimensions_conditioner: ConditionerTransform,
+                 interacting_dimensions_mask: torch.Tensor,
+                 auxiliary_dimensions_mask: torch.Tensor,
+                 coefficient: float = 0.1):
+        super().__init__(
+            interacting_dimensions_conditioner,
+            auxiliary_dimensions_conditioner,
+            interacting_dimensions_mask,
+            auxiliary_dimensions_mask,
+            regularization_coefficient_1=0.0,
+            regularization_coefficient_2=coefficient
+        )

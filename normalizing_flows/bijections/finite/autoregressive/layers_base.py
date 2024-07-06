@@ -1,11 +1,11 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, Type
 
 import torch
 import torch.nn as nn
 
 from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform, \
     MADE
-from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import CouplingMask
+from normalizing_flows.bijections.finite.autoregressive.conditioning.coupling_masks import PartialCoupling
 from normalizing_flows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from normalizing_flows.bijections.base import Bijection
 from normalizing_flows.utils import flatten_event, unflatten_event, get_batch_shape
@@ -31,6 +31,9 @@ class AutoregressiveBijection(Bijection):
         x, log_det = self.transformer.inverse(z, h)
         return x, log_det
 
+    def regularization(self):
+        return self.conditioner_transform.regularization() if self.conditioner_transform is not None else 0.0
+
 
 class CouplingBijection(AutoregressiveBijection):
     """
@@ -52,14 +55,20 @@ class CouplingBijection(AutoregressiveBijection):
 
     def __init__(self,
                  transformer: TensorTransformer,
-                 coupling_mask: CouplingMask,
+                 coupling: PartialCoupling,
                  conditioner_transform: ConditionerTransform,
                  **kwargs):
-        super().__init__(coupling_mask.event_shape, transformer, conditioner_transform, **kwargs)
-        self.coupling_mask = coupling_mask
+        super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)
+        self.coupling = coupling
 
-        assert conditioner_transform.input_event_shape == (coupling_mask.constant_event_size,)
-        assert transformer.event_shape == (self.coupling_mask.transformed_event_size,)
+    def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
+        return x[..., self.coupling.source_mask]
+
+    def get_transformed_part(self, x: torch.Tensor) -> torch.Tensor:
+        return x[..., self.coupling.target_mask]
+
+    def set_transformed_part(self, x: torch.Tensor, x_transformed: torch.Tensor):
+        x[..., self.coupling.target_mask] = x_transformed
 
     def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
         """
@@ -70,20 +79,28 @@ class CouplingBijection(AutoregressiveBijection):
         :return: parameter tensor h with h.shape = (*batch_shape, *parameter_shape).
         """
         # Predict transformer parameters for output dimensions
-        x_a = x[..., self.coupling_mask.mask]  # (*b, constant_event_size)
+        x_a = self.get_constant_part(x)  # (*b, constant_event_size)
         h_b = self.conditioner_transform(x_a, context=context)  # (*b, *p)
         return h_b
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         z = x.clone()
         h_b = self.partition_and_predict_parameters(x, context)
-        z[..., ~self.coupling_mask.mask], log_det = self.transformer.forward(x[..., ~self.coupling_mask.mask], h_b)
+        z_transformed, log_det = self.transformer.forward(
+            self.get_transformed_part(x),
+            h_b
+        )
+        self.set_transformed_part(z, z_transformed)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         x = z.clone()
         h_b = self.partition_and_predict_parameters(x, context)
-        x[..., ~self.coupling_mask.mask], log_det = self.transformer.inverse(z[..., ~self.coupling_mask.mask], h_b)
+        x_transformed, log_det = self.transformer.inverse(
+            self.get_transformed_part(z),
+            h_b
+        )
+        self.set_transformed_part(x, x_transformed)
         return x, log_det
 
 
