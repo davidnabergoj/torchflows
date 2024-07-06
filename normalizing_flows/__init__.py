@@ -1,4 +1,4 @@
-from normalizing_flows.flows import Flow
+from normalizing_flows.flows import Flow, FlowMixture
 from normalizing_flows.bijections import (
     NICE,
     RealNVP,
