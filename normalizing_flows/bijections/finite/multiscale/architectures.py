@@ -185,3 +185,42 @@ class MultiscaleLRSNSF(BijectiveComposition):
         bijections = make_image_layers(event_shape, LinearRational, n_layers, factored=factored)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
+
+
+class MultiscaleDeepSigmoid(BijectiveComposition):
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = None,
+                 factored: bool = False,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_image_layers(event_shape, DeepSigmoid, n_layers, factored=factored)
+        super().__init__(event_shape, bijections, **kwargs)
+        self.transformed_shape = bijections[-1].transformed_shape
+
+
+class MultiscaleDeepDenseSigmoid(BijectiveComposition):
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = None,
+                 factored: bool = False,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_image_layers(event_shape, DeepDenseSigmoid, n_layers, factored=factored)
+        super().__init__(event_shape, bijections, **kwargs)
+        self.transformed_shape = bijections[-1].transformed_shape
+
+
+class MultiscaleDenseSigmoid(BijectiveComposition):
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = None,
+                 factored: bool = False,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_image_layers(event_shape, DenseSigmoid, n_layers, factored=factored)
+        super().__init__(event_shape, bijections, **kwargs)
+        self.transformed_shape = bijections[-1].transformed_shape
