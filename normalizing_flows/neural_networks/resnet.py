@@ -77,18 +77,37 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, image_width, block, num_blocks, n_hidden=100, n_outputs=10):
+    """
+    ResNet class.
+    """
+
+    def __init__(self, c, h, w, block, num_blocks, n_hidden=100, n_outputs=10):
+        """
+
+        :param c: number of input image channels.
+        :param h: input image height.
+        :param w: input image width.
+        :param block: block class for ResNet.
+        :param num_blocks: List of block numbers for each of the four layers.
+        :param n_hidden: number of hidden units at the last linear layer.
+        :param n_outputs: number of outputs.
+        """
+        if h % 4 != 0:
+            raise ValueError('Image height must be divisible by 4.')
+        if w % 4 != 0:
+            raise ValueError('Image width must be divisible by 4.')
+
         super(ResNet, self).__init__()
         self.in_planes = 64
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
+        self.conv1 = nn.Conv2d(c, 64, kernel_size=3,
                                stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.linear1 = nn.Linear(512 * block.expansion * (image_width // 32) ** 2, n_hidden)
+        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=1)
+        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=1)
+        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
+        self.linear1 = nn.Linear(512 * h * w // 16, n_hidden)
         self.linear2 = nn.Linear(n_hidden, n_outputs)
 
     def _make_layer(self, block, planes, num_blocks, stride):
@@ -111,35 +130,35 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
         out = out.flatten(start_dim=1, end_dim=-1)
-        out = self.linear1(out)
+        out = F.relu(self.linear1(out))
         out = self.linear2(out)
         return out
 
 
-def make_resnet18(image_width, n_outputs):
-    return ResNet(image_width, BasicBlock, [2, 2, 2, 2], n_outputs=n_outputs)
+def make_resnet18(image_shape, out):
+    return ResNet(*image_shape, BasicBlock, num_blocks=[2, 2, 2, 2], n_outputs=out)
 
 
-def make_resnet34(image_width, n_outputs):
-    return ResNet(image_width, BasicBlock, [3, 4, 6, 3], n_outputs=n_outputs)
+def make_resnet34(image_shape, out):
+    return ResNet(*image_shape, BasicBlock, num_blocks=[3, 4, 6, 3], n_outputs=out)
 
 
-def make_resnet50(image_width, n_outputs):
-    return ResNet(image_width, Bottleneck, [3, 4, 6, 3], n_outputs=n_outputs)
+def make_resnet50(image_shape, out):
+    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 6, 3], n_outputs=out)
 
 
-def make_resnet101(image_width, n_outputs):
-    return ResNet(image_width, Bottleneck, [3, 4, 23, 3], n_outputs=n_outputs)
+def make_resnet101(image_shape, out):
+    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 23, 3], n_outputs=out)
 
 
-def make_resnet152(image_width, n_outputs):
-    return ResNet(image_width, Bottleneck, [3, 8, 36, 3], n_outputs=n_outputs)
+def make_resnet152(image_shape, out):
+    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 8, 36, 3], n_outputs=out)
 
 
 if __name__ == '__main__':
     n_images = 2
-    image_shape = (3, 32, 32)
+    event_shape = (5, 8 * 7, 4 * 7)
 
-    net = make_resnet18(image_width=image_shape[-1], n_outputs=15)
-    y = net(torch.randn(n_images, *image_shape))
+    net = make_resnet18(event_shape, 15)
+    y = net(torch.randn(n_images, *event_shape))
     print(y.size())
