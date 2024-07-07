@@ -10,6 +10,7 @@ from normalizing_flows.bijections.finite.autoregressive.transformers.base import
 from normalizing_flows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
     ChannelWiseHalfSplit
 from normalizing_flows.neural_networks.convnet import ConvNet
+from normalizing_flows.neural_networks.resnet import make_resnet18
 from normalizing_flows.utils import get_batch_shape
 
 
@@ -89,16 +90,46 @@ class ConvNetConditioner(ConditionerTransform):
         return self.network(x)
 
 
+class ResNetConditioner(ConditionerTransform):
+    def __init__(self,
+                 input_event_shape: torch.Size,
+                 parameter_shape: torch.Size,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            context_shape=None,
+            parameter_shape=parameter_shape,
+            **kwargs
+        )
+        self.network = make_resnet18(
+            image_shape=input_event_shape,
+            n_outputs=self.n_transformer_parameters
+        )
+
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        return self.network(x)
+
+
 class ConvolutionalCouplingBijection(CouplingBijection):
     def __init__(self,
                  transformer: TensorTransformer,
                  coupling: Union[Checkerboard, ChannelWiseHalfSplit],
+                 conditioner='convnet',
                  **kwargs):
-        conditioner_transform = ConvNetConditioner(
-            input_event_shape=coupling.constant_shape,
-            parameter_shape=transformer.parameter_shape,
-            **kwargs
-        )
+        if conditioner == 'convnet':
+            conditioner_transform = ConvNetConditioner(
+                input_event_shape=coupling.constant_shape,
+                parameter_shape=transformer.parameter_shape,
+                **kwargs
+            )
+        elif conditioner == 'resnet':
+            conditioner_transform = ResNetConditioner(
+                input_event_shape=coupling.constant_shape,
+                parameter_shape=transformer.parameter_shape,
+                **kwargs
+            )
+        else:
+            raise ValueError(f'Unknown conditioner: {conditioner}')
         super().__init__(transformer, coupling, conditioner_transform, **kwargs)
         self.coupling = coupling
 
@@ -232,12 +263,14 @@ class MultiscaleBijection(BijectiveComposition):
                  n_checkerboard_layers: int = 3,
                  n_channel_wise_layers: int = 3,
                  use_squeeze_layer: bool = True,
+                 use_resnet: bool = False,
                  **kwargs):
         checkerboard_layers = [
             CheckerboardCoupling(
                 input_event_shape,
                 transformer_class,
-                alternate=i % 2 == 1
+                alternate=i % 2 == 1,
+                conditioner='resnet' if use_resnet else 'convnet'
             )
             for i in range(n_checkerboard_layers)
         ]
@@ -246,7 +279,8 @@ class MultiscaleBijection(BijectiveComposition):
             ChannelWiseCoupling(
                 squeeze_layer.transformed_event_shape,
                 transformer_class,
-                alternate=i % 2 == 1
+                alternate=i % 2 == 1,
+                conditioner='resnet' if use_resnet else 'convnet'
             )
             for i in range(n_channel_wise_layers)
         ]

@@ -45,7 +45,8 @@ def automatically_determine_n_layers(event_shape):
 
 def make_factored_image_layers(event_shape,
                                transformer_class,
-                               n_layers: int = None):
+                               n_layers: int = None,
+                               **kwargs):
     """
     Creates a list of image transformations consisting of coupling layers and squeeze layers.
     After each coupling, squeeze, coupling mapping, half of the channels are kept as is (not transformed anymore).
@@ -63,7 +64,8 @@ def make_factored_image_layers(event_shape,
     def recursive_layer_builder(event_shape_, n_layers_):
         msb = MultiscaleBijection(
             input_event_shape=event_shape_,
-            transformer_class=transformer_class
+            transformer_class=transformer_class,
+            **kwargs
         )
         if n_layers_ == 1:
             return msb
@@ -95,7 +97,8 @@ def make_factored_image_layers(event_shape,
 
 def make_image_layers_non_factored(event_shape,
                                    transformer_class,
-                                   n_layers: int = None):
+                                   n_layers: int = None,
+                                   **kwargs):
     """
     Returns a list of bijections for transformations of images with multiple channels.
 
@@ -112,7 +115,8 @@ def make_image_layers_non_factored(event_shape,
         bijections.append(
             MultiscaleBijection(
                 input_event_shape=bijections[-1].transformed_shape,
-                transformer_class=transformer_class
+                transformer_class=transformer_class,
+                **kwargs
             )
         )
     bijections.append(
@@ -121,7 +125,8 @@ def make_image_layers_non_factored(event_shape,
             transformer_class=transformer_class,
             n_checkerboard_layers=4,
             squeeze_layer=False,
-            n_channel_wise_layers=0
+            n_channel_wise_layers=0,
+            **kwargs
         )
     )
     bijections.append(ElementwiseAffine(event_shape=bijections[-1].transformed_shape))
@@ -140,10 +145,11 @@ class MultiscaleRealNVP(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, Affine, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, Affine, n_layers, factored=factored, use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
 
@@ -153,10 +159,11 @@ class MultiscaleNICE(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, Shift, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, Shift, n_layers, factored=factored, use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
 
@@ -166,10 +173,12 @@ class MultiscaleRQNSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, RationalQuadratic, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, RationalQuadratic, n_layers, factored=factored,
+                                       use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
 
@@ -179,10 +188,11 @@ class MultiscaleLRSNSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, LinearRational, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, LinearRational, n_layers, factored=factored, use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
 
@@ -192,10 +202,11 @@ class MultiscaleDeepSigmoid(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, DeepSigmoid, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, DeepSigmoid, n_layers, factored=factored, use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
 
@@ -205,10 +216,12 @@ class MultiscaleDeepDenseSigmoid(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, DeepDenseSigmoid, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, DeepDenseSigmoid, n_layers, factored=factored,
+                                       use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape
 
@@ -218,9 +231,10 @@ class MultiscaleDenseSigmoid(BijectiveComposition):
                  event_shape,
                  n_layers: int = None,
                  factored: bool = False,
+                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, DenseSigmoid, n_layers, factored=factored)
+        bijections = make_image_layers(event_shape, DenseSigmoid, n_layers, factored=factored, use_resnet=use_resnet)
         super().__init__(event_shape, bijections, **kwargs)
         self.transformed_shape = bijections[-1].transformed_shape

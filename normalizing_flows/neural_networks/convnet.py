@@ -30,7 +30,7 @@ class ConvNet(nn.Module):
         channels, height, width = input_shape
 
         if kernels is None:
-            kernels = (4, 8, 16, 24)
+            kernels = (64, 64, 32, 4)
         else:
             assert len(kernels) >= 1
 

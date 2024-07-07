@@ -135,24 +135,27 @@ class ResNet(nn.Module):
         return out
 
 
-def make_resnet18(image_shape, out):
-    return ResNet(*image_shape, BasicBlock, num_blocks=[2, 2, 2, 2], n_outputs=out)
+def make_resnet18(image_shape, n_outputs):
+    return ResNet(*image_shape, BasicBlock, num_blocks=[2, 2, 2, 2], n_outputs=n_outputs)
 
 
-def make_resnet34(image_shape, out):
-    return ResNet(*image_shape, BasicBlock, num_blocks=[3, 4, 6, 3], n_outputs=out)
+def make_resnet34(image_shape, n_outputs):
+    return ResNet(*image_shape, BasicBlock, num_blocks=[3, 4, 6, 3], n_outputs=n_outputs)
 
 
-def make_resnet50(image_shape, out):
-    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 6, 3], n_outputs=out)
+def make_resnet50(image_shape, n_outputs):
+    # TODO fix error regarding image shape
+    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 6, 3], n_outputs=n_outputs)
 
 
-def make_resnet101(image_shape, out):
-    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 23, 3], n_outputs=out)
+def make_resnet101(image_shape, n_outputs):
+    # TODO fix error regarding image shape
+    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 23, 3], n_outputs=n_outputs)
 
 
-def make_resnet152(image_shape, out):
-    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 8, 36, 3], n_outputs=out)
+def make_resnet152(image_shape, n_outputs):
+    # TODO fix error regarding image shape
+    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 8, 36, 3], n_outputs=n_outputs)
 
 
 if __name__ == '__main__':
