@@ -123,9 +123,9 @@ def make_image_layers_non_factored(event_shape,
         MultiscaleBijection(
             input_event_shape=bijections[-1].transformed_shape,
             transformer_class=transformer_class,
-            n_checkerboard_layers=4,
+            n_checkerboard_layers=0,
             squeeze_layer=False,
-            n_channel_wise_layers=0,
+            n_channel_wise_layers=2,
             **kwargs
         )
     )

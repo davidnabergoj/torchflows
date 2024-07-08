@@ -83,7 +83,7 @@ class ConvNetConditioner(ConditionerTransform):
         self.network = ConvNet(
             input_shape=input_event_shape,
             n_outputs=self.n_transformer_parameters,
-            kernels=kernels,
+            kernels=kernels
         )
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
@@ -260,8 +260,8 @@ class MultiscaleBijection(BijectiveComposition):
     def __init__(self,
                  input_event_shape,
                  transformer_class: Type[TensorTransformer],
-                 n_checkerboard_layers: int = 3,
-                 n_channel_wise_layers: int = 3,
+                 n_checkerboard_layers: int = 2,
+                 n_channel_wise_layers: int = 2,
                  use_squeeze_layer: bool = True,
                  use_resnet: bool = False,
                  **kwargs):
