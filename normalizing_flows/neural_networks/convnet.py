@@ -94,7 +94,7 @@ class ConvNet(nn.Module):
 
         self.blocks = nn.ModuleList([reducer] + blocks)
 
-        hidden_size_sqrt: int = 4
+        hidden_size_sqrt: int = 10
         hidden_size = hidden_size_sqrt ** 2
         self.blocks.append(
             ConvModifier(
