@@ -74,6 +74,9 @@ class BaseFlow(nn.Module):
         Bijection parameters are iteratively updated for a specified number of epochs.
         If context data is provided, the normalizing flow learns the distribution of data conditional on context data.
 
+        TODO add adaptive batch size option. Start with small batches to quickly get to a good solution. As the loss
+         stops decreasing, gradually increase the batch size to a specified maximum batch size.
+
         :param x_train: training data with shape (n_training_data, *event_shape).
         :param n_epochs: perform fitting for this many steps.
         :param lr: learning rate. In general, lower learning rates are recommended for high-parametric bijections.
