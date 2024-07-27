@@ -10,22 +10,27 @@ from normalizing_flows.utils import flatten_event, unflatten_event, create_data_
 
 
 class BaseFlow(nn.Module):
-    def __init__(self, event_shape):
+    def __init__(self,
+                 event_shape,
+                 base_distribution: Union[torch.distributions.Distribution, str] = 'standard_normal'):
         super().__init__()
         self.event_shape = event_shape
         self.event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        self.register_buffer('loc', torch.zeros(self.event_size))
-        self.register_buffer('covariance_matrix', torch.eye(self.event_size))
+
+        if base_distribution == 'standard_normal':
+            self.base = torch.distributions.MultivariateNormal(
+                loc=torch.zeros(self.event_size),
+                covariance_matrix=torch.eye(self.event_size)
+            )
+        elif isinstance(base_distribution, torch.distributions.Distribution):
+            self.base = base_distribution
+        else:
+            raise ValueError(f'Invalid base distribution: {base_distribution}')
+
+        self.device_buffer = torch.empty(size=())
 
     def get_device(self):
-        return self.loc.device
-
-    @property
-    def base(self) -> torch.distributions.Distribution:
-        """
-        :return: base distribution of the normalizing flow.
-        """
-        return torch.distributions.MultivariateNormal(loc=self.loc, covariance_matrix=self.covariance_matrix)
+        return self.device_buffer.device
 
     def base_log_prob(self, z: torch.Tensor):
         """
@@ -291,12 +296,12 @@ class Flow(BaseFlow):
     A normalizing flow is itself a distribution which we can sample from or use it to compute the density of inputs.
     """
 
-    def __init__(self, bijection: Bijection):
+    def __init__(self, bijection: Bijection, **kwargs):
         """
 
         :param bijection: transformation component of the normalizing flow.
         """
-        super().__init__(event_shape=bijection.event_shape)
+        super().__init__(event_shape=bijection.event_shape, **kwargs)
         self.register_module('bijection', bijection)
 
     def forward_with_log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
