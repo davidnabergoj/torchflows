@@ -56,7 +56,7 @@ class BaseFlow(nn.Module):
             x_train: torch.Tensor,
             n_epochs: int = 500,
             lr: float = 0.05,
-            batch_size: int = 1024,
+            batch_size: Union[int, str] = 1024,
             shuffle: bool = True,
             show_progress: bool = False,
             w_train: torch.Tensor = None,
@@ -73,9 +73,6 @@ class BaseFlow(nn.Module):
         Fitting the flow means finding the parameters of the bijection that maximize the probability of training data.
         Bijection parameters are iteratively updated for a specified number of epochs.
         If context data is provided, the normalizing flow learns the distribution of data conditional on context data.
-
-        TODO add adaptive batch size option. Start with small batches to quickly get to a good solution. As the loss
-         stops decreasing, gradually increase the batch size to a specified maximum batch size.
 
         :param x_train: training data with shape (n_training_data, *event_shape).
         :param n_epochs: perform fitting for this many steps.
@@ -95,8 +92,15 @@ class BaseFlow(nn.Module):
         self.train()
 
         # Set the default batch size
+        adaptive_batch_size = False
         if batch_size is None:
             batch_size = len(x_train)
+        elif isinstance(batch_size, str) and batch_size == "adaptive":
+            min_batch_size = 32
+            max_batch_size = 4096
+            batch_size_adaptation_interval = 10  # double the batch size every 10 epochs
+            adaptive_batch_size = True
+            batch_size = min_batch_size
 
         # Process training data
         train_loader = create_data_loader(
@@ -141,6 +145,37 @@ class BaseFlow(nn.Module):
         val_loss = None
 
         for epoch in iterator:
+            if (
+                    adaptive_batch_size
+                    and epoch % batch_size_adaptation_interval == batch_size_adaptation_interval - 1
+                    and batch_size < max_batch_size
+            ):
+                batch_size *= 2
+                batch_size = min(batch_size, max_batch_size)
+
+                # Remake data loaders
+                train_loader = create_data_loader(
+                    x_train,
+                    w_train,
+                    context_train,
+                    "training",
+                    batch_size=batch_size,
+                    shuffle=shuffle,
+                    event_shape=self.event_shape
+                )
+
+                # Process validation data
+                if x_val is not None:
+                    val_loader = create_data_loader(
+                        x_val,
+                        w_val,
+                        context_val,
+                        "validation",
+                        batch_size=batch_size,
+                        shuffle=shuffle,
+                        event_shape=self.event_shape
+                    )
+
             for train_batch in train_loader:
                 optimizer.zero_grad()
                 train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
