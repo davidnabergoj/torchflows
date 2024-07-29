@@ -13,3 +13,4 @@ from normalizing_flows.bijections.finite.residual.iterative import InvertibleRes
 from normalizing_flows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
 from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from normalizing_flows.bijections.finite.linear import LowerTriangular, Orthogonal, LU, QR
+from normalizing_flows.bijections.finite.linear import Identity
