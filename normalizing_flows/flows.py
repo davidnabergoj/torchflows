@@ -94,6 +94,10 @@ class BaseFlow(nn.Module):
         :param early_stopping: if True and validation data is provided, stop the training procedure early once validation loss stops improving for a specified number of consecutive epochs.
         :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
         """
+        if len(list(self.parameters())) == 0:
+            # If the flow has no trainable parameters, do nothing
+            return
+
         self.train()
 
         # Set the default batch size
