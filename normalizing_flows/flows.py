@@ -263,13 +263,12 @@ class BaseFlow(nn.Module):
         :param float n_samples: number of samples to estimate the variational loss in each training step.
         :param bool show_progress: if True, show a progress bar during training.
         """
-        iterator = tqdm(range(n_epochs), desc='Fitting with SVI', disable=not show_progress)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         best_loss = torch.inf
         best_epoch = 0
         best_weights = deepcopy(self.state_dict())
 
-        for epoch in iterator:
+        for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting with SVI', disable=not show_progress)):
             optimizer.zero_grad()
             flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
             loss = -torch.mean(target_log_prob(flow_x) + flow_log_prob)
@@ -283,7 +282,7 @@ class BaseFlow(nn.Module):
                 if keep_best_weights:
                     best_weights = deepcopy(self.state_dict())
 
-            iterator.set_postfix_str(f'Loss: {loss:.4f} [best: {best_loss:.4f} @ {best_epoch}]')
+            pbar.set_postfix_str(f'Loss: {loss:.4f} [best: {best_loss:.4f} @ {best_epoch}]')
 
             if epoch - best_epoch > early_stopping_threshold and early_stopping:
                 break
