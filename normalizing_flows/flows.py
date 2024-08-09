@@ -263,6 +263,12 @@ class BaseFlow(nn.Module):
         :param float n_samples: number of samples to estimate the variational loss in each training step.
         :param bool show_progress: if True, show a progress bar during training.
         """
+        if len(list(self.parameters())) == 0:
+            # If the flow has no trainable parameters, do nothing
+            return
+
+        self.train()
+
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         best_loss = torch.inf
         best_epoch = 0
@@ -289,6 +295,8 @@ class BaseFlow(nn.Module):
 
         if keep_best_weights:
             self.load_state_dict(best_weights)
+
+        self.eval()
 
 
 class Flow(BaseFlow):
