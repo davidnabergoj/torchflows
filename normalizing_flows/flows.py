@@ -367,7 +367,6 @@ class Flow(BaseFlow):
                 *[sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
             assert z.shape[:2] == context.shape[:2]
         else:
-            sample_shape = torch.Size((n,))
             z = self.base_sample(sample_shape=sample_shape)
 
         if no_grad:
