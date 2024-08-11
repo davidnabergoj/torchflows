@@ -180,7 +180,7 @@ class ElementwiseBijection(AutoregressiveBijection):
         )
 
         if fill_value is None:
-            self.value = nn.Parameter(torch.randn(*transformer.parameter_shape)) / 1000.0
+            self.value = nn.Parameter(torch.randn(*transformer.parameter_shape) / 1000.0)
         else:
             self.value = nn.Parameter(torch.full(size=transformer.parameter_shape, fill_value=fill_value))
 
