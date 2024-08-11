@@ -1,6 +1,7 @@
 import torch
 
 from normalizing_flows.bijections.finite.autoregressive.transformers.linear.matrix import LUTransformer
+from test.constants import __test_constants
 
 
 def test_basic():
@@ -17,5 +18,13 @@ def test_basic():
     z, log_det_forward = transformer.forward(x, h)
     x_reconstructed, log_det_inverse = transformer.inverse(z, h)
 
-    assert torch.allclose(x, x_reconstructed, atol=1e-3), f"{torch.linalg.norm(x-x_reconstructed)}"
-    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-3)
+    assert torch.allclose(
+        x,
+        x_reconstructed,
+        atol=__test_constants['data_atol']
+    ), f"{torch.linalg.norm(x - x_reconstructed)}"
+    assert torch.allclose(
+        log_det_forward,
+        -log_det_inverse,
+        atol=__test_constants['log_det_atol']
+    )

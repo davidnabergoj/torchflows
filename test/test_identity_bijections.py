@@ -25,6 +25,7 @@ from normalizing_flows.bijections.finite.autoregressive.layers import (
 )
 import torch
 import pytest
+from test.constants import __test_constants
 
 
 @pytest.mark.parametrize(
@@ -64,4 +65,4 @@ def test_basic(layer_class):
         for p in layer.parameters():
             p.data *= 0
 
-    assert torch.allclose(layer(x)[0], x, atol=1e-2)
+    assert torch.allclose(layer(x)[0], x, atol=__test_constants['data_atol_easy'])  # 1e-2

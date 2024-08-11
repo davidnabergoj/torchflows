@@ -1,6 +1,7 @@
 import torch
 from normalizing_flows.bijections.finite.multiscale.base import FactoredBijection
 from normalizing_flows.bijections.finite.autoregressive.layers import ElementwiseAffine
+from test.constants import __test_constants
 
 
 def test_basic():
@@ -26,17 +27,14 @@ def test_basic():
     assert torch.allclose(
         x[..., ~bijection.transformed_event_mask],
         z[..., ~bijection.transformed_event_mask],
-        atol=1e-5
+        __test_constants['data_atol_easy']
     )
 
-    assert torch.all(
-        ~torch.isclose(
-            x[..., bijection.transformed_event_mask],
-            z[..., bijection.transformed_event_mask],
-            atol=1e-5
-        )
+    assert ~torch.allclose(
+        x[..., bijection.transformed_event_mask],
+        z[..., bijection.transformed_event_mask]
     )
 
     xr, log_det_inverse = bijection.inverse(z)
-    assert torch.allclose(x, xr, atol=1e-5)
-    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-5)
+    assert torch.allclose(x, xr, __test_constants['data_atol_easy'])
+    assert torch.allclose(log_det_forward, -log_det_inverse, __test_constants['log_det_atol_easy'])

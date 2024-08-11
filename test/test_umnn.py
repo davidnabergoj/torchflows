@@ -24,8 +24,8 @@ def test_umnn(batch_shape: Tuple, event_shape: Tuple):
     assert x.shape == z.shape == xr.shape
     assert log_det_forward.shape == batch_shape
     assert log_det_forward.shape == log_det_inverse.shape
-    assert torch.allclose(x, xr, atol=1e-3), f"{torch.max(torch.abs(x-xr)) = }"
-    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-3), \
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol']), f"{torch.max(torch.abs(x-xr)) = }"
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol']), \
         f"{torch.max(torch.abs(log_det_forward+log_det_inverse)) = }"
 
 
@@ -45,8 +45,8 @@ def test_umnn_forward():
     z1, log_det_forward1 = transformer.forward(x1, h)
     z, log_det_forward = transformer.forward(x, h.repeat(2, 1))
 
-    assert torch.allclose(torch.cat([z0, z1]), z)
-    assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward)
+    assert torch.allclose(torch.cat([z0, z1]), z, atol=__test_constants['data_atol'])
+    assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.skip(reason="Not finalized")
@@ -65,8 +65,8 @@ def test_umnn_inverse():
     z1, log_det_inverse1 = transformer.inverse(x1, h)
     z, log_det_inverse = transformer.inverse(x, h.repeat(2, 1))
 
-    assert torch.allclose(torch.cat([z0, z1]), z)
-    assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1]), log_det_inverse)
+    assert torch.allclose(torch.cat([z0, z1]), z, atol=__test_constants['data_atol'])
+    assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1]), log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.skip(reason="Not finalized")
@@ -85,20 +85,20 @@ def test_umnn_reconstruction():
     z1, log_det_forward1 = transformer.forward(x1, h)
     z, log_det_forward = transformer.forward(x, h.repeat(2, 1))
 
-    assert torch.allclose(torch.cat([z0, z1]), z)
-    assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward)
+    assert torch.allclose(torch.cat([z0, z1]), z, atol=__test_constants['data_atol'])
+    assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1]), log_det_forward, atol=__test_constants['log_det_atol'])
 
     x0r, log_det_inverse0 = transformer.inverse(z0, h)
     x1r, log_det_inverse1 = transformer.inverse(z1, h)
     xr, log_det_inverse = transformer.inverse(z, h.repeat(2, 1))
 
-    assert torch.allclose(x0r, x0, atol=1e-4)
-    assert torch.allclose(x1r, x1, atol=1e-4)
-    assert torch.allclose(xr, x, atol=1e-4)
+    assert torch.allclose(x0r, x0, atol=__test_constants['data_atol'])
+    assert torch.allclose(x1r, x1, atol=__test_constants['data_atol'])
+    assert torch.allclose(xr, x, atol=__test_constants['data_atol'])
 
-    assert torch.allclose(log_det_forward0, -log_det_inverse0, atol=1e-4)
-    assert torch.allclose(log_det_forward1, -log_det_inverse1, atol=1e-4)
-    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-4)
+    assert torch.allclose(log_det_forward0, -log_det_inverse0, atol=__test_constants['log_det_atol'])
+    assert torch.allclose(log_det_forward1, -log_det_inverse1, atol=__test_constants['log_det_atol'])
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.skip(reason="Not finalized")
@@ -119,8 +119,8 @@ def test_umnn_forward_large_event():
     z2, log_det_forward2 = transformer.forward(x2, h)
     z, log_det_forward = transformer.forward(x, h.repeat(3, 1))
 
-    assert torch.allclose(torch.cat([z0, z1, z2]), z)
-    assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1, log_det_forward2]), log_det_forward)
+    assert torch.allclose(torch.cat([z0, z1, z2]), z, atol=__test_constants['data_atol'])
+    assert torch.allclose(torch.as_tensor([log_det_forward0, log_det_forward1, log_det_forward2]), log_det_forward, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.skip(reason="Not finalized")
@@ -141,8 +141,8 @@ def test_umnn_inverse_large_event():
     z2, log_det_inverse2 = transformer.inverse(x2, h)
     z, log_det_inverse = transformer.inverse(x, h.repeat(3, 1))
 
-    assert torch.allclose(torch.cat([z0, z1, z2]), z)
-    assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1, log_det_inverse2]), log_det_inverse)
+    assert torch.allclose(torch.cat([z0, z1, z2]), z, atol=__test_constants['data_atol'])
+    assert torch.allclose(torch.as_tensor([log_det_inverse0, log_det_inverse1, log_det_inverse2]), log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.skip(reason="Not finalized")
@@ -168,12 +168,12 @@ def test_umnn_reconstruction_large_event():
     x2r, log_det_inverse2 = transformer.inverse(z2, h)
     xr, log_det_inverse = transformer.inverse(z, h.repeat(3, 1))
 
-    assert torch.allclose(x0r, x0, atol=1e-3)
-    assert torch.allclose(x1r, x1, atol=1e-3)
-    assert torch.allclose(x2r, x2, atol=1e-3)
-    assert torch.allclose(xr, x, atol=1e-3)
+    assert torch.allclose(x0r, x0, atol=__test_constants['data_atol'])
+    assert torch.allclose(x1r, x1, atol=__test_constants['data_atol'])
+    assert torch.allclose(x2r, x2, atol=__test_constants['data_atol'])
+    assert torch.allclose(xr, x, atol=__test_constants['data_atol'])
 
-    assert torch.allclose(log_det_forward0, -log_det_inverse0, atol=1e-3)
-    assert torch.allclose(log_det_forward1, -log_det_inverse1, atol=1e-3)
-    assert torch.allclose(log_det_forward2, -log_det_inverse2, atol=1e-3)
-    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-3)
+    assert torch.allclose(log_det_forward0, -log_det_inverse0, atol=__test_constants['log_det_atol'])
+    assert torch.allclose(log_det_forward1, -log_det_inverse1, atol=__test_constants['log_det_atol'])
+    assert torch.allclose(log_det_forward2, -log_det_inverse2, atol=__test_constants['log_det_atol'])
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol'])

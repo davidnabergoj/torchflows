@@ -1,6 +1,7 @@
 import pytest
 import torch
 from normalizing_flows.architectures import RealNVP, NICE, CouplingRQNSF
+from test.constants import __test_constants
 
 
 @pytest.mark.parametrize('architecture', [RealNVP, NICE, CouplingRQNSF])
@@ -14,8 +15,9 @@ def test_basic_2d(architecture):
     z, log_det_forward = bijection.forward(x)
     x_reconstructed, log_det_inverse = bijection.inverse(z)
 
-    assert torch.allclose(x, x_reconstructed, atol=1e-4), f"{torch.linalg.norm(x - x_reconstructed)}"
-    assert torch.allclose(log_det_forward, -log_det_inverse)
+    assert torch.allclose(x, x_reconstructed,
+                          atol=__test_constants['data_atol']), f"{torch.linalg.norm(x - x_reconstructed)}"
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('architecture', [RealNVP, NICE, CouplingRQNSF])
@@ -29,8 +31,8 @@ def test_basic_5d(architecture):
     z, log_det_forward = bijection.forward(x)
     x_reconstructed, log_det_inverse = bijection.inverse(z)
 
-    assert torch.allclose(x, x_reconstructed, atol=1e-4)
-    assert torch.allclose(log_det_forward, -log_det_inverse)
+    assert torch.allclose(x, x_reconstructed, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det_forward, -log_det_inverse, __test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('architecture', [RealNVP, NICE, CouplingRQNSF])
@@ -44,8 +46,8 @@ def test_basic_5d_2(architecture):
     z, log_det_forward = bijection.forward(x)
     x_reconstructed, log_det_inverse = bijection.inverse(z)
 
-    assert torch.allclose(x, x_reconstructed, atol=1e-4)
-    assert torch.allclose(log_det_forward, -log_det_inverse)
+    assert torch.allclose(x, x_reconstructed, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('architecture', [RealNVP, NICE, CouplingRQNSF])
@@ -59,9 +61,16 @@ def test_basic_5d_3(architecture):
     z, log_det_forward = bijection.forward(x)
     x_reconstructed, log_det_inverse = bijection.inverse(z)
 
-    assert torch.allclose(x, x_reconstructed, atol=1e-4), f"{torch.linalg.norm(x - x_reconstructed)}"
-    assert torch.allclose(log_det_forward, -log_det_inverse,
-                          atol=1e-4), f"{torch.linalg.norm(log_det_forward + log_det_inverse)}"
+    assert torch.allclose(
+        x,
+        x_reconstructed,
+        atol=__test_constants['data_atol']
+    ), f"{torch.linalg.norm(x - x_reconstructed)}"
+    assert torch.allclose(
+        log_det_forward,
+        -log_det_inverse,
+        atol=__test_constants['log_det_atol']
+    ), f"{torch.linalg.norm(log_det_forward + log_det_inverse)}"
 
 
 @pytest.mark.parametrize('architecture', [RealNVP, NICE, CouplingRQNSF])
@@ -86,6 +95,13 @@ def test_random(architecture):
     z, log_det_forward = bijection.forward(x)
     x_reconstructed, log_det_inverse = bijection.inverse(z)
 
-    assert torch.allclose(x, x_reconstructed, atol=1e-4), f"{torch.linalg.norm(x - x_reconstructed)}"
-    assert torch.allclose(log_det_forward, -log_det_inverse,
-                          atol=1e-4), f"{torch.linalg.norm(log_det_forward + log_det_inverse)}"
+    assert torch.allclose(
+        x,
+        x_reconstructed,
+        atol=__test_constants['data_atol']
+    ), f"{torch.linalg.norm(x - x_reconstructed)}"
+    assert torch.allclose(
+        log_det_forward,
+        -log_det_inverse,
+        atol=__test_constants['log_det_atol']
+    ), f"{torch.linalg.norm(log_det_forward + log_det_inverse)}"

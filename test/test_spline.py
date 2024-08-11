@@ -18,8 +18,8 @@ def test_linear_rational():
     xr, log_det_inverse = spline.inverse(z, h)
     assert x.shape == z.shape == xr.shape
     assert log_det_forward.shape == log_det_inverse.shape
-    assert torch.allclose(x, xr, atol=1e-05)
-    assert torch.allclose(log_det_forward, -log_det_inverse, atol=1e-4)
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('spline_class', [
@@ -46,8 +46,8 @@ def test_1d_spline(spline_class):
     assert torch.all(~torch.isnan(xr))
     assert torch.all(~torch.isnan(log_det_inverse))
 
-    assert torch.allclose(x, xr, atol=1e-3)
-    assert torch.allclose(log_det, -log_det_inverse, atol=1e-3)
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('spline_class', [
@@ -77,8 +77,8 @@ def test_2d_spline(spline_class):
     assert torch.all(~torch.isnan(xr))
     assert torch.all(~torch.isnan(log_det_inverse))
 
-    assert torch.allclose(x, xr, atol=1e-3)
-    assert torch.allclose(log_det, -log_det_inverse, atol=1e-3)
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('boundary', [1.0, 5.0, 50.0])
@@ -107,8 +107,8 @@ def test_spline_exhaustive(spline_class, boundary: float, batch_shape, event_sha
     assert torch.all(~torch.isnan(xr))
     assert torch.all(~torch.isnan(log_det_inverse))
 
-    assert torch.allclose(x, xr, atol=1e-3)
-    assert torch.allclose(log_det, -log_det_inverse, atol=1e-3)
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.parametrize('n_data', [1, 2, 5, 100, 500])
@@ -134,4 +134,4 @@ def test_rq_spline(n_data, n_dim, n_bins, scale):
     assert torch.all(~torch.isnan(y))
     assert torch.all(~torch.isnan(log_det_inverse))
 
-    assert torch.allclose(log_det_forward + log_det_inverse, torch.zeros_like(log_det_forward), atol=1e-3)
+    assert torch.allclose(log_det_forward, -log_det_inverse, atol=__test_constants['log_det_atol'])

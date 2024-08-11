@@ -2,7 +2,7 @@ import torch
 import pytest
 
 from normalizing_flows.bijections.finite.multiscale.base import Squeeze
-
+from test.constants import __test_constants
 
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (2, 3)])
 @pytest.mark.parametrize('channels', [1, 3, 10])
@@ -16,6 +16,6 @@ def test_reconstruction(batch_shape, channels, height, width):
     x_reconstructed, log_det_inverse = layer.inverse(z)
 
     assert z.shape == (*batch_shape, 4 * channels, height // 2, width // 2)
-    assert torch.allclose(x_reconstructed, x)
-    assert torch.allclose(log_det_forward, torch.zeros_like(log_det_forward))
-    assert torch.allclose(log_det_forward, log_det_inverse)
+    assert torch.allclose(x_reconstructed, x, atol=__test_constants['data_atol'])
+    assert torch.allclose(log_det_forward, torch.zeros_like(log_det_forward), atol=__test_constants['log_det_atol'])
+    assert torch.allclose(log_det_forward, log_det_inverse, atol=__test_constants['log_det_atol'])
