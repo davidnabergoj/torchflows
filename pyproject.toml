@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "torchflows"
+version = "1.0.7"
+authors = [
+    { name = "David Nabergoj", email = "david.nabergoj@fri.uni-lj.si" },
+]
+description = "Normalizing flows in PyTorch"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    'torch>=2.0.1',
+    'numpy>=1.26.0',
+    'torchdiffeq>=0.0.1',
+    'tqdm>=v4.0.0',
+]
+
+[project.urls]
+Homepage = "https://github.com/davidnabergoj/torchflows"
+Issues = "https://github.com/davidnabergoj/torchflows/issues"
