@@ -2,9 +2,8 @@ from typing import Type, Union, Tuple
 
 import torch
 
-from torchflows.bijections import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
-from torchflows.bijections.base import Bijection
+from torchflows.bijections.base import Bijection, BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from torchflows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \

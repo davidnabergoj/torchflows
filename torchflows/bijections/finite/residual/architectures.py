@@ -2,8 +2,8 @@ from typing import Union, Tuple
 
 import torch
 
-from torchflows.bijections import Affine
 from torchflows.bijections.base import BijectiveComposition
+from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Affine
 from torchflows.bijections.finite.residual.base import ResidualComposition
 from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
 from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock

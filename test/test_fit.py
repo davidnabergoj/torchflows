@@ -1,9 +1,12 @@
 import pytest
 import torch
 from torchflows import Flow
-from torchflows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, \
-    CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular, ElementwiseScale, QR, LU
 from test.constants import __test_constants
+from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, MAF, CouplingRQNSF, \
+    MaskedAutoregressiveRQNSF
+from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
+    ElementwiseRQSpline
+from torchflows.bijections.finite.linear import LowerTriangular, LU, QR
 
 
 @pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')

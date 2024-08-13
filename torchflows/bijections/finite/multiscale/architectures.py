@@ -1,5 +1,6 @@
 import torch
 
+from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseAffine
 from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Shift
 from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
@@ -9,7 +10,6 @@ from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoi
     DeepDenseSigmoid,
     DenseSigmoid
 )
-from torchflows.bijections import BijectiveComposition
 from torchflows.bijections.finite.multiscale.base import MultiscaleBijection, FactoredBijection
 
 
