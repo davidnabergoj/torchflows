@@ -10,9 +10,19 @@ from torchflows.utils import flatten_event, unflatten_event, create_data_loader
 
 
 class BaseFlow(nn.Module):
+    """
+    Base normalizing flow class.
+    """
+
     def __init__(self,
                  event_shape,
                  base_distribution: Union[torch.distributions.Distribution, str] = 'standard_normal'):
+        """
+        BaseFlow constructor.
+
+        :param event_shape: shape of the event space.
+        :param base_distribution: base distribution.
+        """
         super().__init__()
         self.event_shape = event_shape
         self.event_size = int(torch.prod(torch.as_tensor(event_shape)))
@@ -30,6 +40,9 @@ class BaseFlow(nn.Module):
         self.device_buffer = torch.empty(size=())
 
     def get_device(self):
+        """
+        Returns the torch device for this object.
+        """
         return self.device_buffer.device
 
     def base_log_prob(self, z: torch.Tensor):
@@ -55,6 +68,9 @@ class BaseFlow(nn.Module):
         return z
 
     def regularization(self):
+        """
+        Compute the regularization term used in training.
+        """
         return 0.0
 
     def fit(self,
@@ -73,7 +89,7 @@ class BaseFlow(nn.Module):
             early_stopping: bool = False,
             early_stopping_threshold: int = 50):
         """
-        Fit the normalizing flow.
+        Fit the normalizing flow to a dataset.
 
         Fitting the flow means finding the parameters of the bijection that maximize the probability of training data.
         Bijection parameters are iteratively updated for a specified number of epochs.
@@ -247,10 +263,10 @@ class BaseFlow(nn.Module):
                         keep_best_weights: bool = True,
                         show_progress: bool = False):
         """
-        Train a distribution with stochastic variational inference.
+        Train the normalizing flow to fit a target log probability.
+
         Stochastic variational inference lets us train a distribution using the unnormalized target log density
         instead of a fixed dataset.
-
         Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details
         (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in
          Algorithm 1).
@@ -311,6 +327,7 @@ class Flow(BaseFlow):
         """
 
         :param bijection: transformation component of the normalizing flow.
+        :param kwargs: keyword arguments passed to BaseFlow.
         """
         super().__init__(event_shape=bijection.event_shape, **kwargs)
         self.register_module('bijection', bijection)
