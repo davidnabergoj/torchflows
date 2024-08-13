@@ -1,38 +1,25 @@
-Welcome to Torchflows documentation!
-===================================
+.. Torchflows documentation master file, created by
+   sphinx-quickstart on Tue Aug 13 19:37:48 2024.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
 
-Torchflows is a library for generative modeling and density estimation using normalizing flows.
-It implements many normalizing flow architectures and their building blocks for:
+Torchflows documentation
+========================
 
-* easy use of normalizing flows as trainable distributions;
-* easy implementation of new normalizing flows.
+Add your content using ``reStructuredText`` syntax. See the
+`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
+documentation for details.
 
-Installing and usage
-----------
-
-Install Torchflows with pip:
-
-.. code-block:: console
-
-   pip install torchflows
-
-Create a flow and train it as follows:
-.. code-block:: python
-
-    import torch
-    from torchflows.flows import Flow
-    from torchflows.architectures import RealNVP
-
-    x = torch.randn((1000, 25))  # generate synthetic 25-dimensional data
-    flow = Flow(RealNVP((25,)))
-    flow.fit(x, show_progress=True)
-
-    x_new = flow.sample((150,))  # sample 150 new points from the flow
-
-Contents
---------
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-   usage
-   api
+   modules
+
+Indices and tables
+===================
+
+* :ref: `genindex`
+* :ref: `modindex`
+* :ref: `search`
