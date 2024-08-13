@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.conditioning.transforms import (
+from torchflows.bijections.finite.autoregressive.conditioning.transforms import (
     MADE, FeedForward, LinearMADE, ResidualFeedForward, Linear, ConditionerTransform
 )
 from test.constants import __test_constants

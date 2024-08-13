@@ -1,4 +1,4 @@
-from normalizing_flows.architectures import (
+from torchflows.architectures import (
     MultiscaleNICE,
     MultiscaleRQNSF,
     MultiscaleLRSNSF,

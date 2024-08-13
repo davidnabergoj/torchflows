@@ -1,6 +1,6 @@
 import pytest
 import torch
-from normalizing_flows.architectures import RealNVP, NICE, CouplingRQNSF
+from torchflows.architectures import RealNVP, NICE, CouplingRQNSF
 from test.constants import __test_constants
 
 

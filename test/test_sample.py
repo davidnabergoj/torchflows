@@ -1,7 +1,7 @@
 import torch
 
-from normalizing_flows import Flow
-from normalizing_flows.bijections import RealNVP
+from torchflows import Flow
+from torchflows.bijections import RealNVP
 
 
 def test_real_nvp():

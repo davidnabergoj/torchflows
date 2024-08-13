@@ -3,19 +3,19 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear as LinearSpline
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import \
+from torchflows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
+from torchflows.bijections.finite.autoregressive.transformers.spline.linear import Linear as LinearSpline
+from torchflows.bijections.finite.autoregressive.transformers.spline.linear_rational import \
     LinearRational as LinearRationalSpline
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import \
+from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import \
     RationalQuadratic as RationalQuadraticSpline
-from normalizing_flows.bijections.finite.autoregressive.transformers.linear.convolution import Invertible1x1Convolution
-from normalizing_flows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Scale, Shift
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid, \
+from torchflows.bijections.finite.autoregressive.transformers.linear.convolution import Invertible1x1Convolution
+from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Scale, Shift
+from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid, \
     DenseSigmoid, DeepDenseSigmoid
-from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
+from torchflows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
-from normalizing_flows.utils import get_batch_shape
+from torchflows.utils import get_batch_shape
 from test.constants import __test_constants
 
 

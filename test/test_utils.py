@@ -3,9 +3,9 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import inverse_sigmoid
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax
-from normalizing_flows.utils import get_batch_shape, vjp_tensor
+from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import inverse_sigmoid
+from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid_util import log_softmax
+from torchflows.utils import get_batch_shape, vjp_tensor
 
 
 @pytest.mark.parametrize('event_shape', [(1,), (2,), (3, 5), (5, 3), (1, 2, 3, 4)])

@@ -1,6 +1,6 @@
 import torch
-from normalizing_flows.bijections.finite.multiscale.base import FactoredBijection
-from normalizing_flows.bijections.finite.autoregressive.layers import ElementwiseAffine
+from torchflows.bijections.finite.multiscale.base import FactoredBijection
+from torchflows.bijections.finite.autoregressive.layers import ElementwiseAffine
 from test.constants import __test_constants
 
 

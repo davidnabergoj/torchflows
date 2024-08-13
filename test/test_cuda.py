@@ -1,7 +1,7 @@
 import pytest
 import torch
-from normalizing_flows.bijections import RealNVP
-from normalizing_flows import Flow
+from torchflows.bijections import RealNVP
+from torchflows import Flow
 
 
 @pytest.mark.skip(reason="Too slow on CI/CD")

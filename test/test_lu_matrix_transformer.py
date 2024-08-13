@@ -1,6 +1,6 @@
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.linear.matrix import LUTransformer
+from torchflows.bijections.finite.autoregressive.transformers.linear.matrix import LUTransformer
 from test.constants import __test_constants
 
 

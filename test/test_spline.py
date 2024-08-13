@@ -1,11 +1,11 @@
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.linear import Linear
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.cubic import Cubic
-from normalizing_flows.bijections.finite.autoregressive.transformers.spline.basis import Basis
+from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
+from torchflows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
+from torchflows.bijections.finite.autoregressive.transformers.spline.linear import Linear
+from torchflows.bijections.finite.autoregressive.transformers.spline.cubic import Cubic
+from torchflows.bijections.finite.autoregressive.transformers.spline.basis import Basis
 from test.constants import __test_constants
 
 

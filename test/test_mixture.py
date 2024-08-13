@@ -1,5 +1,5 @@
-from normalizing_flows.flows import FlowMixture, Flow
-from normalizing_flows.architectures import RealNVP, NICE, CouplingRQNSF
+from torchflows.flows import FlowMixture, Flow
+from torchflows.architectures import RealNVP, NICE, CouplingRQNSF
 import torch
 
 

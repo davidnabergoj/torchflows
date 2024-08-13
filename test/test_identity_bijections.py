@@ -1,6 +1,6 @@
 # Check that when all bijection parameters are set to 0, the bijections reduce to an identity map
 
-from normalizing_flows.bijections.finite.autoregressive.layers import (
+from torchflows.bijections.finite.autoregressive.layers import (
     AffineCoupling,
     DSCoupling,
     RQSCoupling,

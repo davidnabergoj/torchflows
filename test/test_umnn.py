@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
+from torchflows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
 from test.constants import __test_constants
 

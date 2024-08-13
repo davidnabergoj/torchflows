@@ -1,10 +1,10 @@
 import pytest
 import torch
 
-from normalizing_flows import Flow
-from normalizing_flows.bijections import DSCoupling, CouplingDSF
-from normalizing_flows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid
-from normalizing_flows.bijections.base import invert
+from torchflows import Flow
+from torchflows.bijections import DSCoupling, CouplingDSF
+from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid
+from torchflows.bijections.base import invert
 from test.constants import __test_constants
 
 

@@ -3,23 +3,23 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular, \
+from torchflows.bijections import LU, ReversePermutation, LowerTriangular, \
     Orthogonal, QR, ElementwiseScale, LRSCoupling, LinearRQSCoupling
-from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
+from torchflows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
     InvertibleResNetBlock, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
-from normalizing_flows.bijections import FFJORD
-from normalizing_flows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
-from normalizing_flows.bijections.base import Bijection
-from normalizing_flows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
-from normalizing_flows.bijections.continuous.otflow import OTFlow
-from normalizing_flows.bijections.continuous.rnode import RNODE
-from normalizing_flows.bijections.finite.residual.architectures import ResFlow, InvertibleResNet, ProximalResFlow
-from normalizing_flows.bijections.finite.residual.planar import Planar
-from normalizing_flows.bijections.finite.residual.proximal import ProximalResFlowBlock
-from normalizing_flows.bijections.finite.residual.radial import Radial
-from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
-from normalizing_flows.utils import get_batch_shape
+from torchflows.bijections import FFJORD
+from torchflows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
+from torchflows.bijections.base import Bijection
+from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
+from torchflows.bijections.continuous.otflow import OTFlow
+from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.finite.residual.architectures import ResFlow, InvertibleResNet, ProximalResFlow
+from torchflows.bijections.finite.residual.planar import Planar
+from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock
+from torchflows.bijections.finite.residual.radial import Radial
+from torchflows.bijections.finite.residual.sylvester import Sylvester
+from torchflows.utils import get_batch_shape
 from test.constants import __test_constants
 
 

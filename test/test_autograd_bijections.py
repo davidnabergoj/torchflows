@@ -3,17 +3,17 @@ from typing import Tuple
 import pytest
 import torch
 
-from normalizing_flows import Flow
-from normalizing_flows.bijections import LU, ReversePermutation, LowerTriangular, \
+from torchflows import Flow
+from torchflows.bijections import LU, ReversePermutation, LowerTriangular, \
     Orthogonal, QR, ElementwiseScale, LRSCoupling, LinearRQSCoupling
-from normalizing_flows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
+from torchflows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
     InvertibleResNetBlock, \
     ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
-from normalizing_flows.bijections.base import Bijection
-from normalizing_flows.bijections.finite.residual.planar import Planar
-from normalizing_flows.bijections.finite.residual.radial import Radial
-from normalizing_flows.bijections.finite.residual.sylvester import Sylvester
-from normalizing_flows.utils import get_batch_shape
+from torchflows.bijections.base import Bijection
+from torchflows.bijections.finite.residual.planar import Planar
+from torchflows.bijections.finite.residual.radial import Radial
+from torchflows.bijections.finite.residual.sylvester import Sylvester
+from torchflows.utils import get_batch_shape
 from test.constants import __test_constants
 
 

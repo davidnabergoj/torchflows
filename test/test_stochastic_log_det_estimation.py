@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_power_series, log_det_roulette
+from torchflows.bijections.finite.residual.log_abs_det_estimators import log_det_power_series, log_det_roulette
 from test.constants import __test_constants
 
 

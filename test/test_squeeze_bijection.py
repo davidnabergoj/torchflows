@@ -1,7 +1,7 @@
 import torch
 import pytest
 
-from normalizing_flows.bijections.finite.multiscale.base import Squeeze
+from torchflows.bijections.finite.multiscale.base import Squeeze
 from test.constants import __test_constants
 
 @pytest.mark.parametrize('batch_shape', [(1,), (2,), (2, 3)])
