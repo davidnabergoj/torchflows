@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchflows"
-version = "1.0.7"
+version = "1.0.0"
 authors = [
     { name = "David Nabergoj", email = "david.nabergoj@fri.uni-lj.si" },
 ]
@@ -19,8 +19,8 @@ classifiers = [
 dependencies = [
     'torch>=2.0.1',
     'numpy>=1.26.0',
-    'torchdiffeq>=0.0.1',
-    'tqdm>=v4.0.0',
+    'torchdiffeq>=0.2.3',
+    'tqdm>=4.65.0',
 ]
 
 [project.urls]
