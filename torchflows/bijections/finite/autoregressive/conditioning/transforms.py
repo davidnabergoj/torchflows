@@ -234,7 +234,7 @@ class FeedForward(ConditionerTransform):
         self.sequential = nn.Sequential(*layers)
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
-        return self.sequential(self.context_combiner(x, context)) / 1000.0
+        return self.sequential(self.context_combiner(x, context))
 
 
 class Linear(FeedForward):
@@ -257,7 +257,7 @@ class ResidualFeedForward(ConditionerTransform):
             self.sequential = nn.Sequential(*layers)
 
         def forward(self, x):
-            return x + self.sequential(x) / 1000.0
+            return x + self.sequential(x)
 
     def __init__(self,
                  input_event_shape: torch.Size,
@@ -289,7 +289,7 @@ class ResidualFeedForward(ConditionerTransform):
         self.sequential = nn.Sequential(*layers)
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
-        return self.sequential(self.context_combiner(x, context)) / 1000.0
+        return self.sequential(self.context_combiner(x, context))
 
 
 class CombinedConditioner(nn.Module):
