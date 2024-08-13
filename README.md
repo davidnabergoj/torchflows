@@ -1,7 +1,7 @@
-# Normalizing flows in PyTorch
+# Torchflows: normalizing flows in PyTorch
 
-This package implements normalizing flows and their building blocks.
-It allows:
+Torchflows is a library for generative modeling and density estimation using normalizing flows.
+It implements many normalizing flow architectures and their building blocks for:
 
 * easy use of normalizing flows as trainable distributions;
 * easy implementation of new normalizing flows.
@@ -10,8 +10,8 @@ Example use:
 
 ```python
 import torch
-from normalizing_flows import Flow
-from normalizing_flows.architectures import RealNVP
+from torchflows.flows import Flow
+from torchflows.architectures import RealNVP
 
 torch.manual_seed(0)
 
@@ -34,17 +34,22 @@ We provide more examples [here](examples/).
 
 ## Installing
 
-Install the package:
+Install via pip:
+```
+pip install torchflows
+```
+
+Install the package directly from Github:
 
 ```
-pip install git+https://github.com/davidnabergoj/normalizing-flows.git
+pip install git+https://github.com/davidnabergoj/torchflows.git
 ```
 
 Setup for development:
 
 ```
-git clone https://github.com/davidnabergoj/normalizing-flows.git
-cd normalizing-flows
+git clone https://github.com/davidnabergoj/torchflows.git
+cd torchflows
 pip install -r requirements.txt
 ```
 

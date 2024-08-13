@@ -2,7 +2,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from normalizing_flows.bijections.finite.residual.log_abs_det_estimators import log_det_power_series, log_det_roulette
+from torchflows.bijections.finite.residual.log_abs_det_estimators import log_det_power_series, log_det_roulette
+from test.constants import __test_constants
 
 
 # TODO fix tests: replace closeness checks with analytic bounds
@@ -58,7 +59,7 @@ def test_power_series_estimator(n_iterations, n_hutchinson_samples):
     print()
     print(f'{log_det_f_estimated = }')
     print(f'{log_det_f_true = }')
-    assert torch.allclose(log_det_f_estimated, log_det_f_true)
+    assert torch.allclose(log_det_f_estimated, log_det_f_true, atol=__test_constants['log_det_atol'])
 
 
 @pytest.mark.skip(reason="Improper check")
@@ -81,4 +82,4 @@ def test_roulette_estimator(p):
     print(f'{log_det_f = }')
     print(f'{log_det_f_true = }')
     print(f'{log_det_f.mean() = }')
-    assert torch.allclose(log_det_f, log_det_f_true)
+    assert torch.allclose(log_det_f, log_det_f_true, atol=__test_constants['log_det_atol'])

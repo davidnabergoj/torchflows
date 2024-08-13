@@ -1,6 +1,6 @@
 import torch
 
-from normalizing_flows.bijections.finite.multiscale.coupling import ChannelWiseHalfSplit
+from torchflows.bijections.finite.multiscale.coupling import ChannelWiseHalfSplit
 
 
 def test_partition_shapes_1():

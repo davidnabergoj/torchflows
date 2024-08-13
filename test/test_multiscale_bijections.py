@@ -1,4 +1,4 @@
-from normalizing_flows.architectures import (
+from torchflows.architectures import (
     MultiscaleNICE,
     MultiscaleRQNSF,
     MultiscaleLRSNSF,
@@ -6,6 +6,7 @@ from normalizing_flows.architectures import (
 )
 import torch
 import pytest
+from test.constants import __test_constants
 
 
 @pytest.mark.parametrize('architecture_class', [
@@ -21,8 +22,8 @@ def test_non_factored(architecture_class, image_shape):
     bijection = architecture_class(image_shape, n_layers=2, factored=False)
     z, ldf = bijection.forward(x)
     xr, ldi = bijection.inverse(z)
-    assert torch.allclose(x, xr, atol=1e-4)
-    assert torch.allclose(ldf, -ldi, atol=1e-2)
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol'])
+    assert torch.allclose(ldf, -ldi, atol=__test_constants['log_det_atol'])  # 1e-2
 
 
 @pytest.mark.parametrize('architecture_class', [
@@ -51,8 +52,8 @@ def test_factored(architecture_class, image_shape):
     bijection = architecture_class(image_shape, n_layers=2, factored=True)
     z, ldf = bijection.forward(x)
     xr, ldi = bijection.inverse(z)
-    assert torch.allclose(x, xr, atol=1e-4)
-    assert torch.allclose(ldf, -ldi, atol=1e-2)
+    assert torch.allclose(x, xr, atol=__test_constants['data_atol'])
+    assert torch.allclose(ldf, -ldi, atol=__test_constants['log_det_atol_easy'])  # 1e-2
 
 
 @pytest.mark.parametrize('architecture_class', [

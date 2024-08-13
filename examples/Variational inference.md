@@ -22,8 +22,8 @@ def target_log_prob(x: torch.Tensor):
 We define the flow and run the variational fit:
 
 ```python
-from normalizing_flows import Flow
-from normalizing_flows.bijections import RealNVP
+from torchflows import Flow
+from torchflows.bijections import RealNVP
 
 torch.manual_seed(0)
 flow = Flow(RealNVP(event_shape=event_shape))

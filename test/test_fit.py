@@ -1,7 +1,7 @@
 import pytest
 import torch
-from normalizing_flows import Flow
-from normalizing_flows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, \
+from torchflows import Flow
+from torchflows.bijections import NICE, RealNVP, MAF, ElementwiseAffine, ElementwiseShift, ElementwiseRQSpline, \
     CouplingRQNSF, MaskedAutoregressiveRQNSF, LowerTriangular, ElementwiseScale, QR, LU
 from test.constants import __test_constants
 
