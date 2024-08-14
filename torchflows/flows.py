@@ -255,11 +255,9 @@ class BaseFlow(nn.Module):
                         show_progress: bool = False):
         """Train the normalizing flow to fit a target log probability.
 
-        Stochastic variational inference lets us train a distribution using the unnormalized target log density
-        instead of a fixed dataset.
-        Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details
-        (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in Algorithm 1).
-w
+        Stochastic variational inference lets us train a distribution using the unnormalized target log density instead of a fixed dataset.
+        Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in Algorithm 1).
+
         :param callable target_log_prob: function that computes the unnormalized target log density for a batch of
          points. Receives input batch with shape `(*batch_shape, *event_shape)` and outputs batch with
          shape `(*batch_shape)`.
