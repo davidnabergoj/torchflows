@@ -1,5 +1,5 @@
 from torchflows.flows import Flow, FlowMixture
-from torchflows.bijections import (
+from torchflows.bijections.finite.autoregressive.architectures import (
     NICE,
     RealNVP,
     InverseRealNVP,
@@ -8,25 +8,48 @@ from torchflows.bijections import (
     CouplingRQNSF,
     InverseAutoregressiveRQNSF,
     MaskedAutoregressiveRQNSF,
-    FFJORD,
-    DeepDiffeomorphicBijection,
-    OTFlow,
-    RNODE,
-    InvertibleResNetBlock,
-    ResFlowBlock,
-    ProximalResFlowBlock,
-    InvertibleResNet,
+)
+from torchflows.bijections.finite.residual.architectures import (
     ResFlow,
     ProximalResFlow,
-    QuasiAutoregressiveFlowBlock,
-    Radial,
+    InvertibleResNet,
     Planar,
-    InversePlanar,
+    Radial,
     Sylvester,
-    IdentitySylvester,
-    HouseholderSylvester,
-    PermutationSylvester,
+)
+from torchflows.bijections.finite.autoregressive.layers import (
     ElementwiseShift,
     ElementwiseAffine,
-    ElementwiseRQSpline
+    ElementwiseRQSpline,
+    ElementwiseScale
 )
+from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.continuous.ffjord import FFJORD
+from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
+from torchflows.bijections.continuous.otflow import OTFlow
+
+__all__ = [
+    'NICE',
+    'RealNVP',
+    'InverseRealNVP',
+    'MAF',
+    'IAF',
+    'CouplingRQNSF',
+    'InverseAutoregressiveRQNSF',
+    'MaskedAutoregressiveRQNSF',
+    'FFJORD',
+    'DeepDiffeomorphicBijection',
+    'OTFlow',
+    'RNODE',
+    'InvertibleResNet',
+    'ResFlow',
+    'ProximalResFlow',
+    'Radial',
+    'Planar',
+    'Sylvester',
+    'ElementwiseShift',
+    'ElementwiseAffine',
+    'ElementwiseRQSpline',
+    'Flow',
+    'FlowMixture',
+]

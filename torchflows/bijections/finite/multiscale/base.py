@@ -2,9 +2,8 @@ from typing import Type, Union, Tuple
 
 import torch
 
-from torchflows.bijections import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
-from torchflows.bijections.base import Bijection
+from torchflows.bijections.base import Bijection, BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from torchflows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
@@ -257,6 +256,9 @@ class Squeeze(Bijection):
 
 
 class MultiscaleBijection(BijectiveComposition):
+    """
+    Multiscale bijection class. Used for efficient image modeling. Inherits from BijectiveComposition.
+    """
     def __init__(self,
                  input_event_shape,
                  transformer_class: Type[TensorTransformer],
@@ -265,6 +267,17 @@ class MultiscaleBijection(BijectiveComposition):
                  use_squeeze_layer: bool = True,
                  use_resnet: bool = False,
                  **kwargs):
+        """
+        MultiscaleBijection constructor.
+
+        :param input_event_shape: shape of event tensor.
+        :param TensorTransformer transformer_class: type of transformer.
+        :param int n_checkerboard_layers: number of checkerboard coupling layers.
+        :param int n_channel_wise_layers: number of channel wise coupling layers.
+        :param bool use_squeeze_layer: if True, use a squeeze layer.
+        :param bool use_resnet: if True, use ResNet as the conditioner network.
+        :param kwargs: keyword arguments for BijectiveComposition superclass constructor.
+        """
         checkerboard_layers = [
             CheckerboardCoupling(
                 input_event_shape,

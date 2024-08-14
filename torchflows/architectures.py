@@ -1,6 +1,7 @@
 from torchflows.bijections.finite.autoregressive.architectures import (
     NICE,
     RealNVP,
+    InverseRealNVP,
     MAF,
     IAF,
     CouplingRQNSF,
@@ -21,9 +22,9 @@ from torchflows.bijections.finite.residual.architectures import (
     ResFlow,
     ProximalResFlow,
     InvertibleResNet,
-    Planar,
-    Radial,
-    Sylvester
+    PlanarFlow,
+    RadialFlow,
+    SylvesterFlow
 )
 
 from torchflows.bijections.finite.multiscale.architectures import (

@@ -1,7 +1,7 @@
 import torch
 
 from torchflows import Flow
-from torchflows.bijections import RealNVP
+from torchflows.bijections.finite.autoregressive.architectures import RealNVP
 
 
 def test_real_nvp():
