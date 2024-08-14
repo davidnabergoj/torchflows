@@ -1,6 +1,7 @@
 from torchflows.bijections.finite.autoregressive.architectures import (
     NICE,
     RealNVP,
+    InverseRealNVP,
     MAF,
     IAF,
     CouplingRQNSF,

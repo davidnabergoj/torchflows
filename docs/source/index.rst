@@ -6,12 +6,27 @@
 Torchflows documentation
 ========================
 
-Check out the :doc:`usage` section for more information, including how to :ref:`install <installation>` Torchflows.
+Torchflows is a library for generative modeling and density estimation using normalizing flows.
+It implements many normalizing flow architectures and their building blocks for:
+
+* easy use of normalizing flows as trainable distributions;
+* easy implementation of new normalizing flows.
+
+Installing
+---------------
+Torchflows can be installed easily using pip:
+
+.. code-block:: console
+
+   pip install torchflows
+
+For other install options, see the :ref:`install <installing>` section.
 
 .. toctree::
 
-   usage
-   flow
-   architectures
-   multiscale_architectures
+    installing
+    usage
+    flow
+    architectures
+    multiscale_architectures
 

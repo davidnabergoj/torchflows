@@ -1,4 +1,4 @@
-Creating a Flow object
+Flow objects
 ===============================
 The `Flow` object contains a base distribution and a bijection.
 

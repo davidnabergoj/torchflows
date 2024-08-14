@@ -1,4 +1,4 @@
-Multiscale flow architectures
+Multiscale bijetion architectures
 ============================
 
 .. _multiscale_architectures:

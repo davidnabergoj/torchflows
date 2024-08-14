@@ -1,4 +1,4 @@
-Flow architectures
+Bijection architectures
 ============================
 
 .. _architectures:
