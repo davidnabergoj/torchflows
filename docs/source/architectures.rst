@@ -1,5 +1,7 @@
 Bijection architectures
 ============================
+We lists notable implemented bijection architectures.
+These all inherit from the Bijection class.
 
 .. _architectures:
 

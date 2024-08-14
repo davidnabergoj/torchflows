@@ -39,6 +39,10 @@ def make_basic_layers(base_bijection: Type[
 
 
 class NICE(BijectiveComposition):
+    """Nonlinear independent components estimation (NICE) architecture.
+
+    Reference: Dinh et al. "NICE: Non-linear Independent Components Estimation" (2015); https://arxiv.org/abs/1410.8516.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -51,6 +55,10 @@ class NICE(BijectiveComposition):
 
 
 class RealNVP(BijectiveComposition):
+    """Real non-volume-preserving (Real NVP) architecture.
+
+    Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -63,6 +71,10 @@ class RealNVP(BijectiveComposition):
 
 
 class InverseRealNVP(BijectiveComposition):
+    """Inverse of the Real NVP architecture.
+
+    Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -75,8 +87,9 @@ class InverseRealNVP(BijectiveComposition):
 
 
 class MAF(BijectiveComposition):
-    """
-    Expressive bijection with slightly unstable inverse due to autoregressive formulation.
+    """Masked autoregressive flow (MAF) architecture.
+
+    Reference: Papamakarios et al. "Masked Autoregressive Flow for Density Estimation" (2018); https://arxiv.org/abs/1705.07057.
     """
 
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
@@ -87,6 +100,11 @@ class MAF(BijectiveComposition):
 
 
 class IAF(BijectiveComposition):
+    """Inverse autoregressive flow (IAF) architecture.
+
+    Reference: Kingma et al. "Improving Variational Inference with Inverse Autoregressive Flow" (2017); https://arxiv.org/abs/1606.04934.
+    """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -95,6 +113,10 @@ class IAF(BijectiveComposition):
 
 
 class CouplingRQNSF(BijectiveComposition):
+    """Coupling rational quadratic neural spline flow (C-RQNSF) architecture.
+
+    Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -107,8 +129,9 @@ class CouplingRQNSF(BijectiveComposition):
 
 
 class MaskedAutoregressiveRQNSF(BijectiveComposition):
-    """
-    Expressive bijection with unstable inverse due to autoregressive formulation.
+    """Masked autoregressive rational quadratic neural spline flow (MA-RQNSF) architecture.
+
+    Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
     """
 
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
@@ -119,6 +142,10 @@ class MaskedAutoregressiveRQNSF(BijectiveComposition):
 
 
 class CouplingLRS(BijectiveComposition):
+    """Coupling linear rational spline (C-LRS) architecture.
+
+    Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -131,6 +158,10 @@ class CouplingLRS(BijectiveComposition):
 
 
 class MaskedAutoregressiveLRS(BijectiveComposition):
+    """Masked autoregressive linear rational spline (MA-LRS) architecture.
+
+    Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
+    """
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -139,6 +170,10 @@ class MaskedAutoregressiveLRS(BijectiveComposition):
 
 
 class InverseAutoregressiveRQNSF(BijectiveComposition):
+    """Inverse autoregressive rational quadratic neural spline flow (IA-RQNSF) architecture.
+
+    Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
+    """
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -147,6 +182,10 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
 
 
 class CouplingDSF(BijectiveComposition):
+    """Coupling deep sigmoidal flow (C-DSF) architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -159,6 +198,10 @@ class CouplingDSF(BijectiveComposition):
 
 
 class UMNNMAF(BijectiveComposition):
+    """Unconstrained monotonic neural network masked autoregressive flow (UMNN-MAF) architecture.
+
+    Reference: Wehenkel and Louppe "Unconstrained Monotonic Neural Networks" (2021); https://arxiv.org/abs/1908.05164.
+    """
     def __init__(self, event_shape, n_layers: int = 1, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
