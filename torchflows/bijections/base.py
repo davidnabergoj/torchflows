@@ -9,12 +9,17 @@ from torchflows.utils import get_batch_shape
 
 
 class Bijection(nn.Module):
+    """Bijection class.
+    """
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  **kwargs):
-        """
-        Bijection class.
+        """Bijection constructor.
+
+        :param event_shape: shape of the event tensor.
+        :param context_shape: shape of the context tensor.
+        :param kwargs: unused.
         """
         super().__init__()
         self.event_shape = event_shape
@@ -23,26 +28,26 @@ class Bijection(nn.Module):
         self.transformed_shape = self.event_shape  # Overwritten in multiscale flows TODO make into property
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward bijection map.
+        """Forward bijection map.
         Returns the output vector and the log Jacobian determinant of the forward transform.
 
-        :param x: input array with shape (*batch_shape, *event_shape).
-        :param context: context array with shape (*batch_shape, *context_shape).
-        :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
-            determinant has shape (*batch_shape,).
+        :param torch.Tensor x: input array with shape `(*batch_shape, *event_shape)`.
+        :param torch.Tensor context: context array with shape `(*batch_shape, *context_shape)`.
+        :return: output array and log determinant. The output array has shape `(*batch_shape, *event_shape)`; the log
+            determinant has shape `(*batch_shape,)`.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
         raise NotImplementedError
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Inverse bijection map.
+        """Inverse bijection map.
         Returns the output vector and the log Jacobian determinant of the inverse transform.
 
-        :param z: input array with shape (*batch_shape, *event_shape).
-        :param context: context array with shape (*batch_shape, *context_shape).
-        :return: output array and log determinant. The output array has shape (*batch_shape, *event_shape); the log
-            determinant has shape (*batch_shape,).
+        :param z: input array with shape `(*batch_shape, *event_shape)`.
+        :param context: context array with shape `(*batch_shape, *context_shape)`.
+        :return: output array and log determinant. The output array has shape `(*batch_shape, *event_shape)`; the log
+            determinant has shape `(*batch_shape,)`.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
         raise NotImplementedError
 
@@ -85,20 +90,34 @@ class Bijection(nn.Module):
     def regularization(self):
         return 0.0
 
-def invert(bijection):
-    """
-    Swap the forward and inverse methods of the input bijection.
+def invert(bijection: Bijection) -> Bijection:
+    """Swap the forward and inverse methods of the input bijection.
+
+    :param Bijection bijection: bijection to be inverted.
+    :returns: inverted bijection.
+    :rtype: Bijection
     """
     bijection.forward, bijection.inverse = bijection.inverse, bijection.forward
     return bijection
 
 
 class BijectiveComposition(Bijection):
+    """
+    Composition of bijections. Inherits from Bijection.
+    """
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  layers: List[Bijection],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  **kwargs):
+        """
+        BijectiveComposition constructor.
+
+        :param event_shape: shape of the event tensor.
+        :param List[Bijection] layers: bijection layers.
+        :param context_shape: shape of the context tensor.
+        :param kwargs: unused.
+        """
         super().__init__(event_shape=event_shape, context_shape=context_shape)
         self.layers = nn.ModuleList(layers)
 

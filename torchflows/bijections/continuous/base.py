@@ -265,6 +265,8 @@ class RegularizedApproximateODEFunction(ApproximateODEFunction):
 class ContinuousBijection(Bijection):
     """
     Base class for bijections of continuous normalizing flows.
+
+    Reference: Chen et al. "Neural Ordinary Differential Equations" (2019); https://arxiv.org/abs/1806.07366.
     """
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
@@ -276,12 +278,16 @@ class ContinuousBijection(Bijection):
                  rtol: float = 1e-5,
                  **kwargs):
         """
+        ContinuousBijection constructor.
 
-        :param event_shape:
+        :param event_shape: shape of the event tensor.
         :param f: function to be integrated.
-        :param end_time: integrate f from t=0 to t=time_upper_bound. Default: 1.
+        :param context_shape: shape of the context tensor.
+        :param end_time: integrate f from time 0 to this time. Default: 1.
         :param solver: which solver to use.
-        :param kwargs:
+        :param atol: absolute tolerance for numerical integration.
+        :param rtol: relative tolerance for numerical integration.
+        :param kwargs: unused.
         """
         super().__init__(event_shape, context_shape)
         self.f = f
@@ -299,11 +305,13 @@ class ContinuousBijection(Bijection):
                 integration_times: torch.Tensor = None,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
+        Inverse pass of the continuous bijection.
 
-        :param z: tensor with shape (*batch_shape, *event_shape).
+        :param z: tensor with shape `(*batch_shape, *event_shape)`.
         :param integration_times:
-        :param kwargs:
-        :return:
+        :param kwargs: keyword arguments passed to self.f.before_odeint in the torchdiffeq solver.
+        :return: transformed tensor and log determinant of the transformation.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
 
         # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
@@ -346,6 +354,16 @@ class ContinuousBijection(Bijection):
                 integration_times: torch.Tensor = None,
                 noise: torch.Tensor = None,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass for the continuous bijection.
+
+        :param torch.Tensor x: tensor with shape `(*batch_shape, *event_shape)`.
+        :param torch.Tensor integration_times:
+        :param torch.Tensor noise:
+        :param kwargs: keyword arguments to be passed to `self.inverse`.
+        :returns: transformed tensor and log determinant of the transformation.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
+        """
         if integration_times is None:
             integration_times = self.make_integrations_times(x)
         return self.inverse(

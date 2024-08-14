@@ -1,7 +1,7 @@
 import pytest
 import torch
-from torchflows.bijections import RealNVP
 from torchflows import Flow
+from torchflows.bijections.finite.autoregressive.architectures import RealNVP
 
 
 @pytest.mark.skip(reason="Too slow on CI/CD")
