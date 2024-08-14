@@ -1,4 +1,4 @@
-Examples
+Tutorial
 ===========
 
 We provide tutorials and notebooks for typical Torchflows use cases.
@@ -10,3 +10,4 @@ We provide tutorials and notebooks for typical Torchflows use cases.
     event_shapes
     image_modeling
     choosing_base_distributions
+    cuda

@@ -31,7 +31,7 @@ Guides
 .. toctree::
 
     guides/installing
-    guides/usage
+    guides/tutorial
 
 API
 ====
