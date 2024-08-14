@@ -8,9 +8,18 @@ from torchflows.utils import get_batch_shape
 
 
 class Mixture(torch.distributions.Distribution, nn.Module):
+    """
+    Base mixture distribution class. Extends torch.distributions.Distribution and torch.nn.Module.
+    """
     def __init__(self,
                  components: List[torch.distributions.Distribution],
                  weights: torch.Tensor = None):
+        """
+        Mixture constructor.
+
+        :param List[torch.distributions.Distribution] components: list of distribution components.
+        :param torch.Tensor weights: tensor of weights with shape `(n_components,)`.
+        """
         if weights is None:
             weights = torch.ones(len(components)) / len(components)
         super().__init__(event_shape=components[0].event_shape, validate_args=False)
@@ -37,12 +46,25 @@ class Mixture(torch.distributions.Distribution, nn.Module):
 
 
 class DiagonalGaussianMixture(Mixture):
+    """
+    Mixture distribution of diagonal Gaussians. Extends Mixture.
+    """
+
     def __init__(self,
                  locs: torch.Tensor,
                  scales: torch.Tensor,
                  weights: torch.Tensor = None,
                  trainable_locs: bool = False,
                  trainable_scales: bool = False):
+        """
+        DiagonalGaussianMixture constructor.
+
+        :param torch.Tensor locs: tensor of locations with shape `(n_components, event_size)`.
+        :param torch.Tensor scales: tensor of scales with shape `(n_components, event_size)`.
+        :param torch.Tensor weights: tensor of weights with shape `(n_components,)`.
+        :param bool trainable_locs: if True, make locations trainable.
+        :param bool trainable_scales: if True, make scales trainable.
+        """
         n_components, *event_shape = locs.shape
         components = []
         for i in range(n_components):
@@ -56,6 +78,14 @@ class DenseGaussianMixture(Mixture):
                  covs: torch.Tensor,
                  weights: torch.Tensor = None,
                  trainable_locs: bool = False):
+        """
+        DenseGaussianMixture constructor. Extends Mixture.
+
+        :param torch.Tensor locs: tensor of locations with shape `(n_components, event_size)`.
+        :param torch.Tensor covs: tensor of covariance matrices with shape `(n_components, event_size, event_size)`.
+        :param torch.Tensor weights: tensor of weights with shape `(n_components,)`.
+        :param bool trainable_locs: if True, make locations trainable.
+        """
         n_components, *event_shape = locs.shape
         components = []
         for i in range(n_components):
