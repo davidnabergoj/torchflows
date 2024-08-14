@@ -7,21 +7,21 @@ from torchflows.bijections.continuous.base import ApproximateContinuousBijection
 
 
 class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
-    """
-    Base bijection for the DDNF model.
-    Note that this model is implemented WITHOUT Geodesic regularization.
-    This is because torchdiffeq ODE solvers do not output the predicted velocity, only the point.
-    While the paper presents DDNF as a continuous normalizing flow, it is easier implement as a Residual normalizing
-        flow in this library.
+    """Deep diffeomorphic normalizing flow (DDNF) architecture.
 
-    IMPORTANT NOTE: the Euler solver prouduces very inaccurate results. Switching to the DOPRI5 solver massively
-    improves reconstruction quality. However, we leave the Euler solver as it is presented in the original method.
+    Notes:
+        - this model is implemented without Geodesic regularization. This is because torchdiffeq ODE solvers do not output the predicted velocity, only the point.
+        - while the paper presents DDNF as a continuous normalizing flow, it implemented as a residual normalizing flow in this library. There is no functional difference.
+        - IMPORTANT: the Euler solver produces very inaccurate results. Switching to the DOPRI5 solver massively improves reconstruction quality. However, we leave the Euler solver as it is presented in the original method.
 
-    Salman et al. Deep diffeomorphic normalizing flows (2018).
+    Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_steps: int = 150, **kwargs):
         """
+        Constructor.
+
+        :param event_shape: shape of the event tensor.
         :param n_steps: parameter T in the paper, i.e. the number of ResNet cells.
         """
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
