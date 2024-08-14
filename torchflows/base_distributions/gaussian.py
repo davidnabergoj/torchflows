@@ -11,7 +11,7 @@ class DiagonalGaussian(torch.distributions.Distribution, nn.Module):
                  scale: torch.Tensor,
                  trainable_loc: bool = False,
                  trainable_scale: bool = False):
-        super().__init__(event_shape=loc.shape)
+        super().__init__(event_shape=loc.shape, validate_args=False)
         self.log_2_pi = math.log(2 * math.pi)
         if trainable_loc:
             self.register_parameter('loc', nn.Parameter(loc))
@@ -48,7 +48,7 @@ class DenseGaussian(torch.distributions.Distribution, nn.Module):
                  loc: torch.Tensor,
                  cov: torch.Tensor,
                  trainable_loc: bool = False):
-        super().__init__(event_shape=loc.shape)
+        super().__init__(event_shape=loc.shape, validate_args=False)
         event_size = int(torch.prod(torch.as_tensor(self.event_shape)))
         if cov.shape != (event_size, event_size):
             raise ValueError("Incorrect covariance matrix shape")

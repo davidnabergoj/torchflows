@@ -13,7 +13,7 @@ class Mixture(torch.distributions.Distribution, nn.Module):
                  weights: torch.Tensor = None):
         if weights is None:
             weights = torch.ones(len(components)) / len(components)
-        super().__init__(event_shape=components[0].event_shape)
+        super().__init__(event_shape=components[0].event_shape, validate_args=False)
         self.register_buffer('log_weights', torch.log(weights))
         self.components = components
         self.categorical = torch.distributions.Categorical(probs=weights)
