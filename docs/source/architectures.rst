@@ -5,6 +5,9 @@ These all inherit from the Bijection class.
 
 .. _architectures:
 
+Autoregressive architectures
+--------------------------------
+
 .. autoclass:: torchflows.architectures.RealNVP
 .. autoclass:: torchflows.architectures.InverseRealNVP
 .. autoclass:: torchflows.architectures.NICE
@@ -17,10 +20,16 @@ These all inherit from the Bijection class.
 .. autoclass:: torchflows.architectures.MaskedAutoregressiveLRS
 .. autoclass:: torchflows.architectures.CouplingDSF
 .. autoclass:: torchflows.architectures.UMNNMAF
+
+Continuous architectures
+-------------------------
 .. autoclass:: torchflows.architectures.DeepDiffeomorphicBijection
 .. autoclass:: torchflows.architectures.RNODE
 .. autoclass:: torchflows.architectures.FFJORD
 .. autoclass:: torchflows.architectures.OTFlow
+
+Residual architectures
+-----------------------
 .. autoclass:: torchflows.architectures.ResFlow
 .. autoclass:: torchflows.architectures.ProximalResFlow
 .. autoclass:: torchflows.architectures.InvertibleResNet
