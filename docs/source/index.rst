@@ -12,6 +12,9 @@ It implements many normalizing flow architectures and their building blocks for:
 * easy use of normalizing flows as trainable distributions;
 * easy implementation of new normalizing flows.
 
+Torchflows is structured according to the review paper `Normalizing Flows for Probabilistic Modeling and Inference <(https://arxiv.org/abs/1912.02762)>`_ by Papamakarios et al. (2021), which classifies flow architectures as autoregressive, residual, or continuous.
+Visit the `Github page <https://github.com/davidnabergoj/torchflows>`_ to keep up to date and post any questions or issues `here <https://github.com/davidnabergoj/torchflows/issues>`_.
+
 Installing
 ---------------
 Torchflows can be installed easily using pip:
