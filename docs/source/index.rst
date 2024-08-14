@@ -27,15 +27,14 @@ Guides
 
 .. toctree::
 
-    installing
-    usage
+    guides/installing
+    guides/usage
 
 API
 ====
 
 .. toctree::
-    flow
-    bijections
-    architectures
-    multiscale_architectures
+    api/components
+    api/architectures
+    api/multiscale_architectures
 

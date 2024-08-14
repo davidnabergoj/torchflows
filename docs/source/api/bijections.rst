@@ -1,5 +1,5 @@
-Bijections
-============
+Bijection objects
+====================
 
 All normalizing flow transformations are bijections.
 The following classes define forward and inverse pass methods which all flow architectures inherit.
@@ -12,6 +12,9 @@ The following classes define forward and inverse pass methods which all flow arc
 
 .. autoclass:: torchflows.bijections.continuous.base.ContinuousBijection
     :members: __init__, forward, inverse
+
+.. autoclass:: torchflows.bijections.finite.multiscale.base.MultiscaleBijection
+    :members: __init__
 
 Inverting a bijection
 ---------------------

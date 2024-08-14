@@ -141,6 +141,10 @@ def make_image_layers(*args, factored: bool = False, **kwargs):
 
 
 class MultiscaleRealNVP(BijectiveComposition):
+    """Multiscale version of Real NVP.
+
+    Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = None,
@@ -155,6 +159,12 @@ class MultiscaleRealNVP(BijectiveComposition):
 
 
 class MultiscaleNICE(BijectiveComposition):
+    """Multiscale version of NICE.
+
+    References:
+        - Dinh et al. "NICE: Non-linear Independent Components Estimation" (2015); https://arxiv.org/abs/1410.8516.
+        - Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = None,
@@ -169,6 +179,12 @@ class MultiscaleNICE(BijectiveComposition):
 
 
 class MultiscaleRQNSF(BijectiveComposition):
+    """Multiscale version of C-RQNSF.
+
+    References:
+        - Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
+        - Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = None,
@@ -184,6 +200,12 @@ class MultiscaleRQNSF(BijectiveComposition):
 
 
 class MultiscaleLRSNSF(BijectiveComposition):
+    """Multiscale version of C-LRS.
+
+    References:
+        - Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
+        - Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
+    """
     def __init__(self,
                  event_shape,
                  n_layers: int = None,
