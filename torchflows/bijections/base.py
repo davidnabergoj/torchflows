@@ -122,7 +122,7 @@ class BijectiveComposition(Bijection):
         self.layers = nn.ModuleList(layers)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        log_det = torch.zeros(size=get_batch_shape(x, event_shape=self.event_shape), device=x.device)
+        log_det = torch.zeros(size=get_batch_shape(x, event_shape=self.event_shape)).to(x)
         for layer in self.layers:
             x, log_det_layer = layer(x, context=context)
             log_det += log_det_layer
@@ -130,7 +130,7 @@ class BijectiveComposition(Bijection):
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        log_det = torch.zeros(size=get_batch_shape(z, event_shape=self.event_shape), device=z.device)
+        log_det = torch.zeros(size=get_batch_shape(z, event_shape=self.event_shape)).to(z)
         for layer in self.layers[::-1]:
             z, log_det_layer = layer.inverse(z, context=context)
             log_det += log_det_layer

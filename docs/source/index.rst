@@ -31,12 +31,14 @@ Guides
 .. toctree::
 
     guides/installing
-    guides/usage
+    guides/tutorial
 
 API
 ====
 
 .. toctree::
+    :maxdepth: 3
+
     api/components
     api/architectures
     api/multiscale_architectures
