@@ -13,6 +13,10 @@ from torchflows.bijections.finite.residual.sylvester import Sylvester
 
 
 class InvertibleResNet(ResidualComposition):
+    """Invertible residual network (i-ResNet) architecture.
+
+    Reference: Behrmann et al. "Invertible Residual Networks" (2019); https://arxiv.org/abs/1811.00995.
+    """
     def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
         blocks = [
             InvertibleResNetBlock(event_shape=event_shape, context_shape=context_shape, **kwargs)
@@ -22,6 +26,10 @@ class InvertibleResNet(ResidualComposition):
 
 
 class ResFlow(ResidualComposition):
+    """Residual flow (ResFlow) architecture.
+
+    Reference: Chen et al. "Residual Flows for Invertible Generative Modeling" (2020); https://arxiv.org/abs/1906.02735.
+    """
     def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
         blocks = [
             ResFlowBlock(event_shape=event_shape, context_shape=context_shape, **kwargs)
@@ -31,6 +39,10 @@ class ResFlow(ResidualComposition):
 
 
 class ProximalResFlow(ResidualComposition):
+    """Proximal residual flow architecture.
+
+    Reference: Hertrich "Proximal Residual Flows for Bayesian Inverse Problems" (2022); https://arxiv.org/abs/2211.17158.
+    """
     def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
         blocks = [
             ProximalResFlowBlock(event_shape=event_shape, context_shape=context_shape, gamma=0.01, **kwargs)
@@ -40,6 +52,12 @@ class ProximalResFlow(ResidualComposition):
 
 
 class PlanarFlow(BijectiveComposition):
+    """Planar flow architecture.
+
+    Note: this model currently supports only one-way transformations.
+
+    Reference: Rezende and Mohamed "Variational Inference with Normalizing Flows" (2016); https://arxiv.org/abs/1505.05770.
+    """
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_layers: int = 2):
         if n_layers < 1:
             raise ValueError(f"Flow needs at least one layer, but got {n_layers}")
@@ -51,6 +69,12 @@ class PlanarFlow(BijectiveComposition):
 
 
 class RadialFlow(BijectiveComposition):
+    """Radial flow architecture.
+
+    Note: this model currently supports only one-way transformations.
+
+    Reference: Rezende and Mohamed "Variational Inference with Normalizing Flows" (2016); https://arxiv.org/abs/1505.05770.
+    """
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_layers: int = 2):
         if n_layers < 1:
             raise ValueError(f"Flow needs at least one layer, but got {n_layers}")
@@ -62,6 +86,12 @@ class RadialFlow(BijectiveComposition):
 
 
 class SylvesterFlow(BijectiveComposition):
+    """Sylvester flow architecture.
+
+    Note: this model currently supports only one-way transformations.
+
+    Reference: Van den Berg et al. "Sylvester Normalizing Flows for Variational Inference" (2019); https://arxiv.org/abs/1803.05649.
+    """
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_layers: int = 2, **kwargs):
         if n_layers < 1:
             raise ValueError(f"Flow needs at least one layer, but got {n_layers}")

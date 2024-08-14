@@ -33,6 +33,6 @@ Residual architectures
 .. autoclass:: torchflows.architectures.ResFlow
 .. autoclass:: torchflows.architectures.ProximalResFlow
 .. autoclass:: torchflows.architectures.InvertibleResNet
-.. autoclass:: torchflows.architectures.Planar
-.. autoclass:: torchflows.architectures.Radial
-.. autoclass:: torchflows.architectures.Sylvester
+.. autoclass:: torchflows.architectures.PlanarFlow
+.. autoclass:: torchflows.architectures.RadialFlow
+.. autoclass:: torchflows.architectures.SylvesterFlow
