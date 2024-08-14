@@ -37,6 +37,8 @@ API
 ====
 
 .. toctree::
+    :maxdepth: 3
+
     api/components
     api/architectures
     api/multiscale_architectures
