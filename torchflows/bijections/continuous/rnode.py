@@ -10,7 +10,7 @@ from torchflows.bijections.continuous.base import ApproximateContinuousBijection
 class RNODE(ApproximateContinuousBijection):
     """Regularized neural ordinary differential equation (RNODE) architecture.
 
-    Reference: Chen et al. "Neural Ordinary Differential Equations" (2019); https://arxiv.org/abs/1806.07366.
+    Reference: Finlay et al. "How to train your neural ODE: the world of Jacobian and kinetic regularization" (2020); https://arxiv.org/abs/2002.02798.
     """
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))

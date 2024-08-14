@@ -10,6 +10,9 @@ The following classes define forward and inverse pass methods which all flow arc
 .. autoclass:: torchflows.bijections.base.BijectiveComposition
     :members: __init__
 
+.. autoclass:: torchflows.bijections.continuous.base.ContinuousBijection
+    :members: __init__, forward, inverse
+
 Inverting a bijection
 ---------------------
 
