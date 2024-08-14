@@ -11,7 +11,7 @@ The following classes define forward and inverse pass methods which all flow arc
     :members: __init__
 
 Inverting a bijection
-======================
+---------------------
 
 Each bijection can be inverted with the `invert` function.
 
