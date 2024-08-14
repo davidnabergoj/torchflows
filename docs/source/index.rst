@@ -22,6 +22,9 @@ Torchflows can be installed easily using pip:
 
 For other install options, see the :ref:`install <installing>` section.
 
+Contents
+=========
+
 .. toctree::
 
     installing
