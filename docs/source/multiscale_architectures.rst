@@ -1,4 +1,4 @@
-Multiscale bijection architectures
+Multiscale architectures
 ========================================================
 
 .. _multiscale_architectures:
