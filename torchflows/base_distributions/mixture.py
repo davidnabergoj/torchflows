@@ -38,8 +38,8 @@ class Mixture(torch.distributions.Distribution, nn.Module):
         # We are assuming all components are normalized
         value = value.to(self.log_weights)
         batch_shape = get_batch_shape(value, self.event_shape)
-        log_probs = torch.zeros(*batch_shape, self.n_components).to(self.log_weights)
-        for i in range(self.n_components):
+        log_probs = torch.zeros(*batch_shape, len(self.components)).to(self.log_weights)
+        for i in range(len(self.components)):
             log_probs[..., i] = self.components[i].log_prob(value)
         sample_shape_mask = [None for _ in range(len(value.shape) - len(self.event_shape))]
         return torch.logsumexp(self.log_weights[sample_shape_mask] + log_probs, dim=-1)
