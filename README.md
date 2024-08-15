@@ -30,7 +30,7 @@ print(log_prob.shape)  # (100,)
 print(x_new.shape)  # (50, 3)
 ```
 
-Check examples and documentation, including the list of supported architectures [here](torchflows.readthedocs.io/en/latest/).
+Check examples and documentation, including the list of supported architectures [here](https://torchflows.readthedocs.io/en/latest/).
 We also provide examples [here](examples/).
 
 ## Installing
