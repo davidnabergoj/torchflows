@@ -7,7 +7,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="normalizing-flows",
-    version="0.1",
+    version="1.0.4",
     description="Modern normalizing flows in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",

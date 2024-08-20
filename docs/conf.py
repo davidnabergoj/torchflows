@@ -7,7 +7,7 @@ copyright = '2024, David Nabergoj'
 author = 'David Nabergoj'
 
 release = '1.0'
-version = '1.0.2'
+version = '1.0.4'
 
 # -- General configuration
 
