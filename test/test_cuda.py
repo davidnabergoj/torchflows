@@ -1,10 +1,9 @@
 import pytest
 import torch
-from torchflows.bijections import RealNVP
 from torchflows import Flow
+from torchflows.bijections.finite.autoregressive.architectures import RealNVP
 
 
-@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_log_prob_data_on_cpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -20,7 +19,6 @@ def test_real_nvp_log_prob_data_on_cpu():
     flow.log_prob(x_train)
 
 
-@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_log_prob_data_on_gpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -36,7 +34,6 @@ def test_real_nvp_log_prob_data_on_gpu():
     flow.log_prob(x_train.cuda())
 
 
-@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_fit_data_on_cpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -49,10 +46,9 @@ def test_real_nvp_fit_data_on_cpu():
     x_train = torch.randn(*batch_shape, *event_shape)
 
     flow = Flow(RealNVP(event_shape)).cuda()
-    flow.fit(x_train)
+    flow.fit(x_train, n_epochs=3)
 
 
-@pytest.mark.skip(reason="Too slow on CI/CD")
 def test_real_nvp_fit_data_on_gpu():
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
@@ -65,4 +61,4 @@ def test_real_nvp_fit_data_on_gpu():
     x_train = torch.randn(*batch_shape, *event_shape)
 
     flow = Flow(RealNVP(event_shape)).cuda()
-    flow.fit(x_train.cuda())
+    flow.fit(x_train.cuda(), n_epochs=3)

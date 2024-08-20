@@ -7,34 +7,41 @@ import torch.nn as nn
 from tqdm import tqdm
 from torchflows.bijections.base import Bijection
 from torchflows.utils import flatten_event, unflatten_event, create_data_loader
+from torchflows.base_distributions.gaussian import DiagonalGaussian
 
 
 class BaseFlow(nn.Module):
+    """Base normalizing flow class.
+    """
+
     def __init__(self,
                  event_shape,
                  base_distribution: Union[torch.distributions.Distribution, str] = 'standard_normal'):
+        """BaseFlow constructor.
+
+        :param event_shape: shape of the event space.
+        :param base_distribution: base distribution.
+        """
         super().__init__()
         self.event_shape = event_shape
         self.event_size = int(torch.prod(torch.as_tensor(event_shape)))
 
         if base_distribution == 'standard_normal':
-            self.base = torch.distributions.MultivariateNormal(
-                loc=torch.zeros(self.event_size),
-                covariance_matrix=torch.eye(self.event_size)
-            )
+            self.base = DiagonalGaussian(loc=torch.zeros(self.event_size), scale=torch.ones(self.event_size))
         elif isinstance(base_distribution, torch.distributions.Distribution):
             self.base = base_distribution
         else:
             raise ValueError(f'Invalid base distribution: {base_distribution}')
 
-        self.device_buffer = torch.empty(size=())
+        self.register_buffer('device_buffer', torch.empty(size=()))
 
     def get_device(self):
+        """Returns the torch device for this object.
+        """
         return self.device_buffer.device
 
     def base_log_prob(self, z: torch.Tensor):
-        """
-        Compute the log probability of input z under the base distribution.
+        """Compute the log probability of input z under the base distribution.
 
         :param z: input tensor.
         :return: log probability of the input tensor.
@@ -44,8 +51,7 @@ class BaseFlow(nn.Module):
         return log_prob
 
     def base_sample(self, sample_shape: Union[torch.Size, Tuple[int, ...]]):
-        """
-        Sample from the base distribution.
+        """Sample from the base distribution.
 
         :param sample_shape: desired shape of sampled tensor.
         :return: tensor with shape sample_shape.
@@ -55,6 +61,8 @@ class BaseFlow(nn.Module):
         return z
 
     def regularization(self):
+        """Compute the regularization term used in training.
+        """
         return 0.0
 
     def fit(self,
@@ -72,24 +80,23 @@ class BaseFlow(nn.Module):
             keep_best_weights: bool = True,
             early_stopping: bool = False,
             early_stopping_threshold: int = 50):
-        """
-        Fit the normalizing flow.
+        """Fit the normalizing flow to a dataset.
 
         Fitting the flow means finding the parameters of the bijection that maximize the probability of training data.
         Bijection parameters are iteratively updated for a specified number of epochs.
         If context data is provided, the normalizing flow learns the distribution of data conditional on context data.
 
-        :param x_train: training data with shape (n_training_data, *event_shape).
+        :param x_train: training data with shape `(n_training_data, *event_shape)`.
         :param n_epochs: perform fitting for this many steps.
         :param lr: learning rate. In general, lower learning rates are recommended for high-parametric bijections.
         :param batch_size: in each epoch, split training data into batches of this size and perform a parameter update for each batch.
         :param shuffle: shuffle training data. This helps avoid incorrect fitting if nearby training samples are similar.
         :param show_progress: show a progress bar with the current batch loss.
-        :param w_train: training data weights with shape (n_training_data,).
-        :param context_train: training data context tensor with shape (n_training_data, *context_shape).
-        :param x_val: validation data with shape (n_validation_data, *event_shape).
-        :param w_val: validation data weights with shape (n_validation_data,).
-        :param context_val: validation data context tensor with shape (n_validation_data, *context_shape).
+        :param w_train: training data weights with shape `(n_training_data,)`.
+        :param context_train: training data context tensor with shape `(n_training_data, *context_shape)`.
+        :param x_val: validation data with shape `(n_validation_data, *event_shape)`.
+        :param w_val: validation data weights with shape `(n_validation_data,)`.
+        :param context_val: validation data context tensor with shape `(n_validation_data, *context_shape)`.
         :param keep_best_weights: if True and validation data is provided, keep the bijection weights with the highest probability of validation data.
         :param early_stopping: if True and validation data is provided, stop the training procedure early once validation loss stops improving for a specified number of consecutive epochs.
         :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
@@ -246,18 +253,14 @@ class BaseFlow(nn.Module):
                         early_stopping_threshold: int = 50,
                         keep_best_weights: bool = True,
                         show_progress: bool = False):
-        """
-        Train a distribution with stochastic variational inference.
-        Stochastic variational inference lets us train a distribution using the unnormalized target log density
-        instead of a fixed dataset.
+        """Train the normalizing flow to fit a target log probability.
 
-        Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details
-        (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in
-         Algorithm 1).
+        Stochastic variational inference lets us train a distribution using the unnormalized target log density instead of a fixed dataset.
+        Refer to Rezende, Mohamed: "Variational Inference with Normalizing Flows" (2015) for more details (https://arxiv.org/abs/1505.05770, loss definition in Equation 15, training pseudocode for conditional flows in Algorithm 1).
 
         :param callable target_log_prob: function that computes the unnormalized target log density for a batch of
-        points. Receives input batch with shape = (*batch_shape, *event_shape) and outputs batch with
-         shape = (*batch_shape).
+         points. Receives input batch with shape `(*batch_shape, *event_shape)` and outputs batch with
+         shape `(*batch_shape)`.
         :param int n_epochs: number of training epochs.
         :param float lr: learning rate for the AdamW optimizer.
         :param float n_samples: number of samples to estimate the variational loss in each training step.
@@ -300,29 +303,29 @@ class BaseFlow(nn.Module):
 
 
 class Flow(BaseFlow):
-    """
-    Normalizing flow class.
+    """Normalizing flow class. Inherits from BaseFlow.
 
     This class represents a bijective transformation of a standard Gaussian distribution (the base distribution).
     A normalizing flow is itself a distribution which we can sample from or use it to compute the density of inputs.
     """
 
     def __init__(self, bijection: Bijection, **kwargs):
-        """
+        """Flow constructor.
 
-        :param bijection: transformation component of the normalizing flow.
+        :param Bijection bijection: transformation component of the normalizing flow.
+        :param kwargs: keyword arguments passed to BaseFlow.
         """
         super().__init__(event_shape=bijection.event_shape, **kwargs)
         self.register_module('bijection', bijection)
 
     def forward_with_log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
-        """
-        Transform the input x to the space of the base distribution.
+        """Transform the input x to the space of the base distribution.
 
-        :param x: input tensor.
-        :param context: context tensor upon which the transformation is conditioned.
+        :param torch.Tensor x: input tensor.
+        :param torch.Tensor context: context tensor upon which the transformation is conditioned.
         :return: transformed tensor and the logarithm of the absolute value of the Jacobian determinant of the
          transformation.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
         if context is not None:
             assert context.shape[0] == x.shape[0]
@@ -331,13 +334,13 @@ class Flow(BaseFlow):
         log_base = self.base_log_prob(z)
         return z, log_base + log_det
 
-    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
-        """
-        Compute the logarithm of the probability density of input x according to the normalizing flow.
+    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        """Compute the logarithm of the probability density of input x according to the normalizing flow.
 
-        :param x: input tensor.
-        :param context: context tensor.
-        :return:
+        :param torch.Tensor x: input tensor.
+        :param torch.Tensor context: context tensor.
+        :return: tensor of log probabilities.
+        :rtype: torch.Tensor.
         """
         return self.forward_with_log_prob(x, context)[1]
 
@@ -345,17 +348,18 @@ class Flow(BaseFlow):
                sample_shape: Union[int, torch.Size, Tuple[int, ...]],
                context: torch.Tensor = None,
                no_grad: bool = False,
-               return_log_prob: bool = False):
-        """
-        Sample from the normalizing flow.
+               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """Sample from the normalizing flow.
 
         If context given, sample n tensors for each context tensor.
         Otherwise, sample n tensors.
 
         :param sample_shape: shape of tensors to sample.
-        :param context: context tensor with shape c.
-        :param no_grad: if True, do not track gradients in the inverse pass.
-        :return: samples with shape (n, *event_shape) if no context given or (n, *c, *event_shape) if context given.
+        :param torch.Tensor context: context tensor with shape `c`.
+        :param bool no_grad: if True, do not track gradients in the inverse pass.
+        :param return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
+        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or `(*sample_shape, *c, *event_shape)` if context given.
+        :rtype: torch.Tensor
         """
         if isinstance(sample_shape, int):
             sample_shape = (sample_shape,)
@@ -364,7 +368,7 @@ class Flow(BaseFlow):
             sample_shape = (*sample_shape, len(context))
             z = self.base_sample(sample_shape=sample_shape)
             context = context[None].repeat(
-                *[sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
+                *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
             assert z.shape[:2] == context.shape[:2]
         else:
             z = self.base_sample(sample_shape=sample_shape)
@@ -392,7 +396,20 @@ class Flow(BaseFlow):
 
 
 class FlowMixture(BaseFlow):
+    """Base class for mixtures of normalizing flows. Inherits from BaseFlow.
+
+    A mixture uses flow objects as components, as well as their associated categorical distribution weights.
+    It is a typical statistical mixture.
+    """
+
     def __init__(self, flows: List[Flow], weights: List[float] = None, trainable_weights: bool = False):
+        """FlowMixture constructor.
+
+        :param List[Flow] flows: normalizing flow components.
+        :param List[float] weights: mixture weights corresponding to flow components. All weights must be greater than 0. The sum of
+            the weights must equal 1.
+        :param bool trainable_weights: if True, makes the weights trainable.
+        """
         super().__init__(event_shape=flows[0].event_shape)
 
         # Use uniform weights by default
@@ -409,7 +426,14 @@ class FlowMixture(BaseFlow):
         else:
             self.logit_weights = torch.log(torch.tensor(weights))
 
-    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
+    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        """Compute the log probability density of inputs x.
+
+        :param torch.Tensor x: input tensor.
+        :param torch.Tensor context: context tensor.
+        :return: tensor of log probabilities.
+        :rtype: torch.Tensor
+        """
         flow_log_probs = torch.stack([flow.log_prob(x, context=context) for flow in self.flows])
         # (n_flows, *batch_shape)
 
@@ -418,7 +442,20 @@ class FlowMixture(BaseFlow):
         log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # batch_shape
         return log_prob
 
-    def sample(self, n: int, context: torch.Tensor = None, no_grad: bool = False, return_log_prob: bool = False):
+    def sample(self,
+               n: int,
+               context: torch.Tensor = None,
+               no_grad: bool = False,
+               return_log_prob: bool = False) -> torch.Tensor:
+        """Sample from the flow mixture.
+
+        :param int n: number of samples to draw.
+        :param torch.Tensor context: context tensor.
+        :param bool no_grad: if True, do not track gradients in the inverse pass during sampling.
+        :param return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
+        :returns: tensor of drawn samples.
+        :rtype: torch.Tensor
+        """
         flow_samples = []
         flow_log_probs = []
         for flow in self.flows:

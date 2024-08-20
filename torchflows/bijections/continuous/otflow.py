@@ -202,6 +202,11 @@ class OTFlowODEFunction(ExactODEFunction):
 
 
 class OTFlow(ExactContinuousBijection):
+    """
+    Optimal transport flow (OT-flow) architecture.
+
+    Reference: Onken et al. "OT-Flow: Fast and Accurate Continuous Normalizing Flows via Optimal Transport" (2021); https://arxiv.org/abs/2006.00104.
+    """
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         diff_eq = OTFlowODEFunction(n_dim)

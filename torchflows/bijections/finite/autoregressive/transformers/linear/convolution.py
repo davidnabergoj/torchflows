@@ -1,7 +1,5 @@
 from typing import Union, Tuple
 import torch
-
-from torchflows.bijections import LU
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from torchflows.bijections.finite.autoregressive.transformers.linear.matrix import LUTransformer
 from torchflows.utils import sum_except_batch, get_batch_shape

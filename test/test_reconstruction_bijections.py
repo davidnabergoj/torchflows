@@ -3,18 +3,19 @@ from typing import Tuple
 import pytest
 import torch
 
-from torchflows.bijections import LU, ReversePermutation, LowerTriangular, \
-    Orthogonal, QR, ElementwiseScale, LRSCoupling, LinearRQSCoupling
-from torchflows.bijections import RealNVP, MAF, CouplingRQNSF, MaskedAutoregressiveRQNSF, ResFlowBlock, \
-    InvertibleResNetBlock, \
-    ElementwiseAffine, ElementwiseShift, InverseAutoregressiveRQNSF, IAF, NICE
-from torchflows.bijections import FFJORD
+
 from torchflows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
 from torchflows.bijections.base import Bijection
-from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
+from torchflows.bijections.continuous.ffjord import FFJORD
 from torchflows.bijections.continuous.otflow import OTFlow
 from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, CouplingRQNSF, MAF, IAF, \
+    InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF
+from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
+    LRSCoupling, LinearRQSCoupling
+from torchflows.bijections.finite.linear import LU, ReversePermutation, LowerTriangular, Orthogonal, QR
 from torchflows.bijections.finite.residual.architectures import ResFlow, InvertibleResNet, ProximalResFlow
+from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
 from torchflows.bijections.finite.residual.planar import Planar
 from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from torchflows.bijections.finite.residual.radial import Radial
