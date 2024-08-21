@@ -1,5 +1,5 @@
 import math
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch
 
@@ -30,9 +30,15 @@ class Affine(ScalarTransformer):
     def default_parameters(self) -> torch.Tensor:
         return torch.zeros(self.parameter_shape)
 
+    def constrain_scale(self, unconstrained_scale: torch.Tensor) -> torch.Tensor:
+        return torch.exp(self.identity_unconstrained_alpha + unconstrained_scale / self.const) + self.m
+
+    def unconstrain_scale(self, scale: torch.Tensor) -> torch.Tensor:
+        return (torch.log(scale - self.m) - self.identity_unconstrained_alpha) * self.const
+
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
-        alpha = torch.exp(self.identity_unconstrained_alpha + u_alpha / self.const) + self.m
+        alpha = self.constrain_scale(u_alpha)
         log_alpha = torch.log(alpha)
 
         u_beta = h[..., 1]
@@ -43,7 +49,7 @@ class Affine(ScalarTransformer):
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
-        alpha = torch.exp(self.identity_unconstrained_alpha + u_alpha / self.const) + self.m
+        alpha = self.constrain_scale(u_alpha)
         log_alpha = torch.log(alpha)
 
         u_beta = h[..., 1]
@@ -52,12 +58,26 @@ class Affine(ScalarTransformer):
         log_det = -sum_except_batch(log_alpha, self.event_shape)
         return (z - beta) / alpha, log_det
 
+
+class InverseAffine(Affine):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return super().inverse(x, h)
+
+    def inverse(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        return super().forward(x, h)
+
+
 class SafeAffine(Affine):
     """
     Affine transformer with minimum scale 0.1 for numerical stability.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, min_scale=0.1)
+
 
 class Affine2(ScalarTransformer):
     """

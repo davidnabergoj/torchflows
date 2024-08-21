@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
-from torchflows.bijections.base import Bijection
+from torchflows.bijections.base import Bijection, BijectiveComposition
+from torchflows.bijections.finite.autoregressive.layers import ActNorm
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from torchflows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
@@ -129,6 +130,15 @@ class CheckerboardCoupling(ConvolutionalCouplingBijection):
         super().__init__(transformer, coupling, **kwargs)
 
 
+class NormalizedCheckerboardCoupling(BijectiveComposition):
+    def __init__(self, event_shape, **kwargs):
+        layers = [
+            CheckerboardCoupling(event_shape, **kwargs),
+            ActNorm(event_shape)
+        ]
+        super().__init__(event_shape, layers)
+
+
 class ChannelWiseCoupling(ConvolutionalCouplingBijection):
     def __init__(self,
                  event_shape,
@@ -141,6 +151,15 @@ class ChannelWiseCoupling(ConvolutionalCouplingBijection):
         )
         transformer = transformer_class(event_shape=coupling.transformed_shape)
         super().__init__(transformer, coupling, **kwargs)
+
+
+class NormalizedChannelWiseCoupling(BijectiveComposition):
+    def __init__(self, event_shape, **kwargs):
+        layers = [
+            ChannelWiseCoupling(event_shape, **kwargs),
+            ActNorm(event_shape)
+        ]
+        super().__init__(event_shape, layers)
 
 
 class Squeeze(Bijection):
@@ -219,9 +238,9 @@ class MultiscaleBijectiveComposition(Bijection):
 
         self.n_blocks = n_blocks
         self.checkerboard_layers = nn.ModuleList([
-            CheckerboardCoupling(
+            NormalizedCheckerboardCoupling(
                 event_shape,
-                transformer_class,
+                transformer_class=transformer_class,
                 alternate=i % 2 == 1,
                 conditioner='resnet' if use_resnet else 'convnet'
             )
@@ -231,9 +250,9 @@ class MultiscaleBijectiveComposition(Bijection):
         if self.n_blocks > 1:
             self.squeeze = Squeeze(event_shape)
             self.channel_wise_layers = nn.ModuleList([
-                ChannelWiseCoupling(
+                NormalizedChannelWiseCoupling(
                     self.squeeze.transformed_event_shape,
-                    transformer_class,
+                    transformer_class=transformer_class,
                     alternate=i % 2 == 1,
                     conditioner='resnet' if use_resnet else 'convnet'
                 )

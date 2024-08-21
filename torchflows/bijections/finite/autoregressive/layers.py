@@ -2,11 +2,12 @@ from typing import Tuple, List
 
 import torch
 
+from potentials.utils import get_batch_shape
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
 from torchflows.bijections.finite.autoregressive.conditioning.coupling_masks import make_coupling
 from torchflows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
     InverseMaskedAutoregressiveBijection, ElementwiseBijection, CouplingBijection
-from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift
+from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Scale, Affine, Shift, InverseAffine
 from torchflows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
 from torchflows.bijections.finite.autoregressive.transformers.integration.unconstrained_monotonic_neural_network import \
     UnconstrainedMonotonicNeuralNetwork
@@ -22,6 +23,37 @@ class ElementwiseAffine(ElementwiseBijection):
     def __init__(self, event_shape, **kwargs):
         transformer = Affine(event_shape, **kwargs)
         super().__init__(transformer)
+
+
+class ElementwiseInverseAffine(ElementwiseBijection):
+    def __init__(self, event_shape, **kwargs):
+        transformer = InverseAffine(event_shape, **kwargs)
+        super().__init__(transformer)
+
+
+class ActNorm(ElementwiseInverseAffine):
+    def __init__(self, event_shape, **kwargs):
+        super().__init__(event_shape, **kwargs)
+        self.first_training_batch_pass: bool = False
+        self.value.requires_grad_(False)
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x: x.shape = (*batch_shape, *event_shape)
+        :param context:
+        :return:
+        """
+        if self.training and not self.first_training_batch_pass:
+            batch_shape = get_batch_shape(x, self.event_shape)
+            n_batch_dims = len(batch_shape)
+
+            self.first_training_batch_pass = True
+            scale = torch.std(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
+            unconstrained_scale = self.transformer.unconstrain_scale(scale)
+            shift = torch.mean(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
+            self.value.data = torch.concatenate([unconstrained_scale, shift], dim=-1).data
+        return super().forward(x, context)
 
 
 class ElementwiseScale(ElementwiseBijection):
