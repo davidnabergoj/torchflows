@@ -1,9 +1,10 @@
 from typing import Type, Union, Tuple
 
 import torch
+import torch.nn as nn
 
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
-from torchflows.bijections.base import Bijection, BijectiveComposition
+from torchflows.bijections.base import Bijection
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from torchflows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
@@ -11,60 +12,6 @@ from torchflows.bijections.finite.multiscale.coupling import make_image_coupling
 from torchflows.neural_networks.convnet import ConvNet
 from torchflows.neural_networks.resnet import make_resnet18
 from torchflows.utils import get_batch_shape
-
-
-class FactoredBijection(Bijection):
-    """
-    Factored bijection class.
-
-    Partitions the input tensor x into parts x_A and x_B, then applies a bijection to x_A independently of x_B while
-    keeping x_B identical.
-    """
-
-    def __init__(self,
-                 event_shape: Union[torch.Size, Tuple[int, ...]],
-                 small_bijection: Bijection,
-                 small_bijection_mask: torch.Tensor,
-                 **kwargs):
-        """
-
-        :param event_shape: shape of input event x.
-        :param small_bijection: bijection applied to transformed event x_A.
-        :param small_bijection_mask: boolean mask that selects which elements of event x correspond to the transformed
-            event x_A.
-        :param kwargs:
-        """
-        super().__init__(event_shape, **kwargs)
-
-        # Check that shapes are correct
-        event_size = torch.prod(torch.as_tensor(event_shape))
-        transformed_event_size = torch.prod(torch.as_tensor(small_bijection.event_shape))
-        assert event_size >= transformed_event_size
-
-        assert small_bijection_mask.shape == event_shape
-
-        self.transformed_event_mask = small_bijection_mask
-        self.small_bijection = small_bijection
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_shape = get_batch_shape(x, self.event_shape)
-        transformed, log_det = self.small_bijection.forward(
-            x[..., self.transformed_event_mask].view(*batch_shape, *self.small_bijection.event_shape),
-            context
-        )
-        out = x.clone()
-        out[..., self.transformed_event_mask] = transformed.view(*batch_shape, -1)
-        return out, log_det
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_shape = get_batch_shape(z, self.event_shape)
-        transformed, log_det = self.small_bijection.inverse(
-            z[..., self.transformed_event_mask].view(*batch_shape, *self.small_bijection.transformed_shape),
-            context
-        )
-        out = z.clone()
-        out[..., self.transformed_event_mask] = transformed.view(*batch_shape, -1)
-        return out, log_det
 
 
 class ConvNetConditioner(ConditionerTransform):
@@ -82,7 +29,9 @@ class ConvNetConditioner(ConditionerTransform):
         self.network = ConvNet(
             input_shape=input_event_shape,
             n_outputs=self.n_transformer_parameters,
-            kernels=kernels
+            kernels=kernels,
+            # output_lower_bound=-8.0,
+            # output_upper_bound=8.0,
         )
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
@@ -174,7 +123,7 @@ class CheckerboardCoupling(ConvolutionalCouplingBijection):
                  **kwargs):
         coupling = make_image_coupling(
             event_shape,
-            coupling_type='checkerboard' if not alternate else 'checkerboard_inverted'
+            coupling_type='checkerboard' if not alternate else 'checkerboard_inverted',
         )
         transformer = transformer_class(event_shape=coupling.transformed_shape)
         super().__init__(transformer, coupling, **kwargs)
@@ -219,7 +168,7 @@ class Squeeze(Bijection):
             (*batch_shape, 4 * channels, height // 2, width // 2).
         """
         batch_shape = get_batch_shape(x, self.event_shape)
-        log_det = torch.zeros(*batch_shape, device=x.device, dtype=x.dtype)
+        log_det = torch.zeros(*batch_shape, device=x.device, dtype=x.dtype).to(x)
 
         channels, height, width = x.shape[-3:]
         assert height % 2 == 0
@@ -239,7 +188,7 @@ class Squeeze(Bijection):
             (*batch_shape, channels, height, width).
         """
         batch_shape = get_batch_shape(z, self.transformed_event_shape)
-        log_det = torch.zeros(*batch_shape, device=z.device, dtype=z.dtype)
+        log_det = torch.zeros(*batch_shape, device=z.device, dtype=z.dtype).to(z)
 
         four_channels, half_height, half_width = z.shape[-3:]
         assert four_channels % 4 == 0
@@ -247,7 +196,7 @@ class Squeeze(Bijection):
         height = 2 * half_height
         channels = four_channels // 4
 
-        out = torch.empty(size=(*batch_shape, channels, height, width), device=z.device, dtype=z.dtype)
+        out = torch.empty(size=(*batch_shape, channels, height, width), device=z.device, dtype=z.dtype).to(z)
         out[..., ::2, ::2] = z[..., 0:channels, :, :]
         out[..., ::2, 1::2] = z[..., channels:2 * channels, :, :]
         out[..., 1::2, ::2] = z[..., 2 * channels:3 * channels, :, :]
@@ -255,51 +204,105 @@ class Squeeze(Bijection):
         return out, log_det
 
 
-class MultiscaleBijection(BijectiveComposition):
-    """
-    Multiscale bijection class. Used for efficient image modeling. Inherits from BijectiveComposition.
-    """
+class MultiscaleBijectiveComposition(Bijection):
     def __init__(self,
-                 input_event_shape,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
                  transformer_class: Type[TensorTransformer],
-                 n_checkerboard_layers: int = 2,
-                 n_channel_wise_layers: int = 2,
-                 use_squeeze_layer: bool = True,
+                 n_blocks: int,
+                 n_checkerboard_layers: int = 3,
+                 n_channel_wise_layers: int = 3,
                  use_resnet: bool = False,
                  **kwargs):
-        """
-        MultiscaleBijection constructor.
+        super().__init__(event_shape, **kwargs)
+        if n_blocks < 1:
+            raise ValueError
 
-        :param input_event_shape: shape of event tensor.
-        :param TensorTransformer transformer_class: type of transformer.
-        :param int n_checkerboard_layers: number of checkerboard coupling layers.
-        :param int n_channel_wise_layers: number of channel wise coupling layers.
-        :param bool use_squeeze_layer: if True, use a squeeze layer.
-        :param bool use_resnet: if True, use ResNet as the conditioner network.
-        :param kwargs: keyword arguments for BijectiveComposition superclass constructor.
-        """
-        checkerboard_layers = [
+        self.n_blocks = n_blocks
+        self.checkerboard_layers = nn.ModuleList([
             CheckerboardCoupling(
-                input_event_shape,
+                event_shape,
                 transformer_class,
                 alternate=i % 2 == 1,
                 conditioner='resnet' if use_resnet else 'convnet'
             )
-            for i in range(n_checkerboard_layers)
-        ]
-        squeeze_layer = Squeeze(input_event_shape)
-        channel_wise_layers = [
-            ChannelWiseCoupling(
-                squeeze_layer.transformed_event_shape,
-                transformer_class,
-                alternate=i % 2 == 1,
-                conditioner='resnet' if use_resnet else 'convnet'
+            for i in range(n_checkerboard_layers + (0 if n_blocks > 1 else 1))
+        ])
+
+        if self.n_blocks > 1:
+            self.squeeze = Squeeze(event_shape)
+            self.channel_wise_layers = nn.ModuleList([
+                ChannelWiseCoupling(
+                    self.squeeze.transformed_event_shape,
+                    transformer_class,
+                    alternate=i % 2 == 1,
+                    conditioner='resnet' if use_resnet else 'convnet'
+                )
+                for i in range(n_channel_wise_layers)
+            ])
+
+            self.alt_squeeze = Squeeze(event_shape, alternate=True)
+
+            small_event_shape = (
+                self.alt_squeeze.transformed_event_shape[0] // 2,
+                *self.alt_squeeze.transformed_event_shape[1:]
             )
-            for i in range(n_channel_wise_layers)
-        ]
-        if use_squeeze_layer:
-            layers = [*checkerboard_layers, squeeze_layer, *channel_wise_layers]
-        else:
-            layers = [*checkerboard_layers, *channel_wise_layers]
-        super().__init__(input_event_shape, layers, **kwargs)
-        self.transformed_shape = squeeze_layer.transformed_event_shape if use_squeeze_layer else input_event_shape
+            self.small_bijection = MultiscaleBijectiveComposition(
+                event_shape=small_event_shape,
+                transformer_class=transformer_class,
+                n_blocks=self.n_blocks - 1,
+                **kwargs
+            )
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        log_det = torch.zeros(size=get_batch_shape(x, event_shape=self.event_shape)).to(x)
+
+        # Propagate through checkerboard layers
+        for layer in self.checkerboard_layers:
+            x, log_det_layer = layer.forward(x, context=context)
+            log_det += log_det_layer
+
+        if self.n_blocks > 1:
+            # Propagate through channel-wise layers
+            x, _ = self.squeeze.forward(x, context=context)
+            for layer in self.channel_wise_layers:
+                x, log_det_layer = layer.forward(x, context=context)
+                log_det += log_det_layer
+            x, _ = self.squeeze.inverse(x, context=context)
+
+            # Chunk and apply small bijection
+            x, _ = self.alt_squeeze.forward(x, context=context)
+            x_const, x_rest = torch.chunk(x, 2, dim=-3)  # channel dimension split (..., c, h, w)
+            x_rest, log_det_layer = self.small_bijection.forward(x_rest, context=context)
+            log_det += log_det_layer
+            x = torch.cat((x_const, x_rest), dim=-3)  # channel dimension concatenation
+            x, _ = self.alt_squeeze.inverse(x, context=context)
+
+        z = x
+        return z, log_det
+
+    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        log_det = torch.zeros(size=get_batch_shape(z, event_shape=self.event_shape)).to(z)
+
+        if self.n_blocks > 1:
+            # Chunk and apply small bijection
+            z, _ = self.alt_squeeze.forward(z, context=context)
+            z_const, z_rest = torch.chunk(z, 2, dim=-3)  # channel dimension split (..., c, h, w)
+            z_rest, log_det_layer = self.small_bijection.inverse(z_rest, context=context)
+            log_det += log_det_layer
+            z = torch.cat((z_const, z_rest), dim=-3)  # channel dimension concatenation
+            z, _ = self.alt_squeeze.inverse(z, context=context)
+
+            # Propagate through channel-wise layers
+            z, _ = self.squeeze.forward(z, context=context)
+            for layer in self.channel_wise_layers[::-1]:
+                z, log_det_layer = layer.inverse(z, context=context)
+                log_det += log_det_layer
+            z, _ = self.squeeze.inverse(z, context=context)
+
+        # Propagate through checkerboard layers
+        for layer in self.checkerboard_layers[::-1]:
+            z, log_det_layer = layer.inverse(z, context=context)
+            log_det += log_det_layer
+
+        x = z
+        return x, log_det

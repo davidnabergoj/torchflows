@@ -195,7 +195,11 @@ class BaseFlow(nn.Module):
             for train_batch in train_loader:
                 optimizer.zero_grad()
                 train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
+                if not torch.isfinite(train_loss):
+                    raise ValueError("Flow training diverged")
                 train_loss += self.regularization()
+                if not torch.isfinite(train_loss):
+                    raise ValueError("Flow training diverged")
                 train_loss.backward()
                 optimizer.step()
 
@@ -376,10 +380,10 @@ class Flow(BaseFlow):
         if no_grad:
             z = z.detach()
             with torch.no_grad():
-                x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.transformed_shape),
+                x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.event_shape),
                                                     context=context)
         else:
-            x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.transformed_shape),
+            x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.event_shape),
                                                 context=context)
         x = x.to(self.get_device())
 

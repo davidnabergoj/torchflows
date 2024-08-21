@@ -57,13 +57,20 @@ class ConvNet(nn.Module):
         def forward(self, x):
             return self.bn(self.pool(torch.relu(self.conv(x))))
 
-    def __init__(self, input_shape, n_outputs: int, kernels: Tuple[int, ...] = None):
+    def __init__(self,
+                 input_shape,
+                 n_outputs: int,
+                 kernels: Tuple[int, ...] = None,
+                 output_lower_bound: float = -torch.inf,
+                 output_upper_bound: float = torch.inf):
         """
 
         :param input_shape: (channels, height, width)
         :param n_outputs:
         """
         super().__init__()
+        self.output_lower_bound = output_lower_bound
+        self.output_upper_bound = output_upper_bound
 
         if kernels is None:
             kernels = (8, 8, 4)
@@ -115,6 +122,15 @@ class ConvNet(nn.Module):
             x = block(x)
         x = x.view(*batch_shape, -1)
         x = self.linear(x)
+
+        if self.output_lower_bound > -torch.inf and self.output_upper_bound < torch.inf:
+            x = torch.sigmoid(x)
+            x = x * (self.output_upper_bound - self.output_lower_bound) + self.output_lower_bound
+        elif self.output_lower_bound > -torch.inf and self.output_upper_bound == torch.inf:
+            x = torch.exp(x) + self.output_lower_bound
+        elif self.output_lower_bound == -torch.inf and self.output_upper_bound < torch.inf:
+            x = -torch.exp(x) + self.output_upper_bound
+
         return x
 
 

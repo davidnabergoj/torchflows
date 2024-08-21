@@ -52,6 +52,12 @@ class Affine(ScalarTransformer):
         log_det = -sum_except_batch(log_alpha, self.event_shape)
         return (z - beta) / alpha, log_det
 
+class SafeAffine(Affine):
+    """
+    Affine transformer with minimum scale 0.1 for numerical stability.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, min_scale=0.1)
 
 class Affine2(ScalarTransformer):
     """

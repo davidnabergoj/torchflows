@@ -1,8 +1,8 @@
+from typing import Union, Tuple
+
 import torch
 
-from torchflows.bijections.base import BijectiveComposition
-from torchflows.bijections.finite.autoregressive.layers import ElementwiseAffine
-from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Shift
+from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Shift, Affine
 from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from torchflows.bijections.finite.autoregressive.transformers.spline.linear import Linear as LinearRational
 from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
@@ -10,7 +10,7 @@ from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoi
     DeepDenseSigmoid,
     DenseSigmoid
 )
-from torchflows.bijections.finite.multiscale.base import MultiscaleBijection, FactoredBijection
+from torchflows.bijections.finite.multiscale.base import MultiscaleBijectiveComposition
 
 
 def check_image_shape_for_multiscale_flow(event_shape, n_layers):
@@ -43,220 +43,135 @@ def automatically_determine_n_layers(event_shape):
     return n_layers
 
 
-def make_factored_image_layers(event_shape,
-                               transformer_class,
-                               n_layers: int = None,
-                               **kwargs):
-    """
-    Creates a list of image transformations consisting of coupling layers and squeeze layers.
-    After each coupling, squeeze, coupling mapping, half of the channels are kept as is (not transformed anymore).
-
-    :param event_shape: (c, 2^n, 2^m).
-    :param transformer_class:
-    :param n_layers:
-    :return:
-    """
-    check_image_shape_for_multiscale_flow(event_shape, n_layers)
-    if n_layers is None:
-        n_layers = automatically_determine_n_layers(event_shape)
-    check_image_shape_for_multiscale_flow(event_shape, n_layers)
-
-    def recursive_layer_builder(event_shape_, n_layers_):
-        msb = MultiscaleBijection(
-            input_event_shape=event_shape_,
-            transformer_class=transformer_class,
-            **kwargs
-        )
-        if n_layers_ == 1:
-            return msb
-
-        c, h, w = msb.transformed_shape  # c is a multiple of 4 after squeezing
-
-        small_bijection_shape = (c // 2, h, w)
-        small_bijection_mask = (torch.arange(c) >= c // 2)[:, None, None].repeat(1, h, w)
-        fb = FactoredBijection(
-            event_shape=(c, h, w),
-            small_bijection=recursive_layer_builder(
-                event_shape_=small_bijection_shape,
-                n_layers_=n_layers_ - 1
-            ),
-            small_bijection_mask=small_bijection_mask
-        )
-        composition = BijectiveComposition(
-            event_shape=msb.event_shape,
-            layers=[msb, fb]
-        )
-        composition.transformed_shape = fb.transformed_shape
-        return composition
-
-    bijections = [ElementwiseAffine(event_shape=event_shape)]
-    bijections.append(recursive_layer_builder(bijections[-1].transformed_shape, n_layers))
-    bijections.append(ElementwiseAffine(event_shape=bijections[-1].transformed_shape))
-    return bijections
-
-
-def make_image_layers_non_factored(event_shape,
-                                   transformer_class,
-                                   n_layers: int = None,
-                                   **kwargs):
-    """
-    Returns a list of bijections for transformations of images with multiple channels.
-
-    Let n be the number of layers. This sequence of bijections takes as input an image with shape (c, h, w) and outputs
-    an image with shape (4 ** n * c, h / 2 ** n, w / 2 ** n). We require h and w to be divisible by 2 ** n.
-    """
-    check_image_shape_for_multiscale_flow(event_shape, n_layers)
-    if n_layers is None:
-        n_layers = automatically_determine_n_layers(event_shape)
-    check_image_shape_for_multiscale_flow(event_shape, n_layers)
-
-    bijections = [ElementwiseAffine(event_shape=event_shape)]
-    for _ in range(n_layers - 1):
-        bijections.append(
-            MultiscaleBijection(
-                input_event_shape=bijections[-1].transformed_shape,
-                transformer_class=transformer_class,
-                **kwargs
-            )
-        )
-    bijections.append(
-        MultiscaleBijection(
-            input_event_shape=bijections[-1].transformed_shape,
-            transformer_class=transformer_class,
-            n_checkerboard_layers=0,
-            squeeze_layer=False,
-            n_channel_wise_layers=2,
-            **kwargs
-        )
-    )
-    bijections.append(ElementwiseAffine(event_shape=bijections[-1].transformed_shape))
-    return bijections
-
-
-def make_image_layers(*args, factored: bool = False, **kwargs):
-    if factored:
-        return make_factored_image_layers(*args, **kwargs)
-    else:
-        return make_image_layers_non_factored(*args, **kwargs)
-
-
-class MultiscaleRealNVP(BijectiveComposition):
+class MultiscaleRealNVP(MultiscaleBijectiveComposition):
     """Multiscale version of Real NVP.
 
     Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
+
     def __init__(self,
-                 event_shape,
+                 event_shape: Union[int, torch.Size, Tuple[int, ...]],
                  n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, Affine, n_layers, factored=factored, use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=Affine,
+            n_blocks=n_layers,
+            **kwargs
+        )
 
 
-class MultiscaleNICE(BijectiveComposition):
+class MultiscaleNICE(MultiscaleBijectiveComposition):
     """Multiscale version of NICE.
 
     References:
         - Dinh et al. "NICE: Non-linear Independent Components Estimation" (2015); https://arxiv.org/abs/1410.8516.
         - Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
-    def __init__(self,
-                 event_shape,
-                 n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
-                 **kwargs):
+
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, Shift, n_layers, factored=factored, use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=Shift,
+            n_blocks=n_layers,
+            **kwargs
+        )
 
 
-class MultiscaleRQNSF(BijectiveComposition):
+class MultiscaleRQNSF(MultiscaleBijectiveComposition):
     """Multiscale version of C-RQNSF.
 
     References:
         - Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
         - Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
-    def __init__(self,
-                 event_shape,
-                 n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
-                 **kwargs):
+
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, RationalQuadratic, n_layers, factored=factored,
-                                       use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=RationalQuadratic,
+            n_blocks=n_layers,
+            **kwargs
+        )
 
 
-class MultiscaleLRSNSF(BijectiveComposition):
+class MultiscaleLRSNSF(MultiscaleBijectiveComposition):
     """Multiscale version of C-LRS.
 
     References:
         - Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
         - Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
-    def __init__(self,
-                 event_shape,
-                 n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
-                 **kwargs):
+
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, LinearRational, n_layers, factored=factored, use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=LinearRational,
+            n_blocks=n_layers,
+            **kwargs
+        )
 
 
-class MultiscaleDeepSigmoid(BijectiveComposition):
-    def __init__(self,
-                 event_shape,
-                 n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
-                 **kwargs):
+class MultiscaleDeepSigmoid(MultiscaleBijectiveComposition):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, DeepSigmoid, n_layers, factored=factored, use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DeepSigmoid,
+            n_blocks=n_layers,
+            **kwargs
+        )
 
 
-class MultiscaleDeepDenseSigmoid(BijectiveComposition):
-    def __init__(self,
-                 event_shape,
-                 n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
-                 **kwargs):
+class MultiscaleDeepDenseSigmoid(MultiscaleBijectiveComposition):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, DeepDenseSigmoid, n_layers, factored=factored,
-                                       use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DeepDenseSigmoid,
+            n_blocks=n_layers,
+            **kwargs
+        )
 
 
-class MultiscaleDenseSigmoid(BijectiveComposition):
-    def __init__(self,
-                 event_shape,
-                 n_layers: int = None,
-                 factored: bool = False,
-                 use_resnet: bool = False,
-                 **kwargs):
+class MultiscaleDenseSigmoid(MultiscaleBijectiveComposition):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_image_layers(event_shape, DenseSigmoid, n_layers, factored=factored, use_resnet=use_resnet)
-        super().__init__(event_shape, bijections, **kwargs)
-        self.transformed_shape = bijections[-1].transformed_shape
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DenseSigmoid,
+            n_blocks=n_layers,
+            **kwargs
+        )

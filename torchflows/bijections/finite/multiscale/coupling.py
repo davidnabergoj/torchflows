@@ -8,7 +8,7 @@ class Checkerboard(Coupling):
     Checkerboard coupling for image data.
     """
 
-    def __init__(self, event_shape, invert: bool = False):
+    def __init__(self, event_shape, invert: bool = False, **kwargs):
         """
         :param event_shape: image shape with the form (n_channels, height, width). Note: width and height must be equal
         and a power of two.
