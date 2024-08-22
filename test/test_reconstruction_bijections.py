@@ -3,7 +3,6 @@ from typing import Tuple
 import pytest
 import torch
 
-
 from torchflows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
 from torchflows.bijections.base import Bijection
 from torchflows.bijections.continuous.ffjord import FFJORD
@@ -32,6 +31,9 @@ def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     else:
         context = None
     bijection = bijection_class(event_shape)
+    if isinstance(bijection, (FFJORD, RNODE, OTFlow)):
+        # "Fix" bijection object
+        bijection = bijection_class(event_shape, solver='dopri5')  # use dopri5 for accurate reconstructions
     return bijection, x, context
 
 
