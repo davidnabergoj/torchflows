@@ -210,5 +210,5 @@ class OTFlow(ExactContinuousBijection):
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], solver='dopri8', **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = OTFlowODEFunction(n_dim)
+        diff_eq = OTFlowODEFunction(n_dim, hidden_size=50)
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)

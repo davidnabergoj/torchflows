@@ -1,3 +1,4 @@
+import math
 from typing import Union, Tuple, List, Optional, Dict
 
 import torch
@@ -68,7 +69,10 @@ def create_nn_time_independent(event_size: int, hidden_size: int = 30, n_hidden_
     return TimeDerivativeDNN(layers)
 
 
-def create_nn(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
+def create_nn(event_size: int, hidden_size: int = None, n_hidden_layers: int = 2):
+    if hidden_size is None:
+        hidden_size = max(4, int(3 * math.log(event_size)))
+
     assert n_hidden_layers >= 0
     if n_hidden_layers == 0:
         layers = [diff_eq_layers.ConcatLinear(event_size, event_size)]
@@ -268,6 +272,7 @@ class ContinuousBijection(Bijection):
 
     Reference: Chen et al. "Neural Ordinary Differential Equations" (2019); https://arxiv.org/abs/1806.07366.
     """
+
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
