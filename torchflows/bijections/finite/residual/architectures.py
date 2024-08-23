@@ -17,7 +17,7 @@ class InvertibleResNet(ResidualComposition):
 
     Reference: Behrmann et al. "Invertible Residual Networks" (2019); https://arxiv.org/abs/1811.00995.
     """
-    def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
+    def __init__(self, event_shape, context_shape=None, n_layers: int = 2, **kwargs):
         blocks = [
             InvertibleResNetBlock(event_shape=event_shape, context_shape=context_shape, **kwargs)
             for _ in range(n_layers)
@@ -30,7 +30,7 @@ class ResFlow(ResidualComposition):
 
     Reference: Chen et al. "Residual Flows for Invertible Generative Modeling" (2020); https://arxiv.org/abs/1906.02735.
     """
-    def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
+    def __init__(self, event_shape, context_shape=None, n_layers: int = 2, **kwargs):
         blocks = [
             ResFlowBlock(event_shape=event_shape, context_shape=context_shape, **kwargs)
             for _ in range(n_layers)
@@ -43,7 +43,7 @@ class ProximalResFlow(ResidualComposition):
 
     Reference: Hertrich "Proximal Residual Flows for Bayesian Inverse Problems" (2022); https://arxiv.org/abs/2211.17158.
     """
-    def __init__(self, event_shape, context_shape=None, n_layers: int = 16, **kwargs):
+    def __init__(self, event_shape, context_shape=None, n_layers: int = 2, **kwargs):
         blocks = [
             ProximalResFlowBlock(event_shape=event_shape, context_shape=context_shape, gamma=0.01, **kwargs)
             for _ in range(n_layers)
