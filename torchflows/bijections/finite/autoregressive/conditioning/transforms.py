@@ -21,8 +21,8 @@ class ConditionerTransform(nn.Module):
     """
 
     def __init__(self,
-                 input_event_shape,
-                 context_shape,
+                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]],
                  parameter_shape: Union[torch.Size, Tuple[int, ...]],
                  context_combiner: ContextCombiner = None,
                  global_parameter_mask: torch.Tensor = None,
@@ -101,18 +101,54 @@ class ConditionerTransform(nn.Module):
         return sum([torch.sum(torch.square(p)) for p in self.parameters()])
 
 
-class Constant(ConditionerTransform):
+class ElementwiseConditionerTransform(ConditionerTransform):
+    """
+    Conditioner transform that predicts a set of parameters for every element of the transformed tensor.
+    """
+
+    def __init__(self,
+                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 transformed_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 parameter_shape_per_element: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            parameter_shape=(*transformed_event_shape, *parameter_shape_per_element),
+            context_shape=context_shape,
+            **kwargs
+        )
+
+
+class TensorConditionerTransform(ConditionerTransform):
+    """
+    Conditioner transform that predicts a set of parameters for the entire transformed tensor.
+    """
+
+    def __init__(self,
+                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 parameter_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            parameter_shape=parameter_shape,
+            context_shape=context_shape,
+            **kwargs
+        )
+
+
+class Constant(TensorConditionerTransform):
     def __init__(self, event_shape, parameter_shape, fill_value: float = None):
         super().__init__(
             input_event_shape=event_shape,
-            context_shape=None,
             parameter_shape=parameter_shape,
             initial_global_parameter_value=fill_value,
             global_parameter_mask=torch.ones(parameter_shape, dtype=torch.bool)
         )
 
 
-class MADE(ConditionerTransform):
+class MADE(ElementwiseConditionerTransform):
     """
     Masked autoencoder for distribution estimation (MADE).
 
@@ -130,7 +166,7 @@ class MADE(ConditionerTransform):
 
     def __init__(self,
                  input_event_shape: Union[torch.Size, Tuple[int, ...]],
-                 output_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 transformed_event_shape: Union[torch.Size, Tuple[int, ...]],
                  parameter_shape_per_element: Union[torch.Size, Tuple[int, ...]],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  n_hidden: int = None,
@@ -138,12 +174,13 @@ class MADE(ConditionerTransform):
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
+            transformed_event_shape=transformed_event_shape,
+            parameter_shape_per_element=parameter_shape_per_element,
             context_shape=context_shape,
-            parameter_shape=(*output_event_shape, *parameter_shape_per_element),
             **kwargs
         )
         n_predicted_parameters_per_element = int(torch.prod(torch.as_tensor(parameter_shape_per_element)))
-        n_output_event_dims = int(torch.prod(torch.as_tensor(output_event_shape)))
+        n_output_event_dims = int(torch.prod(torch.as_tensor(transformed_event_shape)))
 
         if n_hidden is None:
             n_hidden = max(int(3 * math.log10(self.n_input_event_dims)), 4)
@@ -201,7 +238,7 @@ class LinearMADE(MADE):
         super().__init__(*args, n_layers=1, **kwargs)
 
 
-class FeedForward(ConditionerTransform):
+class FeedForward(TensorConditionerTransform):
     def __init__(self,
                  input_event_shape: torch.Size,
                  parameter_shape: torch.Size,
@@ -242,7 +279,7 @@ class Linear(FeedForward):
         super().__init__(*args, **kwargs, n_layers=1)
 
 
-class ResidualFeedForward(ConditionerTransform):
+class ResidualFeedForward(TensorConditionerTransform):
     class ResidualBlock(nn.Module):
         def __init__(self, event_size: int, hidden_size: int, block_size: int, nonlinearity: Type[nn.Module]):
             super().__init__()

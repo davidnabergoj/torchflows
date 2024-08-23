@@ -9,12 +9,12 @@ class Invertible1x1ConvolutionTransformer(TensorTransformer):
     """
     Invertible 1x1 convolution.
 
-    This transformer receives as input a batch of images x with x.shape (*batch_shape, channels, *image_dimensions) and
-     parameters h for an invertible linear transform of the channels
-     with h.shape = (*batch_shape, *parameter_shape).
-    Note that image_dimensions can be a shape with arbitrarily ordered dimensions (height, width).
-    In fact, it is not required that the image is two-dimensional. Voxels with shape (channels, height, width, depth)
-    are also supported, as well as tensors with more general shapes.
+    This transformer receives as input a batch of images x with x.shape `(*batch_shape, channels, *image_dimensions)`
+     and parameters h for an invertible linear transform of the channels
+     with h.shape = `(*batch_shape, *parameter_shape)`.
+    Note that `image_dimensions` can be a shape with arbitrarily ordered dimensions.
+    In fact, it is not required that the image is two-dimensional. Voxels with shape `(channels, height, width, depth)`
+     are also supported, as well as tensors with more general shapes.
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):

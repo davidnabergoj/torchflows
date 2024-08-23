@@ -3,7 +3,7 @@ from typing import Type, Union, Tuple, List
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform
+from torchflows.bijections.finite.autoregressive.conditioning.transforms import TensorConditionerTransform
 from torchflows.bijections.base import Bijection, BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers import ActNorm
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
@@ -17,7 +17,7 @@ from torchflows.neural_networks.resnet import make_resnet18
 from torchflows.utils import get_batch_shape
 
 
-class ConvNetConditioner(ConditionerTransform):
+class ConvNetConditioner(TensorConditionerTransform):
     def __init__(self,
                  input_event_shape: torch.Size,
                  parameter_shape: torch.Size,
@@ -41,7 +41,7 @@ class ConvNetConditioner(ConditionerTransform):
         return self.network(x)
 
 
-class ResNetConditioner(ConditionerTransform):
+class ResNetConditioner(TensorConditionerTransform):
     def __init__(self,
                  input_event_shape: torch.Size,
                  parameter_shape: torch.Size,
@@ -109,14 +109,13 @@ class ConvolutionalCouplingBijection(CouplingBijection):
         :param x_transformed: tensor with shape (*b, transformed_channels, transformed_height, transformed_width).
         """
         batch_shape = get_batch_shape(x, self.event_shape)
-        x[..., self.coupling.target_mask] = x_transformed.view(*batch_shape, -1)
+        x[..., self.coupling.target_mask] = x_transformed.reshape(*batch_shape, -1)
         return x
 
     def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
         batch_shape = get_batch_shape(x, self.event_shape)
         super_out = super().partition_and_predict_parameters(x, context)
-        return super_out.view(*batch_shape, *self.coupling.transformed_shape,
-                              *self.transformer.parameter_shape_per_element)
+        return super_out.view(*batch_shape, *self.transformer.parameter_shape)
 
 
 class CheckerboardCoupling(ConvolutionalCouplingBijection):
