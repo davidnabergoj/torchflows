@@ -9,11 +9,14 @@ from torchflows.bijections.finite.autoregressive.layers import (
     RQSForwardMaskedAutoregressive,
     RQSInverseMaskedAutoregressive,
     InverseAffineCoupling,
-    DSCoupling,
+    DeepSigmoidalCoupling,
     ElementwiseAffine,
     UMNNMaskedAutoregressive,
     LRSCoupling,
-    LRSForwardMaskedAutoregressive
+    LRSForwardMaskedAutoregressive,
+    LRSInverseMaskedAutoregressive,
+    DenseSigmoidalCoupling,
+    DeepDenseSigmoidalCoupling
 )
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection, \
@@ -43,6 +46,7 @@ class NICE(BijectiveComposition):
 
     Reference: Dinh et al. "NICE: Non-linear Independent Components Estimation" (2015); https://arxiv.org/abs/1410.8516.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -59,6 +63,7 @@ class RealNVP(BijectiveComposition):
 
     Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -75,6 +80,7 @@ class InverseRealNVP(BijectiveComposition):
 
     Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -117,6 +123,7 @@ class CouplingRQNSF(BijectiveComposition):
 
     Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -146,6 +153,7 @@ class CouplingLRS(BijectiveComposition):
 
     Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -162,6 +170,7 @@ class MaskedAutoregressiveLRS(BijectiveComposition):
 
     Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
     """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -174,6 +183,7 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
 
     Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
     """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -181,11 +191,25 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
         super().__init__(event_shape, bijections, **kwargs)
 
 
-class CouplingDSF(BijectiveComposition):
-    """Coupling deep sigmoidal flow (C-DSF) architecture.
+class InverseAutoregressiveLRS(BijectiveComposition):
+    """Inverse autoregressive linear rational spline (MA-LRS) architecture.
+
+    Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
+    """
+
+    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(LRSInverseMaskedAutoregressive, event_shape, n_layers)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class CouplingDeepSF(BijectiveComposition):
+    """Coupling deep sigmoidal flow architecture.
 
     Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -193,7 +217,41 @@ class CouplingDSF(BijectiveComposition):
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DSCoupling, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(DeepSigmoidalCoupling, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class CouplingDenseSF(BijectiveComposition):
+    """Coupling dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DenseSigmoidalCoupling, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class CouplingDeepDenseSF(BijectiveComposition):
+    """Coupling deep-dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepDenseSigmoidalCoupling, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -202,6 +260,7 @@ class UMNNMAF(BijectiveComposition):
 
     Reference: Wehenkel and Louppe "Unconstrained Monotonic Neural Networks" (2021); https://arxiv.org/abs/1908.05164.
     """
+
     def __init__(self, event_shape, n_layers: int = 1, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)

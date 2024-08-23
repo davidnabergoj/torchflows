@@ -14,7 +14,9 @@ from torchflows.bijections.finite.autoregressive.transformers.integration.uncons
 from torchflows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
-    DeepSigmoid
+    DeepSigmoid,
+    DenseSigmoid,
+    DeepDenseSigmoid
 )
 from torchflows.bijections.base import invert
 
@@ -181,7 +183,7 @@ class RQSCoupling(CouplingBijection):
         super().__init__(transformer, coupling, conditioner_transform)
 
 
-class DSCoupling(CouplingBijection):
+class DeepSigmoidalCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
@@ -193,6 +195,58 @@ class DSCoupling(CouplingBijection):
             coupling_kwargs = dict()
         coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
         transformer = DeepSigmoid(
+            event_shape=torch.Size((coupling.target_event_size,)),
+            n_hidden_layers=n_hidden_layers
+        )
+        # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
+        # Each component has parameter order [a_unc, b, w_unc]
+        conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling.source_event_size,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
+            context_shape=context_shape,
+            **kwargs
+        )
+        super().__init__(transformer, coupling, conditioner_transform)
+
+
+class DenseSigmoidalCoupling(CouplingBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_dense_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
+                 **kwargs):
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
+        transformer = DenseSigmoid(
+            event_shape=torch.Size((coupling.target_event_size,)),
+            n_dense_layers=n_dense_layers
+        )
+        # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
+        # Each component has parameter order [a_unc, b, w_unc]
+        conditioner_transform = FeedForward(
+            input_event_shape=torch.Size((coupling.source_event_size,)),
+            parameter_shape=torch.Size(transformer.parameter_shape),
+            context_shape=context_shape,
+            **kwargs
+        )
+        super().__init__(transformer, coupling, conditioner_transform)
+
+
+class DeepDenseSigmoidalCoupling(CouplingBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 coupling_kwargs: dict = None,
+                 **kwargs):
+        if coupling_kwargs is None:
+            coupling_kwargs = dict()
+        coupling = make_coupling(event_shape, edge_list, **coupling_kwargs)
+        transformer = DeepDenseSigmoid(
             event_shape=torch.Size((coupling.target_event_size,)),
             n_hidden_layers=n_hidden_layers
         )
@@ -273,6 +327,16 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
                  **kwargs):
         assert n_bins >= 1
         transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+
+
+class LRSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_bins: int = 8,
+                 **kwargs):
+        transformer: ScalarTransformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 

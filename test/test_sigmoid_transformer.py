@@ -2,8 +2,8 @@ import pytest
 import torch
 
 from torchflows import Flow
-from torchflows.bijections.finite.autoregressive.architectures import CouplingDSF
-from torchflows.bijections.finite.autoregressive.layers import DSCoupling
+from torchflows.bijections.finite.autoregressive.architectures import CouplingDeepSF
+from torchflows.bijections.finite.autoregressive.layers import DeepSigmoidalCoupling
 from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid
 from torchflows.bijections.base import invert
 from test.constants import __test_constants
@@ -77,8 +77,8 @@ def test_deep_sigmoid_transformer(event_shape, batch_shape, hidden_dim):
 def test_deep_sigmoid_coupling(event_shape, batch_shape):
     torch.manual_seed(0)
 
-    forward_layer = DSCoupling(torch.Size(event_shape))
-    inverse_layer = invert(DSCoupling(torch.Size(event_shape)))
+    forward_layer = DeepSigmoidalCoupling(torch.Size(event_shape))
+    inverse_layer = invert(DeepSigmoidalCoupling(torch.Size(event_shape)))
 
     x = torch.randn(size=(*batch_shape, *event_shape))  # Reduce magnitude for stability
     y, log_det_forward = forward_layer.forward(x)
@@ -109,7 +109,7 @@ def test_deep_sigmoid_coupling_flow(event_shape, batch_shape):
     n_dim = int(torch.prod(torch.tensor(event_shape)))
     event_shape = (n_dim,)  # Overwrite
 
-    forward_flow = Flow(CouplingDSF(event_shape))
+    forward_flow = Flow(CouplingDeepSF(event_shape))
     x = torch.randn(size=(*batch_shape, n_dim))
     log_prob = forward_flow.log_prob(x)
 
@@ -117,7 +117,7 @@ def test_deep_sigmoid_coupling_flow(event_shape, batch_shape):
     assert torch.all(~torch.isnan(log_prob))
     assert torch.all(~torch.isinf(log_prob))
 
-    inverse_flow = Flow(invert(CouplingDSF(event_shape)))
+    inverse_flow = Flow(invert(CouplingDeepSF(event_shape)))
     x_new = inverse_flow.sample(len(x))
 
     assert x_new.shape == (len(x), *inverse_flow.bijection.event_shape)

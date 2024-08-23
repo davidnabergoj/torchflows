@@ -2,7 +2,7 @@
 
 from torchflows.bijections.finite.autoregressive.layers import (
     AffineCoupling,
-    DSCoupling,
+    DeepSigmoidalCoupling,
     RQSCoupling,
     InverseAffineCoupling,
     LRSCoupling,
@@ -32,7 +32,7 @@ from test.constants import __test_constants
     'layer_class',
     [
         AffineCoupling,
-        DSCoupling,
+        DeepSigmoidalCoupling,
         RQSCoupling,
         InverseAffineCoupling,
         LRSCoupling,

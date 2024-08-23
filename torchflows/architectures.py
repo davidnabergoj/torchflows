@@ -9,7 +9,10 @@ from torchflows.bijections.finite.autoregressive.architectures import (
     InverseAutoregressiveRQNSF,
     CouplingLRS,
     MaskedAutoregressiveLRS,
-    CouplingDSF,
+    InverseAutoregressiveLRS,
+    CouplingDeepSF,
+    CouplingDenseSF,
+    CouplingDeepDenseSF,
     UMNNMAF
 )
 
