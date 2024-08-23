@@ -16,7 +16,9 @@ from torchflows.bijections.finite.autoregressive.layers import (
     LRSForwardMaskedAutoregressive,
     LRSInverseMaskedAutoregressive,
     DenseSigmoidalCoupling,
-    DeepDenseSigmoidalCoupling
+    DeepDenseSigmoidalCoupling, DeepSigmoidalInverseMaskedAutoregressive, DeepSigmoidalForwardMaskedAutoregressive,
+    DenseSigmoidalInverseMaskedAutoregressive, DenseSigmoidalForwardMaskedAutoregressive,
+    DeepDenseSigmoidalInverseMaskedAutoregressive, DeepDenseSigmoidalForwardMaskedAutoregressive
 )
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection, \
@@ -221,6 +223,40 @@ class CouplingDeepSF(BijectiveComposition):
         super().__init__(event_shape, bijections, **kwargs)
 
 
+class InverseAutoregressiveDeepSF(BijectiveComposition):
+    """Inverse autoregressive deep sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepSigmoidalInverseMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class MaskedAutoregressiveDeepSF(BijectiveComposition):
+    """Masked autoregressive deep sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepSigmoidalForwardMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
 class CouplingDenseSF(BijectiveComposition):
     """Coupling dense sigmoidal flow architecture.
 
@@ -238,6 +274,40 @@ class CouplingDenseSF(BijectiveComposition):
         super().__init__(event_shape, bijections, **kwargs)
 
 
+class InverseAutoregressiveDenseSF(BijectiveComposition):
+    """Inverse autoregressive dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DenseSigmoidalInverseMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class MaskedAutoregressiveDenseSF(BijectiveComposition):
+    """Masked autoregressive dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DenseSigmoidalForwardMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
 class CouplingDeepDenseSF(BijectiveComposition):
     """Coupling deep-dense sigmoidal flow architecture.
 
@@ -252,6 +322,40 @@ class CouplingDeepDenseSF(BijectiveComposition):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
         bijections = make_basic_layers(DeepDenseSigmoidalCoupling, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class InverseAutoregressiveDeepDenseSF(BijectiveComposition):
+    """Inverse autoregressive deep-dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepDenseSigmoidalInverseMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class MaskedAutoregressiveDeepDenseSF(BijectiveComposition):
+    """Masked autoregressive deep-dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepDenseSigmoidalForwardMaskedAutoregressive, event_shape, n_layers, edge_list)
         super().__init__(event_shape, bijections, **kwargs)
 
 

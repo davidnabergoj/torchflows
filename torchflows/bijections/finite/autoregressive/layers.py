@@ -209,6 +209,32 @@ class DeepSigmoidalCoupling(CouplingBijection):
         super().__init__(transformer, coupling, conditioner_transform)
 
 
+class DeepSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden_layers: int = 2,
+                 **kwargs):
+        transformer: ScalarTransformer = DeepSigmoid(
+            event_shape=torch.Size(event_shape),
+            n_hidden_layers=n_hidden_layers
+        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+
+
+class DeepSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden_layers: int = 2,
+                 **kwargs):
+        transformer: ScalarTransformer = DeepSigmoid(
+            event_shape=torch.Size(event_shape),
+            n_hidden_layers=n_hidden_layers
+        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+
+
 class DenseSigmoidalCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
@@ -235,6 +261,32 @@ class DenseSigmoidalCoupling(CouplingBijection):
         super().__init__(transformer, coupling, conditioner_transform)
 
 
+class DenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_dense_layers: int = 2,
+                 **kwargs):
+        transformer: ScalarTransformer = DenseSigmoid(
+            event_shape=torch.Size(event_shape),
+            n_dense_layers=n_dense_layers
+        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+
+
+class DenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_dense_layers: int = 2,
+                 **kwargs):
+        transformer: ScalarTransformer = DenseSigmoid(
+            event_shape=torch.Size(event_shape),
+            n_dense_layers=n_dense_layers
+        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+
+
 class DeepDenseSigmoidalCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: torch.Size,
@@ -259,6 +311,32 @@ class DeepDenseSigmoidalCoupling(CouplingBijection):
             **kwargs
         )
         super().__init__(transformer, coupling, conditioner_transform)
+
+
+class DeepDenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden_layers: int = 2,
+                 **kwargs):
+        transformer: ScalarTransformer = DeepDenseSigmoid(
+            event_shape=torch.Size(event_shape),
+            n_hidden_layers=n_hidden_layers
+        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+
+
+class DeepDenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
+    def __init__(self,
+                 event_shape: torch.Size,
+                 context_shape: torch.Size = None,
+                 n_hidden_layers: int = 2,
+                 **kwargs):
+        transformer: ScalarTransformer = DeepDenseSigmoid(
+            event_shape=torch.Size(event_shape),
+            n_hidden_layers=n_hidden_layers
+        )
+        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
 class LinearAffineCoupling(AffineCoupling):
