@@ -39,7 +39,7 @@ class LinearBijection(Bijection):
         z = self.matrix.project(x)
         z = unflatten_batch(unflatten_event(z, self.event_shape), batch_shape)
 
-        log_det = self.matrix.log_det() + torch.zeros(size=batch_shape, device=x.device)
+        log_det = self.matrix.log_det().to(x) + torch.zeros(size=batch_shape, device=x.device).to(x)
         return z, log_det
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -49,7 +49,7 @@ class LinearBijection(Bijection):
         x = self.matrix.solve(z)
         x = unflatten_batch(unflatten_event(x, self.event_shape), batch_shape)
 
-        log_det = -self.matrix.log_det() + torch.zeros(size=batch_shape, device=z.device)
+        log_det = -self.matrix.log_det().to(z) + torch.zeros(size=batch_shape, device=z.device).to(z)
         return x, log_det
 
 
