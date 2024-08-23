@@ -9,7 +9,7 @@ from torchflows.bijections.finite.autoregressive.transformers.spline.linear_rati
     LinearRational as LinearRationalSpline
 from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import \
     RationalQuadratic as RationalQuadraticSpline
-from torchflows.bijections.finite.autoregressive.transformers.linear.convolution import Invertible1x1Convolution
+from torchflows.bijections.finite.autoregressive.transformers.linear.convolution import Invertible1x1ConvolutionTransformer
 from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Affine, Scale, Shift
 from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid, \
     DenseSigmoid, DeepDenseSigmoid
@@ -118,12 +118,10 @@ def test_combination_vector_to_vector(transformer_class: ScalarTransformer, batc
 @pytest.mark.parametrize('image_shape', __test_constants['image_shape'])
 def test_convolution(batch_size: int, image_shape: Tuple):
     torch.manual_seed(0)
-    transformer = Invertible1x1Convolution(image_shape)
-
-    *image_dimensions, n_channels = image_shape
+    transformer = Invertible1x1ConvolutionTransformer(image_shape)
 
     images = torch.randn(size=(batch_size, *image_shape))
-    parameters = torch.randn(size=(batch_size, *image_dimensions, *transformer.parameter_shape))
+    parameters = torch.randn(size=(batch_size, *transformer.parameter_shape))
     latent_images, log_det_forward = transformer.forward(images, parameters)
     reconstructed_images, log_det_inverse = transformer.inverse(latent_images, parameters)
 
