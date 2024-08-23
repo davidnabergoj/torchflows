@@ -11,8 +11,14 @@ from torchflows.bijections.finite.autoregressive.architectures import (
     MaskedAutoregressiveLRS,
     InverseAutoregressiveLRS,
     CouplingDeepSF,
+    MaskedAutoregressiveDeepSF,
+    InverseAutoregressiveDeepSF,
     CouplingDenseSF,
+    MaskedAutoregressiveDenseSF,
+    InverseAutoregressiveDenseSF,
     CouplingDeepDenseSF,
+    MaskedAutoregressiveDeepDenseSF,
+    InverseAutoregressiveDeepDenseSF,
     UMNNMAF
 )
 
