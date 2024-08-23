@@ -1,4 +1,4 @@
-from typing import Type, Union, Tuple
+from typing import Type, Union, Tuple, List
 
 import torch
 import torch.nn as nn
@@ -8,6 +8,8 @@ from torchflows.bijections.base import Bijection, BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers import ActNorm
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
+from torchflows.bijections.finite.autoregressive.transformers.linear.convolution import \
+    Invertible1x1ConvolutionTransformer
 from torchflows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
     ChannelWiseHalfSplit
 from torchflows.neural_networks.convnet import ConvNet
@@ -134,8 +136,31 @@ class CheckerboardCoupling(ConvolutionalCouplingBijection):
 class NormalizedCheckerboardCoupling(BijectiveComposition):
     def __init__(self, event_shape, **kwargs):
         layers = [
+            ActNorm(event_shape),
             CheckerboardCoupling(event_shape, **kwargs),
-            ActNorm(event_shape)
+        ]
+        super().__init__(event_shape, layers)
+
+
+class Invertible1x1ConvolutionalCoupling(ConvolutionalCouplingBijection):
+    def __init__(self,
+                 event_shape,
+                 alternate: bool = False,
+                 **kwargs):
+        coupling = make_image_coupling(
+            event_shape,
+            coupling_type='channel_wise' if not alternate else 'channel_wise_inverted',
+        )
+        transformer = Invertible1x1ConvolutionTransformer(event_shape=coupling.transformed_shape)
+        super().__init__(transformer, coupling, **kwargs)
+
+
+class GlowCheckerboardCoupling(BijectiveComposition):
+    def __init__(self, event_shape, **kwargs):
+        layers = [
+            ActNorm(event_shape),
+            Invertible1x1ConvolutionalCoupling(event_shape, **kwargs),
+            CheckerboardCoupling(event_shape, **kwargs)
         ]
         super().__init__(event_shape, layers)
 
@@ -157,8 +182,18 @@ class ChannelWiseCoupling(ConvolutionalCouplingBijection):
 class NormalizedChannelWiseCoupling(BijectiveComposition):
     def __init__(self, event_shape, **kwargs):
         layers = [
+            ActNorm(event_shape),
             ChannelWiseCoupling(event_shape, **kwargs),
-            ActNorm(event_shape)
+        ]
+        super().__init__(event_shape, layers)
+
+
+class GlowChannelWiseCoupling(BijectiveComposition):
+    def __init__(self, event_shape, **kwargs):
+        layers = [
+            ActNorm(event_shape),
+            Invertible1x1ConvolutionalCoupling(event_shape),
+            ChannelWiseCoupling(event_shape, **kwargs)
         ]
         super().__init__(event_shape, layers)
 
@@ -232,6 +267,16 @@ class MultiscaleBijection(Bijection):
                  n_checkerboard_layers: int = 3,
                  n_channel_wise_layers: int = 3,
                  use_resnet: bool = False,
+                 checkerboard_class: Union[
+                     Type[CheckerboardCoupling],
+                     Type[NormalizedCheckerboardCoupling],
+                     Type[GlowCheckerboardCoupling]
+                 ] = NormalizedCheckerboardCoupling,
+                 channel_wise_class: Union[
+                     Type[ChannelWiseCoupling],
+                     Type[NormalizedChannelWiseCoupling],
+                     Type[GlowChannelWiseCoupling]
+                 ] = NormalizedChannelWiseCoupling,
                  **kwargs):
         if n_blocks < 1:
             raise ValueError
@@ -239,7 +284,7 @@ class MultiscaleBijection(Bijection):
 
         self.n_blocks = n_blocks
         self.checkerboard_layers = nn.ModuleList([
-            NormalizedCheckerboardCoupling(
+            checkerboard_class(
                 event_shape,
                 transformer_class=transformer_class,
                 alternate=i % 2 == 1,
@@ -251,7 +296,7 @@ class MultiscaleBijection(Bijection):
         if self.n_blocks > 1:
             self.squeeze = Squeeze(event_shape)
             self.channel_wise_layers = nn.ModuleList([
-                NormalizedChannelWiseCoupling(
+                channel_wise_class(
                     self.squeeze.transformed_event_shape,
                     transformer_class=transformer_class,
                     alternate=i % 2 == 1,

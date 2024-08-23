@@ -41,7 +41,8 @@ from torchflows.bijections.finite.multiscale.architectures import (
     MultiscaleRQNSF,
     MultiscaleLRSNSF,
     MultiscaleNICE,
-    # MultiscaleDeepSigmoid,  # TODO stabler initialization
-    # MultiscaleDenseSigmoid,  # TODO stabler initialization
-    # MultiscaleDeepDenseSigmoid  # TODO stabler initialization
+    MultiscaleDeepSigmoid,
+    MultiscaleDenseSigmoid,
+    MultiscaleDeepDenseSigmoid,
+    AffineGlow
 )

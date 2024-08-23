@@ -10,7 +10,8 @@ from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoi
     DeepDenseSigmoid,
     DenseSigmoid
 )
-from torchflows.bijections.finite.multiscale.base import MultiscaleBijection
+from torchflows.bijections.finite.multiscale.base import MultiscaleBijection, GlowCheckerboardCoupling, \
+    GlowChannelWiseCoupling
 
 
 def check_image_shape_for_multiscale_flow(event_shape, n_layers):
@@ -172,6 +173,23 @@ class MultiscaleDenseSigmoid(MultiscaleBijection):
         super().__init__(
             event_shape=event_shape,
             transformer_class=DenseSigmoid,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class AffineGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=Affine,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
             n_blocks=n_layers,
             **kwargs
         )
