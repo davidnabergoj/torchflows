@@ -10,7 +10,7 @@ from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoi
     DeepDenseSigmoid,
     DenseSigmoid
 )
-from torchflows.bijections.finite.multiscale.base import MultiscaleBijectiveComposition
+from torchflows.bijections.finite.multiscale.base import MultiscaleBijection
 
 
 def check_image_shape_for_multiscale_flow(event_shape, n_layers):
@@ -43,7 +43,7 @@ def automatically_determine_n_layers(event_shape):
     return n_layers
 
 
-class MultiscaleRealNVP(MultiscaleBijectiveComposition):
+class MultiscaleRealNVP(MultiscaleBijection):
     """Multiscale version of Real NVP.
 
     Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
@@ -66,7 +66,7 @@ class MultiscaleRealNVP(MultiscaleBijectiveComposition):
         )
 
 
-class MultiscaleNICE(MultiscaleBijectiveComposition):
+class MultiscaleNICE(MultiscaleBijection):
     """Multiscale version of NICE.
 
     References:
@@ -88,7 +88,7 @@ class MultiscaleNICE(MultiscaleBijectiveComposition):
         )
 
 
-class MultiscaleRQNSF(MultiscaleBijectiveComposition):
+class MultiscaleRQNSF(MultiscaleBijection):
     """Multiscale version of C-RQNSF.
 
     References:
@@ -110,7 +110,7 @@ class MultiscaleRQNSF(MultiscaleBijectiveComposition):
         )
 
 
-class MultiscaleLRSNSF(MultiscaleBijectiveComposition):
+class MultiscaleLRSNSF(MultiscaleBijection):
     """Multiscale version of C-LRS.
 
     References:
@@ -132,7 +132,7 @@ class MultiscaleLRSNSF(MultiscaleBijectiveComposition):
         )
 
 
-class MultiscaleDeepSigmoid(MultiscaleBijectiveComposition):
+class MultiscaleDeepSigmoid(MultiscaleBijection):
     def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -147,7 +147,7 @@ class MultiscaleDeepSigmoid(MultiscaleBijectiveComposition):
         )
 
 
-class MultiscaleDeepDenseSigmoid(MultiscaleBijectiveComposition):
+class MultiscaleDeepDenseSigmoid(MultiscaleBijection):
     def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -162,7 +162,7 @@ class MultiscaleDeepDenseSigmoid(MultiscaleBijectiveComposition):
         )
 
 
-class MultiscaleDenseSigmoid(MultiscaleBijectiveComposition):
+class MultiscaleDenseSigmoid(MultiscaleBijection):
     def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)

@@ -107,7 +107,8 @@ class ConvolutionalCouplingBijection(CouplingBijection):
         :param x_transformed: tensor with shape (*b, transformed_channels, transformed_height, transformed_width).
         """
         batch_shape = get_batch_shape(x, self.event_shape)
-        return x[..., self.coupling.target_mask].view(*batch_shape, *self.coupling.transformed_shape)
+        x[..., self.coupling.target_mask] = x_transformed.view(*batch_shape, -1)
+        return x
 
     def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
         batch_shape = get_batch_shape(x, self.event_shape)
@@ -223,7 +224,7 @@ class Squeeze(Bijection):
         return out, log_det
 
 
-class MultiscaleBijectiveComposition(Bijection):
+class MultiscaleBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  transformer_class: Type[TensorTransformer],
@@ -232,9 +233,9 @@ class MultiscaleBijectiveComposition(Bijection):
                  n_channel_wise_layers: int = 3,
                  use_resnet: bool = False,
                  **kwargs):
-        super().__init__(event_shape, **kwargs)
         if n_blocks < 1:
             raise ValueError
+        super().__init__(event_shape, **kwargs)
 
         self.n_blocks = n_blocks
         self.checkerboard_layers = nn.ModuleList([
@@ -265,7 +266,7 @@ class MultiscaleBijectiveComposition(Bijection):
                 self.alt_squeeze.transformed_event_shape[0] // 2,
                 *self.alt_squeeze.transformed_event_shape[1:]
             )
-            self.small_bijection = MultiscaleBijectiveComposition(
+            self.small_bijection = MultiscaleBijection(
                 event_shape=small_event_shape,
                 transformer_class=transformer_class,
                 n_blocks=self.n_blocks - 1,
