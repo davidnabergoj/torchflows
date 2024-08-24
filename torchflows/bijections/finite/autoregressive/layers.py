@@ -36,7 +36,7 @@ class ElementwiseInverseAffine(ElementwiseBijection):
 class ActNorm(ElementwiseInverseAffine):
     def __init__(self, event_shape, **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.first_training_batch_pass: bool = False
+        self.first_training_batch_pass: bool = True
         self.value.requires_grad_(False)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -46,14 +46,16 @@ class ActNorm(ElementwiseInverseAffine):
         :param context:
         :return:
         """
-        if self.training and not self.first_training_batch_pass:
+        if self.training and self.first_training_batch_pass:
             batch_shape = get_batch_shape(x, self.event_shape)
             n_batch_dims = len(batch_shape)
-
-            self.first_training_batch_pass = True
-            scale = torch.std(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
-            unconstrained_scale = self.transformer.unconstrain_scale(scale)
+            self.first_training_batch_pass = False
             shift = torch.mean(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
+            if torch.prod(torch.as_tensor(batch_shape)) == 1:
+                scale = torch.ones_like(shift)  # unit scale if unable to estimate
+            else:
+                scale = torch.std(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
+            unconstrained_scale = self.transformer.unconstrain_scale(scale)
             self.value.data = torch.concatenate([unconstrained_scale, shift], dim=-1).data
         return super().forward(x, context)
 
