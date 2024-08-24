@@ -18,7 +18,7 @@ from torchflows.bijections.finite.autoregressive.layers import (
     DenseSigmoidalCoupling,
     DeepDenseSigmoidalCoupling, DeepSigmoidalInverseMaskedAutoregressive, DeepSigmoidalForwardMaskedAutoregressive,
     DenseSigmoidalInverseMaskedAutoregressive, DenseSigmoidalForwardMaskedAutoregressive,
-    DeepDenseSigmoidalInverseMaskedAutoregressive, DeepDenseSigmoidalForwardMaskedAutoregressive
+    DeepDenseSigmoidalInverseMaskedAutoregressive, DeepDenseSigmoidalForwardMaskedAutoregressive, ActNorm
 )
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection, \
@@ -39,7 +39,9 @@ def make_basic_layers(base_bijection: Type[
         if edge_list is None:
             bijections.append(ReversePermutation(event_shape=event_shape))
         bijections.append(base_bijection(event_shape=event_shape, edge_list=edge_list))
+        bijections.append(ActNorm(event_shape=event_shape))
     bijections.append(ElementwiseAffine(event_shape=event_shape))
+    bijections.append(ActNorm(event_shape=event_shape))
     return bijections
 
 
