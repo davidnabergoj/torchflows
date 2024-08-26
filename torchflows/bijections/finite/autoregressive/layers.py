@@ -2,7 +2,6 @@ from typing import Tuple, List
 
 import torch
 
-from potentials.utils import get_batch_shape
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
 from torchflows.bijections.finite.autoregressive.conditioning.coupling_masks import make_coupling
 from torchflows.bijections.finite.autoregressive.layers_base import MaskedAutoregressiveBijection, \
@@ -47,7 +46,7 @@ class ActNorm(ElementwiseInverseAffine):
         :return:
         """
         if self.training and self.first_training_batch_pass:
-            batch_shape = get_batch_shape(x, self.event_shape)
+            batch_shape = x.shape[:-len(self.event_shape)]
             n_batch_dims = len(batch_shape)
             self.first_training_batch_pass = False
             shift = torch.mean(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
