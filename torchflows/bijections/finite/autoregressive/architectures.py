@@ -30,7 +30,8 @@ def make_basic_layers(base_bijection: Type[
     Union[CouplingBijection, MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection]],
                       event_shape,
                       n_layers: int = 2,
-                      edge_list: List[Tuple[int, int]] = None):
+                      edge_list: List[Tuple[int, int]] = None,
+                      **kwargs):
     """
     Returns a list of bijections for transformations of vectors.
     """
@@ -38,7 +39,7 @@ def make_basic_layers(base_bijection: Type[
     for _ in range(n_layers):
         if edge_list is None:
             bijections.append(ReversePermutation(event_shape=event_shape))
-        bijections.append(base_bijection(event_shape=event_shape, edge_list=edge_list))
+        bijections.append(base_bijection(event_shape=event_shape, edge_list=edge_list, **kwargs))
         bijections.append(ActNorm(event_shape=event_shape))
     bijections.append(ElementwiseAffine(event_shape=event_shape))
     bijections.append(ActNorm(event_shape=event_shape))
@@ -269,10 +270,17 @@ class CouplingDenseSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DenseSigmoidalCoupling, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(
+            DenseSigmoidalCoupling,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -286,10 +294,17 @@ class InverseAutoregressiveDenseSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DenseSigmoidalInverseMaskedAutoregressive, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(
+            DenseSigmoidalInverseMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -303,10 +318,17 @@ class MaskedAutoregressiveDenseSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DenseSigmoidalForwardMaskedAutoregressive, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(
+            DenseSigmoidalForwardMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -320,10 +342,17 @@ class CouplingDeepDenseSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DeepDenseSigmoidalCoupling, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(
+            DeepDenseSigmoidalCoupling,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -337,10 +366,17 @@ class InverseAutoregressiveDeepDenseSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DeepDenseSigmoidalInverseMaskedAutoregressive, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(
+            DeepDenseSigmoidalInverseMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -354,10 +390,17 @@ class MaskedAutoregressiveDeepDenseSF(BijectiveComposition):
                  event_shape,
                  n_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DeepDenseSigmoidalForwardMaskedAutoregressive, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(
+            DeepDenseSigmoidalForwardMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 

@@ -243,6 +243,7 @@ class DenseSigmoidalCoupling(CouplingBijection):
                  n_dense_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
                  coupling_kwargs: dict = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if coupling_kwargs is None:
             coupling_kwargs = dict()
@@ -257,7 +258,10 @@ class DenseSigmoidalCoupling(CouplingBijection):
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
-            **kwargs
+            **{
+                **kwargs,
+                **dict(percentage_global_parameters=percentage_global_parameters)
+            }
         )
         super().__init__(transformer, coupling, conditioner_transform)
 
@@ -267,12 +271,21 @@ class DenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijec
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_dense_layers: int = 2,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         transformer: ScalarTransformer = DenseSigmoid(
             event_shape=torch.Size(event_shape),
             n_dense_layers=n_dense_layers
         )
-        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+        super().__init__(
+            event_shape,
+            context_shape,
+            transformer=transformer,
+            **{
+                **kwargs,
+                **dict(percentage_global_parameters=percentage_global_parameters)
+            }
+        )
 
 
 class DenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
@@ -280,12 +293,21 @@ class DenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_dense_layers: int = 2,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         transformer: ScalarTransformer = DenseSigmoid(
             event_shape=torch.Size(event_shape),
             n_dense_layers=n_dense_layers
         )
-        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+        super().__init__(
+            event_shape,
+            context_shape,
+            transformer=transformer,
+            **{
+                **kwargs,
+                **dict(percentage_global_parameters=percentage_global_parameters)
+            }
+        )
 
 
 class DeepDenseSigmoidalCoupling(CouplingBijection):
@@ -295,6 +317,7 @@ class DeepDenseSigmoidalCoupling(CouplingBijection):
                  n_hidden_layers: int = 2,
                  edge_list: List[Tuple[int, int]] = None,
                  coupling_kwargs: dict = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         if coupling_kwargs is None:
             coupling_kwargs = dict()
@@ -309,7 +332,10 @@ class DeepDenseSigmoidalCoupling(CouplingBijection):
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
             context_shape=context_shape,
-            **kwargs
+            **{
+                **kwargs,
+                **dict(percentage_global_parameters=percentage_global_parameters)
+            }
         )
         super().__init__(transformer, coupling, conditioner_transform)
 
@@ -319,12 +345,21 @@ class DeepDenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveB
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_hidden_layers: int = 2,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         transformer: ScalarTransformer = DeepDenseSigmoid(
             event_shape=torch.Size(event_shape),
             n_hidden_layers=n_hidden_layers
         )
-        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+        super().__init__(
+            event_shape,
+            context_shape,
+            transformer=transformer,
+            **{
+                **kwargs,
+                **dict(percentage_global_parameters=percentage_global_parameters)
+            }
+        )
 
 
 class DeepDenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
@@ -332,12 +367,21 @@ class DeepDenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijectio
                  event_shape: torch.Size,
                  context_shape: torch.Size = None,
                  n_hidden_layers: int = 2,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         transformer: ScalarTransformer = DeepDenseSigmoid(
             event_shape=torch.Size(event_shape),
             n_hidden_layers=n_hidden_layers
         )
-        super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
+        super().__init__(
+            event_shape,
+            context_shape,
+            transformer=transformer,
+            **{
+                **kwargs,
+                **dict(percentage_global_parameters=percentage_global_parameters)
+            }
+        )
 
 
 class LinearAffineCoupling(AffineCoupling):
