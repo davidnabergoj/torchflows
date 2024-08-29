@@ -30,7 +30,7 @@ class Radial(Bijection):
     def h_deriv(self, z):
         batch_shape = z.shape[:-1]
         z0 = self.z0.view(*([1] * len(batch_shape)), *self.z0.shape)
-        sign = (-1.0) ** torch.where(z - z0 < 0)[0]
+        sign = (-1.0) ** torch.less(z, z0).float()
         return -(self.h(z) ** 2) * sign * z
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -54,7 +54,7 @@ class Radial(Bijection):
         log_det = torch.abs(torch.add(
             (self.n_dim - 1) * torch.log1p(beta_times_h_val),
             torch.log(1 + beta_times_h_val + self.h_deriv(z) * r)
-        ))
+        )).sum(dim=-1)
         x = x.view(*batch_shape, *self.event_shape)
 
         return x, log_det
