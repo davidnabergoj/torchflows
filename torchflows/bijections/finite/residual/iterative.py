@@ -4,6 +4,7 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
+from potentials.utils import get_batch_shape
 from torchflows.bijections.finite.residual.base import ResidualBijection
 from torchflows.bijections.finite.residual.log_abs_det_estimators import log_det_power_series, log_det_roulette
 

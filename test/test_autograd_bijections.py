@@ -10,8 +10,10 @@ from torchflows.bijections.finite.autoregressive.architectures import NICE, Real
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
     LRSCoupling, LinearRQSCoupling
 from torchflows.bijections.finite.linear import LU, ReversePermutation, LowerTriangular, Orthogonal, QR
+from torchflows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
 from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
 from torchflows.bijections.finite.residual.planar import Planar
+from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from torchflows.bijections.finite.residual.radial import Radial
 from torchflows.bijections.finite.residual.sylvester import Sylvester
 from torchflows.utils import get_batch_shape
@@ -93,13 +95,10 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
     assert_valid_log_probability_gradient(bijection, x, context)
 
 
-@pytest.mark.skip(reason="Computation takes too long")
 @pytest.mark.parametrize('bijection_class', [
-    InvertibleResNetBlock,
-    ResFlowBlock,
-    Planar,
-    Radial,
-    Sylvester
+    InvertibleResNet,
+    ResFlow,
+    ProximalResFlow,
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
