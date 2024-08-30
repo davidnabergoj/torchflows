@@ -1,5 +1,4 @@
-# https://github.com/kuangliu/pytorch-cifar/blob/master/models/resnet.py
-
+from torchflows.bijections.finite.autoregressive.conditioning.transforms import TensorConditionerTransform
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -158,10 +157,21 @@ def make_resnet152(image_shape, n_outputs):
     return ResNet(*image_shape, Bottleneck, num_blocks=[3, 8, 36, 3], n_outputs=n_outputs)
 
 
-if __name__ == '__main__':
-    n_images = 2
-    event_shape = (5, 8 * 7, 4 * 7)
+class ResNetConditioner(TensorConditionerTransform):
+    def __init__(self,
+                 input_event_shape: torch.Size,
+                 parameter_shape: torch.Size,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            context_shape=None,
+            parameter_shape=parameter_shape,
+            **kwargs
+        )
+        self.network = make_resnet18(
+            image_shape=input_event_shape,
+            n_outputs=self.n_transformer_parameters
+        )
 
-    net = make_resnet18(event_shape, 15)
-    y = net(torch.randn(n_images, *event_shape))
-    print(y.size())
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        return self.network(x)

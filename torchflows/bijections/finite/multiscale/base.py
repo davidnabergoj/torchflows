@@ -3,62 +3,17 @@ from typing import Type, Union, Tuple, List
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.finite.autoregressive.conditioning.transforms import TensorConditionerTransform
 from torchflows.bijections.base import Bijection, BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers import ActNorm
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer
 from torchflows.bijections.finite.autoregressive.transformers.linear.convolution import \
     Invertible1x1ConvolutionTransformer
+from torchflows.bijections.finite.multiscale.conditioning.classic import ConvNetConditioner
+from torchflows.bijections.finite.multiscale.conditioning.resnet import ResNetConditioner
 from torchflows.bijections.finite.multiscale.coupling import make_image_coupling, Checkerboard, \
     ChannelWiseHalfSplit
-from torchflows.neural_networks.convnet import ConvNet
-from torchflows.neural_networks.resnet import make_resnet18
 from torchflows.utils import get_batch_shape
-
-
-class ConvNetConditioner(TensorConditionerTransform):
-    def __init__(self,
-                 input_event_shape: torch.Size,
-                 parameter_shape: torch.Size,
-                 kernels: Tuple[int, ...] = None,
-                 **kwargs):
-        super().__init__(
-            input_event_shape=input_event_shape,
-            context_shape=None,
-            parameter_shape=parameter_shape,
-            **kwargs
-        )
-        self.network = ConvNet(
-            input_shape=input_event_shape,
-            n_outputs=self.n_transformer_parameters,
-            kernels=kernels,
-            # output_lower_bound=-8.0,
-            # output_upper_bound=8.0,
-        )
-
-    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
-        return self.network(x)
-
-
-class ResNetConditioner(TensorConditionerTransform):
-    def __init__(self,
-                 input_event_shape: torch.Size,
-                 parameter_shape: torch.Size,
-                 **kwargs):
-        super().__init__(
-            input_event_shape=input_event_shape,
-            context_shape=None,
-            parameter_shape=parameter_shape,
-            **kwargs
-        )
-        self.network = make_resnet18(
-            image_shape=input_event_shape,
-            n_outputs=self.n_transformer_parameters
-        )
-
-    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
-        return self.network(x)
 
 
 class ConvolutionalCouplingBijection(CouplingBijection):
