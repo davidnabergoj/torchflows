@@ -43,6 +43,9 @@ class ChannelWiseHalfSplit(Coupling):
         :param invert: invert the checkerboard mask.
         """
         n_channels, height, width = event_shape
+        if n_channels <= 1:
+            raise ValueError("Number of channels must be at least 2")
+
         mask = torch.as_tensor(torch.arange(start=0, end=n_channels) < (n_channels // 2))
         mask = mask[:, None, None].repeat(1, height, width)  # (channels, height, width)
         if invert:
