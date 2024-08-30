@@ -3,7 +3,6 @@ from typing import Tuple
 import pytest
 import torch
 
-
 from torchflows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
 from torchflows.bijections.base import Bijection
 from torchflows.bijections.continuous.ffjord import FFJORD
@@ -12,7 +11,7 @@ from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, CouplingRQNSF, MAF, IAF, \
     InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
-    LRSCoupling, LinearRQSCoupling
+    LRSCoupling, LinearRQSCoupling, ActNorm, DenseSigmoidalCoupling, DeepDenseSigmoidalCoupling, DeepSigmoidalCoupling
 from torchflows.bijections.finite.linear import LU, ReversePermutation, LowerTriangular, Orthogonal, QR
 from torchflows.bijections.finite.residual.architectures import ResFlow, InvertibleResNet, ProximalResFlow
 from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
@@ -32,6 +31,9 @@ def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     else:
         context = None
     bijection = bijection_class(event_shape)
+    if isinstance(bijection, (FFJORD, RNODE, OTFlow)):
+        # "Fix" bijection object
+        bijection = bijection_class(event_shape, solver='dopri5')  # use dopri5 for accurate reconstructions
     return bijection, x, context
 
 
@@ -127,7 +129,8 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
     Orthogonal,
     QR,
     ElementwiseAffine,
-    ElementwiseShift
+    ElementwiseShift,
+    ActNorm
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
@@ -142,7 +145,10 @@ def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tup
     RealNVP,
     CouplingRQNSF,
     LRSCoupling,
-    LinearRQSCoupling
+    LinearRQSCoupling,
+    DenseSigmoidalCoupling,
+    DeepDenseSigmoidalCoupling,
+    DeepSigmoidalCoupling,
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])

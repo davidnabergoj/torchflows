@@ -37,12 +37,12 @@ class LUTransformer(TensorTransformer):
 
         batch_shape = h.shape[:-len(self.parameter_shape)]
 
-        upper = torch.zeros(size=(*batch_shape, event_size, event_size))
+        upper = torch.zeros(size=(*batch_shape, event_size, event_size)).to(h)
         upper_row_index, upper_col_index = torch.triu_indices(row=event_size, col=event_size, offset=1)
         upper[..., upper_row_index, upper_col_index] = u_off_diagonal_elements
         upper[..., range(event_size), range(event_size)] = u_diag
 
-        lower = torch.zeros(size=(*batch_shape, event_size, event_size))
+        lower = torch.zeros(size=(*batch_shape, event_size, event_size)).to(h)
         lower_row_index, lower_col_index = torch.tril_indices(row=event_size, col=event_size, offset=-1)
         lower[..., lower_row_index, lower_col_index] = l_off_diagonal_elements
         lower[..., range(event_size), range(event_size)] = 1  # Unit diagonal

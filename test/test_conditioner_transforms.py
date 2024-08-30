@@ -26,7 +26,7 @@ def test_autoregressive(transform_class,
     x = torch.randn(size=(*batch_shape, *input_event_shape))
     transform: ConditionerTransform = transform_class(
         input_event_shape=input_event_shape,
-        output_event_shape=output_event_shape,
+        transformed_event_shape=output_event_shape,
         parameter_shape_per_element=parameter_shape_per_element,
         context_shape=context_shape,
     )

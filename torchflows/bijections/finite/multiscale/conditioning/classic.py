@@ -1,8 +1,9 @@
-import math
 from typing import Tuple
 
 import torch
 import torch.nn as nn
+
+from torchflows.bijections.finite.autoregressive.conditioning.transforms import TensorConditionerTransform
 
 
 class ConvModifier(nn.Module):
@@ -57,7 +58,10 @@ class ConvNet(nn.Module):
         def forward(self, x):
             return self.bn(self.pool(torch.relu(self.conv(x))))
 
-    def __init__(self, input_shape, n_outputs: int, kernels: Tuple[int, ...] = None):
+    def __init__(self,
+                 input_shape,
+                 n_outputs: int,
+                 kernels: Tuple[int, ...] = None):
         """
 
         :param input_shape: (channels, height, width)
@@ -118,10 +122,25 @@ class ConvNet(nn.Module):
         return x
 
 
-if __name__ == '__main__':
-    torch.manual_seed(0)
-    im_shape = (1, 36, 29)
-    images = torch.randn(size=(11, *im_shape))
-    net = ConvNet(input_shape=im_shape, n_outputs=77)
-    out = net(images)
-    print(f'{out.shape = }')
+class ConvNetConditioner(TensorConditionerTransform):
+    def __init__(self,
+                 input_event_shape: torch.Size,
+                 parameter_shape: torch.Size,
+                 kernels: Tuple[int, ...] = None,
+                 **kwargs):
+        super().__init__(
+            input_event_shape=input_event_shape,
+            context_shape=None,
+            parameter_shape=parameter_shape,
+            output_lower_bound=-2.0,
+            output_upper_bound=2.0,
+            **kwargs
+        )
+        self.network = ConvNet(
+            input_shape=input_event_shape,
+            n_outputs=self.n_transformer_parameters,
+            kernels=kernels
+        )
+
+    def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        return self.network(x)

@@ -18,6 +18,8 @@ class BaseSylvester(Bijection):
 
         if m is None:
             m = self.n_dim // 2
+        if m > self.n_dim:
+            raise ValueError
 
         self.m = m
         self.b = nn.Parameter(torch.randn(m))
@@ -29,13 +31,13 @@ class BaseSylvester(Bijection):
     @property
     def w(self):
         r_tilde = self.r_tilde.mat()
-        q = self.q.mat()
+        q = self.q.mat()[:, :self.m]
         return torch.einsum('...ij,...kj->...ik', r_tilde, q)
 
     @property
     def u(self):
         r = self.r.mat()
-        q = self.q.mat()
+        q = self.q.mat()[:, :self.m]
         return torch.einsum('...ij,...jk->...ik', q, r)
 
     def h(self, x):
@@ -49,21 +51,21 @@ class BaseSylvester(Bijection):
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
+        z_flat = torch.flatten(z, start_dim=len(batch_shape))
         u = self.u.view(*([1] * len(batch_shape)), *self.u.shape)
         w = self.w.view(*([1] * len(batch_shape)), *self.w.shape)
         b = self.b.view(*([1] * len(batch_shape)), *self.b.shape)
 
-        wzpb = torch.einsum('...ij,...j->...i', w, z) + b  # (..., m)
+        wzpb = torch.einsum('...ij,...j->...i', w, z_flat) + b  # (..., m)
 
-        z = z.view(*batch_shape, self.n_dim)
-        x = z + torch.einsum(
+        x = z_flat + torch.einsum(
             '...ij,...j->...i',
             u,
             self.h(wzpb)
         )
 
         wu = torch.einsum('...ij,...jk->...ik', w, u)  # (..., m, m)
-        diag = torch.zeros(size=(batch_shape, self.m, self.m))
+        diag = torch.zeros(size=(*batch_shape, self.m, self.m))
         diag[..., range(self.m), range(self.m)] = self.h_deriv(wzpb)  # (..., m, m)
         _, log_det = torch.linalg.slogdet(torch.eye(self.m) + torch.einsum('...ij,...jk->...ik', diag, wu))
 

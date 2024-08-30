@@ -17,7 +17,7 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
     Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_steps: int = 150, **kwargs):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_steps: int = 150, solver="euler", **kwargs):
         """
         Constructor.
 
@@ -27,4 +27,4 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(n_dim))
         self.n_steps = n_steps
-        super().__init__(event_shape, diff_eq, solver="euler", **kwargs)  # USE DOPRI5 for stability
+        super().__init__(event_shape, diff_eq, solver=solver, **kwargs)

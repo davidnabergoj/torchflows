@@ -122,7 +122,7 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
                  **kwargs):
         conditioner_transform = MADE(
             input_event_shape=event_shape,
-            output_event_shape=event_shape,
+            transformed_event_shape=event_shape,
             parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
             **kwargs

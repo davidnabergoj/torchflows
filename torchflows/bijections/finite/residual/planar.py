@@ -41,10 +41,10 @@ class InversePlanar(Bijection):
 
         z = z.view(*batch_shape, self.n_dim)
         # x = z + u * self.h(w.T @ z + self.b)
-        x = z + u * self.h(torch.einsum('...i,...i', w, z) + self.b)
+        x = z + u * self.h(torch.einsum('...i,...i', w, z) + self.b)[..., None]
 
         # phi = self.h_deriv(w.T @ z + self.b) * w
-        phi = self.h_deriv(torch.einsum('...i,...i', w, z) + self.b) * w
+        phi = w * self.h_deriv(torch.einsum('...i,...i', w, z) + self.b)[..., None]
 
         # log_det = torch.log(torch.abs(1 + u.T @ phi))
         log_det = torch.log(torch.abs(1 + torch.einsum('...i,...i', u, phi)))

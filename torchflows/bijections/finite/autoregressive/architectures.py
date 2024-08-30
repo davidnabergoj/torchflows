@@ -9,11 +9,16 @@ from torchflows.bijections.finite.autoregressive.layers import (
     RQSForwardMaskedAutoregressive,
     RQSInverseMaskedAutoregressive,
     InverseAffineCoupling,
-    DSCoupling,
+    DeepSigmoidalCoupling,
     ElementwiseAffine,
     UMNNMaskedAutoregressive,
     LRSCoupling,
-    LRSForwardMaskedAutoregressive
+    LRSForwardMaskedAutoregressive,
+    LRSInverseMaskedAutoregressive,
+    DenseSigmoidalCoupling,
+    DeepDenseSigmoidalCoupling, DeepSigmoidalInverseMaskedAutoregressive, DeepSigmoidalForwardMaskedAutoregressive,
+    DenseSigmoidalInverseMaskedAutoregressive, DenseSigmoidalForwardMaskedAutoregressive,
+    DeepDenseSigmoidalInverseMaskedAutoregressive, DeepDenseSigmoidalForwardMaskedAutoregressive, ActNorm
 )
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection, \
@@ -25,7 +30,8 @@ def make_basic_layers(base_bijection: Type[
     Union[CouplingBijection, MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection]],
                       event_shape,
                       n_layers: int = 2,
-                      edge_list: List[Tuple[int, int]] = None):
+                      edge_list: List[Tuple[int, int]] = None,
+                      **kwargs):
     """
     Returns a list of bijections for transformations of vectors.
     """
@@ -33,8 +39,10 @@ def make_basic_layers(base_bijection: Type[
     for _ in range(n_layers):
         if edge_list is None:
             bijections.append(ReversePermutation(event_shape=event_shape))
-        bijections.append(base_bijection(event_shape=event_shape, edge_list=edge_list))
+        bijections.append(base_bijection(event_shape=event_shape, edge_list=edge_list, **kwargs))
+        bijections.append(ActNorm(event_shape=event_shape))
     bijections.append(ElementwiseAffine(event_shape=event_shape))
+    bijections.append(ActNorm(event_shape=event_shape))
     return bijections
 
 
@@ -43,6 +51,7 @@ class NICE(BijectiveComposition):
 
     Reference: Dinh et al. "NICE: Non-linear Independent Components Estimation" (2015); https://arxiv.org/abs/1410.8516.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -59,6 +68,7 @@ class RealNVP(BijectiveComposition):
 
     Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -75,6 +85,7 @@ class InverseRealNVP(BijectiveComposition):
 
     Reference: Dinh et al. "Density estimation using Real NVP" (2017); https://arxiv.org/abs/1605.08803.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -117,6 +128,7 @@ class CouplingRQNSF(BijectiveComposition):
 
     Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -146,6 +158,7 @@ class CouplingLRS(BijectiveComposition):
 
     Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -162,6 +175,7 @@ class MaskedAutoregressiveLRS(BijectiveComposition):
 
     Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
     """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -174,6 +188,7 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
 
     Reference: Durkan et al. "Neural Spline Flows" (2019); https://arxiv.org/abs/1906.04032.
     """
+
     def __init__(self, event_shape, n_layers: int = 2, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
@@ -181,11 +196,25 @@ class InverseAutoregressiveRQNSF(BijectiveComposition):
         super().__init__(event_shape, bijections, **kwargs)
 
 
-class CouplingDSF(BijectiveComposition):
-    """Coupling deep sigmoidal flow (C-DSF) architecture.
+class InverseAutoregressiveLRS(BijectiveComposition):
+    """Inverse autoregressive linear rational spline (MA-LRS) architecture.
+
+    Reference: Dolatabadi et al. "Invertible Generative Modeling using Linear Rational Splines" (2020); https://arxiv.org/abs/2001.05168.
+    """
+
+    def __init__(self, event_shape, n_layers: int = 2, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(LRSInverseMaskedAutoregressive, event_shape, n_layers)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class CouplingDeepSF(BijectiveComposition):
+    """Coupling deep sigmoidal flow architecture.
 
     Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
     """
+
     def __init__(self,
                  event_shape,
                  n_layers: int = 2,
@@ -193,7 +222,185 @@ class CouplingDSF(BijectiveComposition):
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = make_basic_layers(DSCoupling, event_shape, n_layers, edge_list)
+        bijections = make_basic_layers(DeepSigmoidalCoupling, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class InverseAutoregressiveDeepSF(BijectiveComposition):
+    """Inverse autoregressive deep sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepSigmoidalInverseMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class MaskedAutoregressiveDeepSF(BijectiveComposition):
+    """Masked autoregressive deep sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(DeepSigmoidalForwardMaskedAutoregressive, event_shape, n_layers, edge_list)
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class CouplingDenseSF(BijectiveComposition):
+    """Coupling dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(
+            DenseSigmoidalCoupling,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class InverseAutoregressiveDenseSF(BijectiveComposition):
+    """Inverse autoregressive dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(
+            DenseSigmoidalInverseMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class MaskedAutoregressiveDenseSF(BijectiveComposition):
+    """Masked autoregressive dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(
+            DenseSigmoidalForwardMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class CouplingDeepDenseSF(BijectiveComposition):
+    """Coupling deep-dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(
+            DeepDenseSigmoidalCoupling,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class InverseAutoregressiveDeepDenseSF(BijectiveComposition):
+    """Inverse autoregressive deep-dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(
+            DeepDenseSigmoidalInverseMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
+        super().__init__(event_shape, bijections, **kwargs)
+
+
+class MaskedAutoregressiveDeepDenseSF(BijectiveComposition):
+    """Masked autoregressive deep-dense sigmoidal flow architecture.
+
+    Reference: Huang et al. "Neural Autoregressive Flows" (2018); https://arxiv.org/abs/1804.00779.
+    """
+
+    def __init__(self,
+                 event_shape,
+                 n_layers: int = 2,
+                 edge_list: List[Tuple[int, int]] = None,
+                 percentage_global_parameters: float = 0.8,
+                 **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        bijections = make_basic_layers(
+            DeepDenseSigmoidalForwardMaskedAutoregressive,
+            event_shape,
+            n_layers,
+            edge_list,
+            percentage_global_parameters=percentage_global_parameters
+        )
         super().__init__(event_shape, bijections, **kwargs)
 
 
@@ -202,6 +409,7 @@ class UMNNMAF(BijectiveComposition):
 
     Reference: Wehenkel and Louppe "Unconstrained Monotonic Neural Networks" (2021); https://arxiv.org/abs/1908.05164.
     """
+
     def __init__(self, event_shape, n_layers: int = 1, **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)

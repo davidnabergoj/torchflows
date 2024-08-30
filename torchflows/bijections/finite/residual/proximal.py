@@ -70,8 +70,8 @@ class PNNBlock(nn.Module):
         # Initialize t_tilde close to identity
 
         divisor = max(self.event_size ** 2, 100)
-        self.b = nn.Parameter(torch.randn(self.hidden_size) / divisor)
-        self.delta_t_tilde = nn.Parameter(torch.randn(self.hidden_size, self.event_size) / divisor)
+        self.b = nn.Parameter(torch.randn(size=(self.hidden_size,)) / divisor)
+        self.delta_t_tilde = nn.Parameter(torch.randn(size=(self.hidden_size, self.event_size)) / divisor)
         self.act = act
 
     @property
@@ -109,7 +109,7 @@ class PNN(nn.Sequential):
         if act is None:
             act = TanH()
         if hidden_size is None:
-            hidden_size = max(math.log(event_size), 4)
+            hidden_size = int(max(math.log(event_size), 4))
         super().__init__(*[PNNBlock(event_size, hidden_size, act) for _ in range(n_layers)])
         self.n_layers = n_layers
         self.act = act

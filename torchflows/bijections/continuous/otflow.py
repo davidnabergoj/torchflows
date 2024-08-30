@@ -146,7 +146,7 @@ class OTPotential(TimeDerivative):
 
         # hidden_size = m
         if hidden_size is None:
-            hidden_size = max(int(math.log(event_size)), 4)
+            hidden_size = max(3 * int(math.log(event_size)), 4)
 
         r = min(10, event_size)
 
@@ -207,7 +207,8 @@ class OTFlow(ExactContinuousBijection):
 
     Reference: Onken et al. "OT-Flow: Fast and Accurate Continuous Normalizing Flows via Optimal Transport" (2021); https://arxiv.org/abs/2006.00104.
     """
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], solver='dopri8', **kwargs):
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = OTFlowODEFunction(n_dim)
-        super().__init__(event_shape, diff_eq, **kwargs)
+        diff_eq = OTFlowODEFunction(n_dim, hidden_size=50)
+        super().__init__(event_shape, diff_eq, solver=solver, **kwargs)

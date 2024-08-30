@@ -3,5 +3,5 @@ from torchflows.bijections.finite.autoregressive.transformers.linear.affine impo
 
 
 class MultiscaleAffineCoupling(MultiscaleBijection):
-    def __init__(self, input_event_shape, **kwargs):
-        super().__init__(input_event_shape, transformer_class=Affine, **kwargs)
+    def __init__(self, event_shape, **kwargs):
+        super().__init__(event_shape, transformer_class=Affine, **kwargs)
