@@ -27,6 +27,8 @@ class ConditionerTransform(nn.Module):
                  context_combiner: ContextCombiner = None,
                  global_parameter_mask: Optional[torch.Tensor] = None,
                  initial_global_parameter_value: float = None,
+                 output_lower_bound: float = -torch.inf,
+                 output_upper_bound: float = torch.inf,
                  **kwargs):
         """
         :param input_event_shape: shape of conditioner input tensor x.
@@ -45,6 +47,9 @@ class ConditionerTransform(nn.Module):
                 f"Global parameter mask must have shape equal to the output parameter shape {parameter_shape}, "
                 f"but found {global_parameter_mask.shape}"
             )
+
+        self.output_upper_bound = output_upper_bound
+        self.output_lower_bound = output_lower_bound
 
         if context_shape is None:
             context_combiner = Bypass(input_event_shape)
@@ -83,19 +88,27 @@ class ConditionerTransform(nn.Module):
         batch_shape = get_batch_shape(x, self.input_event_shape)
         if self.n_global_parameters == 0:
             # All parameters are predicted
-            return self.predict_theta_flat(x, context).view(*batch_shape, *self.parameter_shape)
+            output = self.predict_theta_flat(x, context).view(*batch_shape, *self.parameter_shape)
         else:
             if self.n_global_parameters == self.n_transformer_parameters:
                 # All transformer parameters are learned globally
                 output = torch.zeros(*batch_shape, *self.parameter_shape).to(x)
                 output[..., self.global_parameter_mask] = self.global_theta_flat
-                return output
             else:
                 # Some transformer parameters are learned globally, some are predicted
                 output = torch.zeros(*batch_shape, *self.parameter_shape).to(x)
                 output[..., self.global_parameter_mask] = self.global_theta_flat
                 output[..., ~self.global_parameter_mask] = self.predict_theta_flat(x, context)
-                return output
+
+        if self.output_lower_bound > -torch.inf and self.output_upper_bound < torch.inf:
+            output = torch.sigmoid(output)
+            output = output * (self.output_upper_bound - self.output_lower_bound) + self.output_lower_bound
+        elif self.output_lower_bound > -torch.inf and self.output_upper_bound == torch.inf:
+            output = torch.exp(output) + self.output_lower_bound
+        elif self.output_lower_bound == -torch.inf and self.output_upper_bound < torch.inf:
+            output = -torch.exp(output) + self.output_upper_bound
+
+        return output
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         raise NotImplementedError

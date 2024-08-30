@@ -61,17 +61,13 @@ class ConvNet(nn.Module):
     def __init__(self,
                  input_shape,
                  n_outputs: int,
-                 kernels: Tuple[int, ...] = None,
-                 output_lower_bound: float = -torch.inf,
-                 output_upper_bound: float = torch.inf):
+                 kernels: Tuple[int, ...] = None):
         """
 
         :param input_shape: (channels, height, width)
         :param n_outputs:
         """
         super().__init__()
-        self.output_lower_bound = output_lower_bound
-        self.output_upper_bound = output_upper_bound
 
         if kernels is None:
             kernels = (8, 8, 4)
@@ -123,15 +119,6 @@ class ConvNet(nn.Module):
             x = block(x)
         x = x.view(*batch_shape, -1)
         x = self.linear(x)
-
-        if self.output_lower_bound > -torch.inf and self.output_upper_bound < torch.inf:
-            x = torch.sigmoid(x)
-            x = x * (self.output_upper_bound - self.output_lower_bound) + self.output_lower_bound
-        elif self.output_lower_bound > -torch.inf and self.output_upper_bound == torch.inf:
-            x = torch.exp(x) + self.output_lower_bound
-        elif self.output_lower_bound == -torch.inf and self.output_upper_bound < torch.inf:
-            x = -torch.exp(x) + self.output_upper_bound
-
         return x
 
 
@@ -145,14 +132,14 @@ class ConvNetConditioner(TensorConditionerTransform):
             input_event_shape=input_event_shape,
             context_shape=None,
             parameter_shape=parameter_shape,
+            output_lower_bound=-2.0,
+            output_upper_bound=2.0,
             **kwargs
         )
         self.network = ConvNet(
             input_shape=input_event_shape,
             n_outputs=self.n_transformer_parameters,
-            kernels=kernels,
-            output_lower_bound=-2.0,
-            output_upper_bound=2.0,
+            kernels=kernels
         )
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
