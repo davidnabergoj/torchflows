@@ -112,8 +112,8 @@ class BaseFlow(nn.Module):
         if batch_size is None:
             batch_size = len(x_train)
         elif isinstance(batch_size, str) and batch_size == "adaptive":
-            min_batch_size = 32
-            max_batch_size = 4096
+            min_batch_size = max(32, min(1024, len(x_train) // 100))
+            max_batch_size = min(4096, len(x_train) // 10)
             batch_size_adaptation_interval = 10  # double the batch size every 10 epochs
             adaptive_batch_size = True
             batch_size = min_batch_size
@@ -156,11 +156,10 @@ class BaseFlow(nn.Module):
 
             return batch_loss
 
-        iterator = tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         val_loss = None
 
-        for epoch in iterator:
+        for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)):
             if (
                     adaptive_batch_size
                     and epoch % batch_size_adaptation_interval == batch_size_adaptation_interval - 1
@@ -205,14 +204,14 @@ class BaseFlow(nn.Module):
 
                 if show_progress:
                     if val_loss is None:
-                        iterator.set_postfix_str(f'Training loss (batch): {train_loss:.4f}')
+                        pbar.set_postfix_str(f'Training loss (batch): {train_loss:.4f}')
                     elif early_stopping:
-                        iterator.set_postfix_str(
+                        pbar.set_postfix_str(
                             f'Training loss (batch): {train_loss:.4f}, '
                             f'Validation loss: {val_loss:.4f} [best: {best_val_loss:.4f} @ {best_epoch}]'
                         )
                     else:
-                        iterator.set_postfix_str(
+                        pbar.set_postfix_str(
                             f'Training loss (batch): {train_loss:.4f}, '
                             f'Validation loss: {val_loss:.4f}'
                         )
