@@ -231,14 +231,20 @@ class MultiscaleBijection(Bijection):
                      Type[NormalizedChannelWiseCoupling],
                      Type[GlowChannelWiseCoupling]
                  ] = NormalizedChannelWiseCoupling,
+                 first_layer: bool = True,
                  **kwargs):
         if n_blocks < 1:
             raise ValueError
         super().__init__(event_shape, **kwargs)
 
         self.n_blocks = n_blocks
+
+        if first_layer and checkerboard_class == GlowCheckerboardCoupling:
+            layer_checkerboard_class = NormalizedCheckerboardCoupling  # Compatibility with single channel images
+        else:
+            layer_checkerboard_class = checkerboard_class
         self.checkerboard_layers = nn.ModuleList([
-            checkerboard_class(
+            layer_checkerboard_class(
                 event_shape,
                 transformer_class=transformer_class,
                 alternate=i % 2 == 1,
@@ -269,6 +275,7 @@ class MultiscaleBijection(Bijection):
                 event_shape=small_event_shape,
                 transformer_class=transformer_class,
                 n_blocks=self.n_blocks - 1,
+                first_layer=False,
                 **kwargs
             )
 
