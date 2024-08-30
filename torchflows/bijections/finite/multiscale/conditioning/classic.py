@@ -151,8 +151,8 @@ class ConvNetConditioner(TensorConditionerTransform):
             input_shape=input_event_shape,
             n_outputs=self.n_transformer_parameters,
             kernels=kernels,
-            # output_lower_bound=-8.0,
-            # output_upper_bound=8.0,
+            output_lower_bound=-2.0,
+            output_upper_bound=2.0,
         )
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
