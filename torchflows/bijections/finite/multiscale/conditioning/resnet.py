@@ -1,78 +1,62 @@
+from typing import Tuple
+
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import TensorConditionerTransform
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torchflows.bijections.finite.multiscale.conditioning.classic import ConvModifier
 
-class BasicBlock(nn.Module):
-    expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1):
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(
-            in_planes,
-            planes,
-            kernel_size=3,
-            stride=stride,
-            padding=1,
-            bias=False
-        )
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(
-            planes,
-            planes,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=False
-        )
-        self.bn2 = nn.BatchNorm2d(planes)
+class BasicResidualBlock(nn.Module):
+    """
+    Basic residual block. Keeps image height and width the same.
+    """
 
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
-            )
+    def __init__(self, in_channels, hidden_channels):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(hidden_channels)
+        self.conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(in_channels)
+
+    def h(self, x):
+        y = F.relu(self.bn1(self.conv1(x)))
+        z = F.relu(self.bn2(self.conv2(y)))
+        return z
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
+        return x + self.h(x)
 
 
-class Bottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, in_planes, planes, stride=1):
-        super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion *
-                               planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion * planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
-            )
+class BasicResidualBlockGroup(nn.Module):
+    def __init__(self, in_channels: int, n_blocks: int, hidden_channels: int = 16):
+        super().__init__()
+        self.blocks = nn.ModuleList([BasicResidualBlock(in_channels, hidden_channels) for _ in range(n_blocks)])
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
+        for block in self.blocks:
+            x = block(x)
+        return x
+
+
+class BottleneckBlock(nn.Module):
+    """
+    Doubles the number of channels, halves height and width.
+    """
+
+    def __init__(self, in_channels: int):
+        super().__init__()
+        self.conv2d = nn.Conv2d(
+            in_channels,
+            in_channels * 2,
+            kernel_size=3,
+            stride=2,
+            padding=1
+        )
+
+    def forward(self, x):
+        return self.conv2d(x)
 
 
 class ResNet(nn.Module):
@@ -80,81 +64,58 @@ class ResNet(nn.Module):
     ResNet class.
     """
 
-    def __init__(self, c, h, w, block, num_blocks, n_hidden=100, n_outputs=10):
+    def __init__(self,
+                 c,
+                 h,
+                 w,
+                 hidden_size: int = 100,
+                 n_outputs: int = 10,
+                 n_blocks: Tuple[int, int, int] = (1, 1, 1)):
         """
 
         :param c: number of input image channels.
         :param h: input image height.
         :param w: input image width.
-        :param block: block class for ResNet.
-        :param num_blocks: List of block numbers for each of the four layers.
-        :param n_hidden: number of hidden units at the last linear layer.
+        :param hidden_size: number of hidden units at the last linear layer.
         :param n_outputs: number of outputs.
         """
-        if h % 4 != 0:
-            raise ValueError('Image height must be divisible by 4.')
-        if w % 4 != 0:
-            raise ValueError('Image width must be divisible by 4.')
-
         super(ResNet, self).__init__()
-        self.in_planes = 64
+        self.modifier = ConvModifier((c, h, w), c_target=4, h_target=32, w_target=32)  # to `(4, 32, 32)`
 
-        self.conv1 = nn.Conv2d(c, 64, kernel_size=3,
-                               stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=1)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=1)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
-        self.linear1 = nn.Linear(512 * h * w // 16, n_hidden)
-        self.linear2 = nn.Linear(n_hidden, n_outputs)
+        self.stage1 = BasicResidualBlockGroup(4, n_blocks=n_blocks[0])  # (4, 32, 32)
+        self.down1 = BottleneckBlock(4)  # (8, 16, 16)
 
-    def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1] * (num_blocks - 1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
+        self.stage2 = BasicResidualBlockGroup(8, n_blocks=n_blocks[1])  # (8, 16, 16)
+        self.down2 = BottleneckBlock(8)  # (16, 8, 8)
+
+        self.stage3 = BasicResidualBlockGroup(16, n_blocks=n_blocks[2])  # (16, 8, 8)
+        self.down3 = BottleneckBlock(16)  # (32, 4, 4), note: 32 * 4 * 4 = 512 (for linear layer)
+
+        self.linear1 = nn.Linear(512, hidden_size)  # 32 * 4 * 4 = 512
+        self.linear2 = nn.Linear(hidden_size, n_outputs)
 
     def forward(self, x):
         """
-        :param x: tensor with shape (*b, channels, height, width). Height and width must be equal.
+        :param x: tensor with shape (*b, channels, height, width).
         :return:
         """
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
-        out = out.flatten(start_dim=1, end_dim=-1)
-        out = F.relu(self.linear1(out))
+        batch_shape = x.shape[:-3]
+
+        out = self.modifier(x)
+
+        out = self.stage1(out)
+        out = self.down1(out)
+
+        out = self.stage2(out)
+        out = self.down2(out)
+
+        out = self.stage3(out)
+        out = self.down3(out)
+
+        out = self.linear1(out.view(*batch_shape, 512))
+        out = F.leaky_relu(out)
         out = self.linear2(out)
         return out
-
-
-def make_resnet18(image_shape, n_outputs):
-    return ResNet(*image_shape, BasicBlock, num_blocks=[2, 2, 2, 2], n_outputs=n_outputs)
-
-
-def make_resnet34(image_shape, n_outputs):
-    return ResNet(*image_shape, BasicBlock, num_blocks=[3, 4, 6, 3], n_outputs=n_outputs)
-
-
-def make_resnet50(image_shape, n_outputs):
-    # TODO fix error regarding image shape
-    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 6, 3], n_outputs=n_outputs)
-
-
-def make_resnet101(image_shape, n_outputs):
-    # TODO fix error regarding image shape
-    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 4, 23, 3], n_outputs=n_outputs)
-
-
-def make_resnet152(image_shape, n_outputs):
-    # TODO fix error regarding image shape
-    return ResNet(*image_shape, Bottleneck, num_blocks=[3, 8, 36, 3], n_outputs=n_outputs)
 
 
 class ResNetConditioner(TensorConditionerTransform):
@@ -170,10 +131,17 @@ class ResNetConditioner(TensorConditionerTransform):
             output_upper_bound=2.0,
             **kwargs
         )
-        self.network = make_resnet18(
-            image_shape=input_event_shape,
+        self.network = ResNet(
+            *input_event_shape,
             n_outputs=self.n_transformer_parameters
         )
 
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
         return self.network(x)
+
+if __name__ == '__main__':
+    torch.manual_seed(0)
+    x = torch.randn((15, 3, 77, 13))
+    rn = ResNet(3, 77, 13, n_outputs=7)
+    y = rn(x)
+    print(y.shape)
