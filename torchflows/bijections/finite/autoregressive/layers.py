@@ -1,4 +1,4 @@
-from typing import Tuple, List, Union
+from typing import Tuple, Union
 
 import torch
 
@@ -111,6 +111,7 @@ class AffineCoupling(CouplingBijection):
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
                  coupling_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -121,10 +122,10 @@ class AffineCoupling(CouplingBijection):
         """
         if event_shape == (1,):
             raise ValueError
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
-        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)))
+        transformer = Affine(event_shape=torch.Size((coupling.target_event_size,)), **transformer_kwargs)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
@@ -139,6 +140,7 @@ class InverseAffineCoupling(CouplingBijection):
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
                  coupling_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -149,10 +151,10 @@ class InverseAffineCoupling(CouplingBijection):
         """
         if event_shape == (1,):
             raise ValueError
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
-        transformer = invert(Affine(event_shape=torch.Size((coupling.target_event_size,))))
+        transformer = invert(Affine(event_shape=torch.Size((coupling.target_event_size,)), **transformer_kwargs))
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
@@ -175,8 +177,7 @@ class ShiftCoupling(CouplingBijection):
         :param dict coupling_kwargs: keyword arguments to `make_coupling`.
         :param kwargs: keyword arguments to CouplingBijection.
         """
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
         transformer = Shift(event_shape=torch.Size((coupling.target_event_size,)))
         conditioner_transform = FeedForward(
@@ -192,8 +193,8 @@ class LRSCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_bins: int = 8,
                  coupling_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -203,11 +204,10 @@ class LRSCoupling(CouplingBijection):
         :param dict coupling_kwargs: keyword arguments to `make_coupling`.
         :param kwargs: keyword arguments to CouplingBijection.
         """
-        assert n_bins >= 1
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
-        transformer = LinearRational(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
+        transformer = LinearRational(event_shape=torch.Size((coupling.target_event_size,)), **transformer_kwargs)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
@@ -221,21 +221,20 @@ class RQSCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_bins: int = 8,
                  coupling_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_bins: number of spline bins.
         :param dict coupling_kwargs: keyword arguments to `make_coupling`.
         :param kwargs: keyword arguments to CouplingBijection.
         """
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
-        transformer = RationalQuadratic(event_shape=torch.Size((coupling.target_event_size,)), n_bins=n_bins)
+        transformer = RationalQuadratic(event_shape=torch.Size((coupling.target_event_size,)), **transformer_kwargs)
         conditioner_transform = FeedForward(
             input_event_shape=torch.Size((coupling.source_event_size,)),
             parameter_shape=torch.Size(transformer.parameter_shape),
@@ -249,23 +248,22 @@ class DeepSigmoidalCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = 2,
                  coupling_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_transformer_hidden_layers: number of transformer hidden layers.
         :param dict coupling_kwargs: keyword arguments to `make_coupling`.
         :param kwargs: keyword arguments to CouplingBijection.
         """
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
         transformer = DeepSigmoid(
             event_shape=torch.Size((coupling.target_event_size,)),
-            n_hidden_layers=n_transformer_hidden_layers
+            **transformer_kwargs
         )
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
@@ -282,18 +280,18 @@ class DeepSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveBiject
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = 2,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_transformer_hidden_layers: number of transformer hidden layers.
         :param kwargs: keyword arguments to InverseMaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = DeepSigmoid(
             event_shape=torch.Size(event_shape),
-            n_hidden_layers=n_transformer_hidden_layers
+            **transformer_kwargs
         )
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
@@ -302,18 +300,18 @@ class DeepSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = 2,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_transformer_hidden_layers: number of transformer hidden layers.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = DeepSigmoid(
             event_shape=torch.Size(event_shape),
-            n_hidden_layers=n_transformer_hidden_layers
+            **transformer_kwargs
         )
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
@@ -322,26 +320,25 @@ class DenseSigmoidalCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_layers: int = 2,
-                 percentage_global_parameters: float = 0.8,
                  coupling_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_transformer_layers: number of transformer layers.
         :param float percentage_global_parameters: percentage of transformer inputs to be learned globally instead of
          being predicted from the conditioner neural network.
         :param dict coupling_kwargs: keyword arguments to `make_coupling`.
         :param kwargs: keyword arguments to CouplingBijection.
         """
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
         coupling = make_coupling(event_shape, **coupling_kwargs)
         transformer = DenseSigmoid(
             event_shape=torch.Size((coupling.target_event_size,)),
-            n_dense_layers=n_transformer_layers
+            **transformer_kwargs
         )
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
@@ -361,21 +358,21 @@ class DenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijec
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_layers: int = 2,
+                 transformer_kwargs: dict = None,
                  percentage_global_parameters: float = 0.8,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_transformer_layers: number of transformer layers.
         :param float percentage_global_parameters: percentage of transformer inputs to be learned globally instead of
          being predicted from the conditioner neural network.
         :param kwargs: keyword arguments to InverseMaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = DenseSigmoid(
             event_shape=torch.Size(event_shape),
-            n_dense_layers=n_transformer_layers
+            **transformer_kwargs
         )
         super().__init__(
             event_shape,
@@ -392,7 +389,7 @@ class DenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_layers: int = 2,
+                 transformer_kwargs: dict = None,
                  percentage_global_parameters: float = 0.8,
                  **kwargs):
         """
@@ -404,9 +401,10 @@ class DenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
          being predicted from the conditioner neural network.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = DenseSigmoid(
             event_shape=torch.Size(event_shape),
-            n_dense_layers=n_transformer_layers
+            **transformer_kwargs
         )
         super().__init__(
             event_shape,
@@ -423,26 +421,30 @@ class DeepDenseSigmoidalCoupling(CouplingBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = 2,
-                 percentage_global_parameters: float = 0.8,
+                 transformer_kwargs: dict = None,
                  coupling_kwargs: dict = None,
+                 percentage_global_parameters: float = 0.8,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
         :param int n_transformer_hidden_layers: number of transformer hidden layers.
+        :param int n_transformer_dense_layers: number of transformer dense layers.
+        :param int transformer_hidden_size: transformer hidden layer size.
         :param float percentage_global_parameters: percentage of transformer inputs to be learned globally instead of
          being predicted from the conditioner neural network.
         :param dict coupling_kwargs: keyword arguments to `make_coupling`.
+        :param dict transformer_kwargs: keyword arguments to DeepDenseSigmoid.
         :param kwargs: keyword arguments to CouplingBijection.
         """
-        if coupling_kwargs is None:
-            coupling_kwargs = dict()
+        coupling_kwargs = coupling_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
+
         coupling = make_coupling(event_shape, **coupling_kwargs)
         transformer = DeepDenseSigmoid(
             event_shape=torch.Size((coupling.target_event_size,)),
-            n_hidden_layers=n_transformer_hidden_layers
+            **transformer_kwargs
         )
         # Parameter order: [c1, c2, c3, c4, ..., ck] for all components
         # Each component has parameter order [a_unc, b, w_unc]
@@ -462,7 +464,7 @@ class DeepDenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveB
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = 2,
+                 transformer_kwargs: dict = None,
                  percentage_global_parameters: float = 0.8,
                  **kwargs):
         """
@@ -470,13 +472,16 @@ class DeepDenseSigmoidalInverseMaskedAutoregressive(InverseMaskedAutoregressiveB
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
         :param int n_transformer_hidden_layers: number of transformer hidden layers.
+        :param int n_transformer_dense_layers: number of transformer dense layers.
+        :param int transformer_hidden_size: transformer hidden layer size.
         :param float percentage_global_parameters: percentage of transformer inputs to be learned globally instead of
          being predicted from the conditioner neural network.
         :param kwargs: keyword arguments to InverseMaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = DeepDenseSigmoid(
             event_shape=torch.Size(event_shape),
-            n_hidden_layers=n_transformer_hidden_layers
+            **transformer_kwargs
         )
         super().__init__(
             event_shape,
@@ -493,7 +498,7 @@ class DeepDenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijectio
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = 2,
+                 transformer_kwargs: dict = None,
                  percentage_global_parameters: float = 0.8,
                  **kwargs):
         """
@@ -501,13 +506,16 @@ class DeepDenseSigmoidalForwardMaskedAutoregressive(MaskedAutoregressiveBijectio
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
         :param int n_transformer_hidden_layers: number of transformer hidden layers.
+        :param int n_transformer_dense_layers: number of transformer dense layers.
+        :param int transformer_hidden_size: transformer hidden layer size.
         :param float percentage_global_parameters: percentage of transformer inputs to be learned globally instead of
          being predicted from the conditioner neural network.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = DeepDenseSigmoid(
             event_shape=torch.Size(event_shape),
-            n_hidden_layers=n_transformer_hidden_layers
+            **transformer_kwargs
         )
         super().__init__(
             event_shape,
@@ -564,6 +572,7 @@ class AffineForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -571,7 +580,8 @@ class AffineForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
-        transformer: ScalarTransformer = Affine(event_shape=event_shape)
+        transformer_kwargs = transformer_kwargs or {}
+        transformer: ScalarTransformer = Affine(event_shape=event_shape, **transformer_kwargs)
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
@@ -579,7 +589,7 @@ class RQSForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_bins: int = 8,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -588,7 +598,8 @@ class RQSForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
         :param int n_bins: number of spline bins.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
-        transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
+        transformer_kwargs = transformer_kwargs or {}
+        transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, **transformer_kwargs)
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
@@ -596,7 +607,7 @@ class LRSForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_bins: int = 8,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -605,7 +616,8 @@ class LRSForwardMaskedAutoregressive(MaskedAutoregressiveBijection):
         :param int n_bins: number of spline bins.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
-        transformer: ScalarTransformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
+        transformer_kwargs = transformer_kwargs or {}
+        transformer: ScalarTransformer = LinearRational(event_shape=event_shape, **transformer_kwargs)
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
@@ -613,6 +625,7 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -620,7 +633,8 @@ class AffineInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
         :param kwargs: keyword arguments to InverseMaskedAutoregressiveBijection.
         """
-        transformer: ScalarTransformer = invert(Affine(event_shape=event_shape))
+        transformer_kwargs = transformer_kwargs or {}
+        transformer: ScalarTransformer = invert(Affine(event_shape=event_shape, **transformer_kwargs))
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
@@ -628,7 +642,7 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_bins: int = 8,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
@@ -637,8 +651,8 @@ class RQSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
         :param int n_bins: number of spline bins.
         :param kwargs: keyword arguments to InverseMaskedAutoregressiveBijection.
         """
-        assert n_bins >= 1
-        transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, n_bins=n_bins)
+        transformer_kwargs = transformer_kwargs or {}
+        transformer: ScalarTransformer = RationalQuadratic(event_shape=event_shape, **transformer_kwargs)
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
@@ -646,16 +660,17 @@ class LRSInverseMaskedAutoregressive(InverseMaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_bins: int = 8,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_bins: number of spline bins.
+        :param dict transformer_kwargs: keyword arguments to LinearRational.
         :param kwargs: keyword arguments to InverseMaskedAutoregressiveBijection.
         """
-        transformer: ScalarTransformer = LinearRational(event_shape=event_shape, n_bins=n_bins)
+        transformer_kwargs = transformer_kwargs or {}
+        transformer: ScalarTransformer = LinearRational(event_shape=event_shape, **transformer_kwargs)
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
 
 
@@ -663,20 +678,18 @@ class UMNNMaskedAutoregressive(MaskedAutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
-                 n_transformer_hidden_layers: int = None,
-                 transformer_hidden_size: int = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param Union[Tuple[int, ...], torch.Size] context_shape: shape of the context tensor.
-        :param int n_transformer_hidden_layers: number of transformer hidden layers.
-        :param int transformer_hidden_size: transformer hidden layer size.
+        :param dict transformer_kwargs: keyword arguments to UnconstrainedMonotonicNeuralNetwork.
         :param kwargs: keyword arguments to MaskedAutoregressiveBijection.
         """
+        transformer_kwargs = transformer_kwargs or {}
         transformer: ScalarTransformer = UnconstrainedMonotonicNeuralNetwork(
             event_shape=event_shape,
-            n_hidden_layers=n_transformer_hidden_layers,
-            hidden_dim=transformer_hidden_size
+            **transformer_kwargs
         )
         super().__init__(event_shape, context_shape, transformer=transformer, **kwargs)
