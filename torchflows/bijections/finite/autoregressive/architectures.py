@@ -292,6 +292,6 @@ class UMNNMAF(AutoregressiveArchitecture):
     def __init__(self, event_shape, **kwargs):
         super().__init__(
             event_shape,
-            base_bijection=DeepDenseSigmoidalForwardMaskedAutoregressive,
+            base_bijection=UMNNMaskedAutoregressive,
             **kwargs
         )
