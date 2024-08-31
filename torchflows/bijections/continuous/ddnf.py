@@ -2,8 +2,12 @@ from typing import Union, Tuple
 
 import torch
 
-from torchflows.bijections.continuous.base import ApproximateContinuousBijection, \
-    RegularizedApproximateODEFunction, create_nn_time_independent
+from torchflows.bijections.continuous.base import (
+    ApproximateContinuousBijection,
+    RegularizedApproximateODEFunction,
+    create_nn_time_independent,
+    create_cnn_time_independent
+)
 
 
 class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
@@ -26,5 +30,18 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
         """
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
         diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(n_dim))
+        self.n_steps = n_steps
+        super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
+
+class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
+    """Convolutional variant of the DDNF architecture.
+
+    Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
+    """
+
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_steps: int = 150, solver="euler", **kwargs):
+        if len(event_shape) != 3:
+            raise ValueError("Event shape must be of length 3 (channels, height, width).")
+        diff_eq = RegularizedApproximateODEFunction(create_cnn_time_independent(event_shape[0]))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)

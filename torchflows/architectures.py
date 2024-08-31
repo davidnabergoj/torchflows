@@ -22,9 +22,9 @@ from torchflows.bijections.finite.autoregressive.architectures import (
     UMNNMAF
 )
 
-from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
-from torchflows.bijections.continuous.rnode import RNODE
-from torchflows.bijections.continuous.ffjord import FFJORD
+from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection, ConvolutionalDeepDiffeomorphicBijection
+from torchflows.bijections.continuous.rnode import RNODE, ConvolutionalRNODE
+from torchflows.bijections.continuous.ffjord import FFJORD, ConvolutionalFFJORD
 from torchflows.bijections.continuous.otflow import OTFlow
 
 from torchflows.bijections.finite.residual.architectures import (

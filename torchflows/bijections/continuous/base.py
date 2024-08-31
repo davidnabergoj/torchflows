@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from torchflows.bijections.base import Bijection
-from torchflows.bijections.continuous.layers import DiffEqLayer
+from torchflows.bijections.continuous.layers import DiffEqLayer, ConcatConv2d, IgnoreConv2d
 import torchflows.bijections.continuous.layers as diff_eq_layers
 from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
@@ -17,6 +17,7 @@ from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unfl
 #       contains a reg_states attribute, which is accessed during Flow.fit.
 
 # Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
+
 
 def _flip(x, dim):
     indices = [slice(None)] * x.dim()
@@ -84,6 +85,16 @@ def create_nn(event_size: int, hidden_size: int = None, n_hidden_layers: int = 2
         ]
 
     return TimeDerivativeDNN(layers)
+
+
+def create_cnn(c: int, n_layers: int = 2):
+    # c: number of image channels
+    return TimeDerivativeDNN([ConcatConv2d(c, c) for _ in range(n_layers)])
+
+
+def create_cnn_time_independent(c: int, n_layers: int = 2):
+    # c: number of image channels
+    return TimeDerivativeDNN([IgnoreConv2d(c, c) for _ in range(n_layers)])
 
 
 class TimeDerivative(nn.Module):
