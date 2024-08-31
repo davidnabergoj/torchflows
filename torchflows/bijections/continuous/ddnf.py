@@ -28,8 +28,7 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
         :param event_shape: shape of the event tensor.
         :param n_steps: parameter T in the paper, i.e. the number of ResNet cells.
         """
-        n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(n_dim))
+        diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(event_shape))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
 

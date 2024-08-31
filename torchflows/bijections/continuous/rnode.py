@@ -19,8 +19,7 @@ class RNODE(ApproximateContinuousBijection):
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
-        n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = RegularizedApproximateODEFunction(create_nn(n_dim, hidden_size=100, n_hidden_layers=1),
+        diff_eq = RegularizedApproximateODEFunction(create_nn(event_shape, hidden_size=100, n_hidden_layers=1),
                                                     regularization="sq_jac_norm")
         super().__init__(event_shape, diff_eq, **kwargs)
 
