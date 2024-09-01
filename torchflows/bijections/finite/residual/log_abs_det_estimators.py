@@ -1,7 +1,9 @@
+from typing import Tuple, Union
+
 import torch
 import torch.nn as nn
 
-from torchflows.utils import Geometric, vjp_tensor
+from torchflows.utils import Geometric, flatten_batch, get_batch_shape
 
 
 def power_series_log_abs_det_estimator(g: callable,
@@ -10,14 +12,13 @@ def power_series_log_abs_det_estimator(g: callable,
                                        training: bool,
                                        n_iterations: int = 8):
     # f(x) = x + g(x)
-    # x.shape == (batch_size, event_size)
-    # noise.shape == (batch_size, event_size, n_hutchinson_samples)
-    # g(x).shape == (batch_size, event_size)
+    # x.shape == (batch_size, *event_shape)
+    # noise.shape == (batch_size, *event_shape, n_hutchinson_samples)
+    # g(x).shape == (batch_size, *event_shape)
 
-    assert len(noise.shape) == 3
-    batch_size, event_size, n_hutchinson_samples = noise.shape
-    assert len(x.shape) == 2
-    assert x.shape == (batch_size, event_size)
+    batch_size, *event_shape, n_hutchinson_samples = noise.shape
+    event_dims = tuple(range(1, len(x.shape)))
+    assert x.shape == (batch_size, *event_shape)
     assert n_iterations >= 2
 
     w = noise  # (batch_size, event_size, n_hutchinson_samples)
@@ -27,18 +28,21 @@ def power_series_log_abs_det_estimator(g: callable,
         # Compute VJP, reshape appropriately for hutchinson averaging
         gs_r, ws_r = torch.autograd.functional.vjp(
             g,
-            x[..., None].repeat(1, 1, n_hutchinson_samples).view(batch_size * n_hutchinson_samples, event_size),
-            w.view(batch_size * n_hutchinson_samples, event_size),
+            x[..., None].repeat(*([1] * (len(event_shape) + 1)), n_hutchinson_samples).view(
+                batch_size * n_hutchinson_samples,
+                *event_shape
+            ),
+            w.view(batch_size * n_hutchinson_samples, *event_shape),
             create_graph=training
         )
 
         if g_value is None:
-            g_value = gs_r.view(batch_size, event_size, n_hutchinson_samples)[..., 0]
+            g_value = gs_r.view(batch_size, *event_shape, n_hutchinson_samples)[..., 0]
 
-        w = ws_r.view(batch_size, event_size, n_hutchinson_samples)
+        w = ws_r.view(batch_size, *event_shape, n_hutchinson_samples)
 
-        # sum over event dim, average over hutchinson dim
-        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=1).mean(dim=1)
+        # sum over event dims, average over hutchinson dim
+        log_abs_det_jac_f += (-1) ** (k + 1) / k * torch.sum(w * noise, dim=event_dims).mean(dim=1)
         assert log_abs_det_jac_f.shape == (batch_size,)
     return g_value, log_abs_det_jac_f
 
@@ -58,6 +62,7 @@ def roulette_log_abs_det_estimator(g: callable,
     :return:
     """
     # f(x) = x + g(x)
+    event_dims = tuple(range(1, len(x.shape)))
     w = noise
     neumann_vjp = noise
     dist = Geometric(probs=torch.tensor(p), minimum=1)
@@ -71,7 +76,7 @@ def roulette_log_abs_det_estimator(g: callable,
             neumann_vjp = neumann_vjp + (-1) ** k / (k * p_k) * w
     g_value, vjp_jac = torch.autograd.functional.vjp(g, x, neumann_vjp, create_graph=training)
     # vjp_jac = torch.autograd.grad(g_value, x, neumann_vjp, create_graph=training)[0]
-    log_abs_det_jac_f = torch.sum(vjp_jac * noise, dim=-1)
+    log_abs_det_jac_f = torch.sum(vjp_jac * noise, dim=event_dims)
     return g_value, log_abs_det_jac_f
 
 
@@ -127,7 +132,8 @@ class LogDeterminantEstimator(torch.autograd.Function):
             g_params = params_and_grad[:len(params_and_grad) // 2]
             grad_params = params_and_grad[len(params_and_grad) // 2:]
 
-            dg_x, *dg_params = torch.autograd.grad(g_value, [x] + g_params, grad_g, allow_unused=True, retain_graph=training)
+            dg_x, *dg_params = torch.autograd.grad(g_value, [x] + g_params, grad_g, allow_unused=True,
+                                                   retain_graph=training)
 
         # Update based on gradient from log determinant.
         dL = grad_logdetgrad[0].detach()
@@ -143,7 +149,13 @@ class LogDeterminantEstimator(torch.autograd.Function):
         return (None, None, grad_x, None, None) + grad_params
 
 
-def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: float = 0.5):
+def log_det_roulette(event_shape: Union[torch.Size, Tuple[int, ...]],
+                     g: nn.Module,
+                     x: torch.Tensor,
+                     training: bool = False,
+                     p: float = 0.5):
+    batch_shape = get_batch_shape(x, event_shape)
+    x = flatten_batch(x, batch_shape)
     noise = torch.randn_like(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: roulette_log_abs_det_estimator(*args, **kwargs, p=p),
@@ -155,8 +167,14 @@ def log_det_roulette(g: nn.Module, x: torch.Tensor, training: bool = False, p: f
     )
 
 
-def log_det_power_series(g: nn.Module, x: torch.Tensor, training: bool = False, n_iterations: int = 8,
+def log_det_power_series(event_shape: Union[torch.Size, Tuple[int, ...]],
+                         g: nn.Module,
+                         x: torch.Tensor,
+                         training: bool = False,
+                         n_iterations: int = 8,
                          n_hutchinson_samples: int = 1):
+    batch_shape = get_batch_shape(x, event_shape)
+    x = flatten_batch(x, batch_shape)
     noise = torch.randn(size=(*x.shape, n_hutchinson_samples))
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: power_series_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),

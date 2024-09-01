@@ -33,7 +33,9 @@ from torchflows.bijections.finite.residual.architectures import (
     InvertibleResNet,
     PlanarFlow,
     RadialFlow,
-    SylvesterFlow
+    SylvesterFlow,
+    ConvolutionalInvertibleResNet,
+    ConvolutionalResFlow
 )
 
 from torchflows.bijections.finite.multiscale.architectures import (

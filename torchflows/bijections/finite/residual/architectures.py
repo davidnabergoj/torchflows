@@ -3,7 +3,12 @@ from typing import Union, Tuple
 import torch
 
 from torchflows.bijections.finite.residual.base import ResidualArchitecture
-from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
+from torchflows.bijections.finite.residual.iterative import (
+    InvertibleResNetBlock,
+    ResFlowBlock,
+    ConvolutionalInvertibleResNetBlock,
+    ConvolutionalResFlowBlock
+)
 from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from torchflows.bijections.finite.residual.planar import Planar
 from torchflows.bijections.finite.residual.radial import Radial
@@ -20,6 +25,16 @@ class InvertibleResNet(ResidualArchitecture):
         super().__init__(event_shape, InvertibleResNetBlock, **kwargs)
 
 
+class ConvolutionalInvertibleResNet(ResidualArchitecture):
+    """Convolutional variant of i-ResNet.
+
+    Reference: Behrmann et al. "Invertible Residual Networks" (2019); https://arxiv.org/abs/1811.00995.
+    """
+
+    def __init__(self, event_shape, **kwargs):
+        super().__init__(event_shape, ConvolutionalInvertibleResNetBlock, **kwargs)
+
+
 class ResFlow(ResidualArchitecture):
     """Residual flow (ResFlow) architecture.
 
@@ -28,6 +43,16 @@ class ResFlow(ResidualArchitecture):
 
     def __init__(self, event_shape, **kwargs):
         super().__init__(event_shape, ResFlowBlock, **kwargs)
+
+
+class ConvolutionalResFlow(ResidualArchitecture):
+    """Convolutional variant of ResFlow.
+
+    Reference: Chen et al. "Residual Flows for Invertible Generative Modeling" (2020); https://arxiv.org/abs/1906.02735.
+    """
+
+    def __init__(self, event_shape, **kwargs):
+        super().__init__(event_shape, ConvolutionalResFlowBlock, **kwargs)
 
 
 class ProximalResFlow(ResidualArchitecture):
