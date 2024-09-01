@@ -98,6 +98,9 @@ class Bijection(nn.Module):
     def regularization(self):
         return 0.0
 
+    def invert(self):
+        self.forward, self.inverse = self.inverse, self.forward
+
 
 def invert(bijection: Bijection) -> Bijection:
     """Swap the forward and inverse methods of the input bijection.

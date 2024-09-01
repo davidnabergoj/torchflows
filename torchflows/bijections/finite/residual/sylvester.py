@@ -3,17 +3,18 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.base import Bijection
+from torchflows.bijections.finite.residual.base import ClassicResidualBijection
 from torchflows.bijections.matrices import UpperTriangularInvertibleMatrix, HouseholderOrthogonalMatrix, \
     IdentityMatrix, PermutationMatrix
 from torchflows.utils import get_batch_shape
 
 
-class BaseSylvester(Bijection):
+class BaseSylvester(ClassicResidualBijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 m: int = None):
-        super().__init__(event_shape)
+                 m: int = None,
+                 **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.n_dim = int(torch.prod(torch.as_tensor(event_shape)))
 
         if m is None:
@@ -75,14 +76,14 @@ class BaseSylvester(Bijection):
 
 
 class HouseholderSylvester(BaseSylvester):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], m: int = None):
-        super().__init__(event_shape, m)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.q = HouseholderOrthogonalMatrix(n_dim=self.n_dim, n_factors=self.m)
 
 
 class IdentitySylvester(BaseSylvester):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], m: int = None):
-        super().__init__(event_shape, m)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.q = IdentityMatrix(n_dim=self.n_dim)
 
 
@@ -90,6 +91,6 @@ Sylvester = IdentitySylvester
 
 
 class PermutationSylvester(BaseSylvester):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], m: int = None):
-        super().__init__(event_shape, m)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.q = PermutationMatrix(n_dim=self.n_dim)

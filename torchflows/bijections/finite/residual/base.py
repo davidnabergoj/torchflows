@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Type
 
 import torch
 
@@ -7,8 +7,18 @@ from torchflows.bijections.base import Bijection, BijectiveComposition
 from torchflows.utils import get_batch_shape, unflatten_event, flatten_event, flatten_batch, unflatten_batch
 
 
+class ClassicResidualBijection(Bijection):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 inverse: bool = False,
+                 **kwargs):
+        super().__init__(event_shape, **kwargs)
+        if inverse:
+            self.invert()
+
+
 class ResidualBijection(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         """
 
         g maps from (*batch_shape, n_event_dims) to (*batch_shape, n_event_dims)
@@ -65,18 +75,24 @@ class ResidualBijection(Bijection):
         return x, log_det
 
 
-class ResidualComposition(BijectiveComposition):
-    def __init__(self, blocks: List[ResidualBijection]):
-        assert len(blocks) > 0
-        event_shape = blocks[0].event_shape
+class ResidualArchitecture(BijectiveComposition):
+    def __init__(self,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 layer_class: Type[Union[ResidualBijection, ClassicResidualBijection]],
+                 n_layers: int = 2,
+                 layer_kwargs: dict = None,
+                 **kwargs):
+        assert n_layers > 0
+        layer_kwargs = layer_kwargs or {}
 
-        updated_layers = [ElementwiseAffine(event_shape)]
-        for i in range(len(blocks)):
-            updated_layers.append(blocks[i])
-            updated_layers.append(ElementwiseAffine(event_shape))
+        layers = [ElementwiseAffine(event_shape)]
+        for i in range(n_layers):
+            layers.append(layer_class(event_shape, **layer_kwargs))
+            layers.append(ElementwiseAffine(event_shape))
 
         super().__init__(
-            event_shape=updated_layers[0].event_shape,
-            layers=updated_layers,
-            context_shape=updated_layers[0].context_shape
+            event_shape=layers[0].event_shape,
+            layers=layers,
+            context_shape=layers[0].context_shape,
+            **kwargs
         )
