@@ -18,59 +18,24 @@ from torchflows.utils import get_batch_shape
 
 class ConvolutionalCouplingBijection(CouplingBijection):
     def __init__(self,
-                 transformer: TensorTransformer,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 transformer_class: Type[TensorTransformer],
                  coupling: Union[Checkerboard, ChannelWiseHalfSplit],
-                 conditioner='convnet',
+                 conditioner: str = 'convnet',
                  **kwargs):
         if conditioner == 'convnet':
-            conditioner_transform = ConvNetConditioner(
-                input_event_shape=coupling.constant_shape,
-                parameter_shape=transformer.parameter_shape,
-                **kwargs
-            )
+            conditioner_transform_class = ConvNetConditioner
         elif conditioner == 'resnet':
-            conditioner_transform = ResNetConditioner(
-                input_event_shape=coupling.constant_shape,
-                parameter_shape=transformer.parameter_shape,
-                **kwargs
-            )
+            conditioner_transform_class = ResNetConditioner
         else:
             raise ValueError(f'Unknown conditioner: {conditioner}')
-        super().__init__(transformer, coupling, conditioner_transform, **kwargs)
-        self.coupling = coupling
-
-    def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
-        """
-
-        :param x: tensor with shape (*b, channels, height, width).
-        :return: tensor with shape (*b, constant_channels, constant_height, constant_width).
-        """
-        batch_shape = get_batch_shape(x, self.event_shape)
-        return x[..., self.coupling.source_mask].view(*batch_shape, *self.coupling.constant_shape)
-
-    def get_transformed_part(self, x: torch.Tensor) -> torch.Tensor:
-        """
-
-        :param x: tensor with shape (*b, channels, height, width).
-        :return: tensor with shape (*b, transformed_channels, transformed_height, constant_width).
-        """
-        batch_shape = get_batch_shape(x, self.event_shape)
-        return x[..., self.coupling.target_mask].view(*batch_shape, *self.coupling.transformed_shape)
-
-    def set_transformed_part(self, x: torch.Tensor, x_transformed: torch.Tensor):
-        """
-
-        :param x: tensor with shape (*b, channels, height, width).
-        :param x_transformed: tensor with shape (*b, transformed_channels, transformed_height, transformed_width).
-        """
-        batch_shape = get_batch_shape(x, self.event_shape)
-        x[..., self.coupling.target_mask] = x_transformed.reshape(*batch_shape, -1)
-        return x
-
-    def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
-        batch_shape = get_batch_shape(x, self.event_shape)
-        super_out = super().partition_and_predict_parameters(x, context)
-        return super_out.view(*batch_shape, *self.transformer.parameter_shape)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=transformer_class,
+            coupling=coupling,
+            conditioner_transform_class=conditioner_transform_class,
+            **kwargs
+        )
 
 
 class CheckerboardCoupling(ConvolutionalCouplingBijection):
@@ -83,8 +48,7 @@ class CheckerboardCoupling(ConvolutionalCouplingBijection):
             event_shape,
             coupling_type='checkerboard' if not alternate else 'checkerboard_inverted',
         )
-        transformer = transformer_class(event_shape=coupling.transformed_shape)
-        super().__init__(transformer, coupling, **kwargs)
+        super().__init__(event_shape, transformer_class, coupling, **kwargs)
 
 
 class NormalizedCheckerboardCoupling(BijectiveComposition):
@@ -105,8 +69,7 @@ class Invertible1x1ConvolutionalCoupling(ConvolutionalCouplingBijection):
             event_shape,
             coupling_type='channel_wise' if not alternate else 'channel_wise_inverted',
         )
-        transformer = Invertible1x1ConvolutionTransformer(event_shape=coupling.transformed_shape)
-        super().__init__(transformer, coupling, **kwargs)
+        super().__init__(event_shape, Invertible1x1ConvolutionTransformer, coupling, **kwargs)
 
 
 class GlowCheckerboardCoupling(BijectiveComposition):
@@ -129,8 +92,7 @@ class ChannelWiseCoupling(ConvolutionalCouplingBijection):
             event_shape,
             coupling_type='channel_wise' if not alternate else 'channel_wise_inverted'
         )
-        transformer = transformer_class(event_shape=coupling.transformed_shape)
-        super().__init__(transformer, coupling, **kwargs)
+        super().__init__(event_shape, transformer_class, coupling, **kwargs)
 
 
 class NormalizedChannelWiseCoupling(BijectiveComposition):

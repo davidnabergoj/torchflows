@@ -125,7 +125,6 @@ class ResNetConditioner(TensorConditionerTransform):
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
-            context_shape=None,
             parameter_shape=parameter_shape,
             output_lower_bound=-2.0,
             output_upper_bound=2.0,

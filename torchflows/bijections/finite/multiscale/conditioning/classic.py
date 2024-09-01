@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -124,13 +124,12 @@ class ConvNet(nn.Module):
 
 class ConvNetConditioner(TensorConditionerTransform):
     def __init__(self,
-                 input_event_shape: torch.Size,
-                 parameter_shape: torch.Size,
+                 input_event_shape: Union[Tuple[int, ...], torch.Size],
+                 parameter_shape: Union[Tuple[int, ...], torch.Size],
                  kernels: Tuple[int, ...] = None,
                  **kwargs):
         super().__init__(
             input_event_shape=input_event_shape,
-            context_shape=None,
             parameter_shape=parameter_shape,
             output_lower_bound=-2.0,
             output_upper_bound=2.0,
