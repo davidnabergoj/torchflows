@@ -1,4 +1,4 @@
-from typing import Tuple, Union, Type
+from typing import Tuple, Union, Type, Optional
 
 import torch
 import torch.nn as nn
@@ -15,7 +15,7 @@ class AutoregressiveBijection(Bijection):
     def __init__(self,
                  event_shape,
                  transformer: Union[TensorTransformer, ScalarTransformer],
-                 conditioner_transform: ConditionerTransform,
+                 conditioner_transform: Optional[ConditionerTransform],
                  **kwargs):
         super().__init__(event_shape=event_shape)
         self.conditioner_transform = conditioner_transform
@@ -205,11 +205,19 @@ class ElementwiseBijection(AutoregressiveBijection):
     The bijection for each element has its own set of globally learned parameters.
     """
 
-    def __init__(self, transformer: ScalarTransformer, fill_value: float = None):
+    def __init__(self,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 transformer_class: Type[ScalarTransformer],
+                 transformer_kwargs: dict = None,
+                 fill_value: float = None,
+                 **kwargs):
+        transformer_kwargs = transformer_kwargs or {}
+        transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
         super().__init__(
-            transformer.event_shape,
+            event_shape,
             transformer,
-            None
+            None,
+            **kwargs
         )
 
         if fill_value is None:

@@ -21,10 +21,9 @@ class ElementwiseAffine(ElementwiseBijection):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
-        :param kwargs: keyword arguments to Affine.
+        :param kwargs: keyword arguments to ElementwiseBijection.
         """
-        transformer = Affine(event_shape, **kwargs)
-        super().__init__(transformer)
+        super().__init__(event_shape, Affine, **kwargs)
 
 
 class ElementwiseInverseAffine(ElementwiseBijection):
@@ -32,10 +31,9 @@ class ElementwiseInverseAffine(ElementwiseBijection):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
-        :param kwargs: keyword arguments to InverseAffine.
+        :param kwargs: keyword arguments to ElementwiseBijection.
         """
-        transformer = InverseAffine(event_shape, **kwargs)
-        super().__init__(transformer)
+        super().__init__(event_shape, InverseAffine, **kwargs)
 
 
 class ActNorm(ElementwiseInverseAffine):
@@ -75,20 +73,19 @@ class ElementwiseScale(ElementwiseBijection):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
-        :param kwargs: keyword arguments to Scale.
+        :param kwargs: keyword arguments to ElementwiseBijection.
         """
-        transformer = Scale(event_shape, **kwargs)
-        super().__init__(transformer)
+        super().__init__(event_shape, Scale, **kwargs)
 
 
 class ElementwiseShift(ElementwiseBijection):
-    def __init__(self, event_shape):
+    def __init__(self, event_shape, **kwargs):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param kwargs: keyword arguments to ElementwiseBijection.
         """
-        transformer = Shift(event_shape)
-        super().__init__(transformer)
+        super().__init__(event_shape, Shift, **kwargs)
 
 
 class ElementwiseRQSpline(ElementwiseBijection):
@@ -96,10 +93,9 @@ class ElementwiseRQSpline(ElementwiseBijection):
         """
 
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
-        :param kwargs: keyword arguments to RationalQuadratic.
+        :param kwargs: keyword arguments to ElementwiseBijection.
         """
-        transformer = RationalQuadratic(event_shape, **kwargs)
-        super().__init__(transformer)
+        super().__init__(event_shape, RationalQuadratic, **kwargs)
 
 
 class AffineCoupling(CouplingBijection):
