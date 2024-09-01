@@ -144,18 +144,23 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
     """
 
     def __init__(self,
-                 event_shape,
-                 context_shape,
-                 transformer: ScalarTransformer,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 transformer_class: Type[ScalarTransformer],
+                 context_shape: Union[Tuple[int, ...], torch.Size] = None,
+                 transformer_kwargs: dict = None,
+                 conditioner_kwargs: dict = None,
                  **kwargs):
+        conditioner_kwargs = conditioner_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
+        transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             transformed_event_shape=event_shape,
             parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
-            **kwargs
+            **conditioner_kwargs
         )
-        super().__init__(transformer.event_shape, transformer, conditioner_transform)
+        super().__init__(transformer.event_shape, transformer, conditioner_transform, **kwargs)
 
     def apply_conditioner_transformer(self, inputs, context, forward: bool = True):
         h = self.conditioner_transform(inputs, context)
