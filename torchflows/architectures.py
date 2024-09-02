@@ -49,5 +49,8 @@ from torchflows.bijections.finite.multiscale.architectures import (
     AffineGlow,
     RQSGlow,
     LRSGlow,
-    ShiftGlow
+    ShiftGlow,
+    DeepSigmoidGlow,
+    DeepDenseSigmoidGlow,
+    DenseSigmoidGlow
 )
