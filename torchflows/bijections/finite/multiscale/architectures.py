@@ -244,3 +244,54 @@ class LRSGlow(MultiscaleBijection):
             n_blocks=n_layers,
             **kwargs
         )
+
+
+class DenseSigmoidGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DenseSigmoid,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class DeepSigmoidGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DeepSigmoid,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class DeepDenseSigmoidGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DeepDenseSigmoid,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
