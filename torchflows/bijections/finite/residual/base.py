@@ -1,10 +1,10 @@
-from typing import Union, Tuple, List, Type
+from typing import Union, Tuple, Type
 
 import torch
 
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseAffine
 from torchflows.bijections.base import Bijection, BijectiveComposition
-from torchflows.utils import get_batch_shape, unflatten_event, flatten_event, flatten_batch, unflatten_batch
+from torchflows.utils import get_batch_shape, flatten_batch, unflatten_batch
 
 
 class ClassicResidualBijection(Bijection):
