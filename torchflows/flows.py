@@ -80,7 +80,7 @@ class BaseFlow(nn.Module):
             keep_best_weights: bool = True,
             early_stopping: bool = False,
             early_stopping_threshold: int = 50,
-            max_batch_size_mb: int = 2000):
+            max_batch_size_mb: int = None):
         """Fit the normalizing flow to a dataset.
 
         Fitting the flow means finding the parameters of the bijection that maximize the probability of training data.
@@ -117,8 +117,9 @@ class BaseFlow(nn.Module):
             min_batch_size = max(32, min(1024, len(x_train) // 100))
             max_batch_size = min(4096, len(x_train) // 10)
 
-            event_size_mb = self.event_size / 2 ** 20
-            max_batch_size = max(1, min(max_batch_size, int(max_batch_size_mb / event_size_mb)))
+            if max_batch_size_mb is not None:
+                event_size_mb = self.event_size / 2 ** 20
+                max_batch_size = max(1, min(max_batch_size, int(max_batch_size_mb / event_size_mb)))
 
             batch_size_adaptation_interval = 10  # double the batch size every 10 epochs
             adaptive_batch_size = True
