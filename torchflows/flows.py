@@ -235,28 +235,27 @@ class BaseFlow(nn.Module):
             # Compute validation loss at the end of each epoch
             # Validation loss will be displayed at the start of the next epoch
             if x_val is not None:
-                with torch.no_grad():
-                    # Compute validation loss
-                    val_loss = 0.0
-                    for val_batch in val_loader:
-                        val_loss += compute_batch_loss(val_batch, reduction=torch.sum)
-                    val_loss /= len(x_val)
-                    val_loss += self.regularization()
+                # Compute validation loss
+                val_loss = 0.0
+                for val_batch in val_loader:
+                    val_loss += compute_batch_loss(val_batch, reduction=torch.sum).detach()
+                val_loss /= len(x_val)
+                val_loss += self.regularization()
 
-                    # Check if validation loss is the lowest so far
-                    if val_loss < best_val_loss:
-                        best_val_loss = val_loss
-                        best_epoch = epoch
+                # Check if validation loss is the lowest so far
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_epoch = epoch
 
-                    # Store current weights
-                    if keep_best_weights:
-                        if best_epoch == epoch:
-                            best_weights = deepcopy(self.state_dict())
+                # Store current weights
+                if keep_best_weights:
+                    if best_epoch == epoch:
+                        best_weights = deepcopy(self.state_dict())
 
-                    # Optionally stop training early
-                    if early_stopping:
-                        if epoch - best_epoch > early_stopping_threshold:
-                            break
+                # Optionally stop training early
+                if early_stopping:
+                    if epoch - best_epoch > early_stopping_threshold:
+                        break
 
         if x_val is not None and keep_best_weights:
             self.load_state_dict(best_weights)

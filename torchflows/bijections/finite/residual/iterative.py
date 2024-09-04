@@ -12,7 +12,7 @@ from torchflows.utils import get_batch_shape
 class SpectralMatrix(nn.Module):
     def __init__(self, shape: Tuple[int, int], c: float = 0.7, n_iterations: int = 5):
         super().__init__()
-        self.data = torch.randn(size=shape)
+        self.data = nn.Parameter(torch.randn(size=shape))
         self.c = c
         self.n_iterations = n_iterations
 
@@ -22,7 +22,7 @@ class SpectralMatrix(nn.Module):
         # Spectral Normalization for Generative Adversarial Networks - Miyato et al. - 2018
 
         # Get maximum singular value of rectangular matrix w
-        u = torch.randn(self.data.shape[1], 1)
+        u = torch.randn(self.data.shape[1], 1).to(w)
         v = None
 
         w = w.T
@@ -39,9 +39,8 @@ class SpectralMatrix(nn.Module):
 
     def normalized(self):
         # Estimate sigma
-        sigma = self.power_iteration(self.data)
-        # ratio = self.c / sigma
-        # return self.w * (ratio ** (ratio < 1))
+        with torch.no_grad():
+            sigma = self.power_iteration(self.data)
         return self.data / sigma
 
 

@@ -45,7 +45,7 @@ class IterativeResidualBijection(Bijection):
         else:
             x_flat = flatten_batch(x.clone(), batch_shape)
             x_flat.requires_grad_(True)
-            log_det = -unflatten_batch(self.log_det(x_flat, training=self.training), batch_shape)
+            log_det = unflatten_batch(self.log_det(x_flat, training=self.training), batch_shape)
 
         return z, log_det
 
@@ -68,7 +68,7 @@ class IterativeResidualBijection(Bijection):
         else:
             x_flat = flatten_batch(x.clone(), batch_shape)
             x_flat.requires_grad_(True)
-            log_det = -unflatten_batch(self.log_det(x_flat, training=self.training), batch_shape)
+            log_det = unflatten_batch(self.log_det(x_flat, training=self.training), batch_shape)
 
         return x, log_det
 
