@@ -21,16 +21,23 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
     Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_steps: int = 150, solver="euler", **kwargs):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 n_steps: int = 150,
+                 solver="euler",
+                 nn_kwargs: dict = None,
+                 **kwargs):
         """
         Constructor.
 
         :param event_shape: shape of the event tensor.
         :param n_steps: parameter T in the paper, i.e. the number of ResNet cells.
         """
-        diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(event_shape))
+        nn_kwargs = nn_kwargs or {}
+        diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(event_shape, **nn_kwargs))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
+
 
 class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
     """Convolutional variant of the DDNF architecture.
@@ -38,9 +45,15 @@ class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
     Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], n_steps: int = 150, solver="euler", **kwargs):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 n_steps: int = 150,
+                 solver="euler",
+                 nn_kwargs: dict = None,
+                 **kwargs):
+        nn_kwargs = nn_kwargs or {}
         if len(event_shape) != 3:
             raise ValueError("Event shape must be of length 3 (channels, height, width).")
-        diff_eq = RegularizedApproximateODEFunction(create_cnn_time_independent(event_shape[0]))
+        diff_eq = RegularizedApproximateODEFunction(create_cnn_time_independent(event_shape[0], **nn_kwargs))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)

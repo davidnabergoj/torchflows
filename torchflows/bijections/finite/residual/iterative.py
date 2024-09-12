@@ -72,23 +72,23 @@ class SpectralConv2d(nn.Module):
 class SpectralNeuralNetwork(nn.Module):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
-                 n_hidden: int = None,
+                 hidden_size: int = None,
                  n_hidden_layers: int = 1,
                  **kwargs):
         self.event_shape = event_shape
         event_size = int(torch.prod(torch.as_tensor(event_shape)))
-        if n_hidden is None:
-            n_hidden = int(3 * max(math.log(event_size), 4))
+        if hidden_size is None:
+            hidden_size = int(3 * max(math.log(event_size), 4))
 
         if n_hidden_layers == 0:
             layers = [SpectralLinear(event_size, event_size, **kwargs)]
         else:
-            layers = [SpectralLinear(event_size, n_hidden, **kwargs)]
-            for _ in range(n_hidden):
+            layers = [SpectralLinear(event_size, hidden_size, **kwargs)]
+            for _ in range(hidden_size):
                 layers.append(nn.Tanh())
-                layers.append(SpectralLinear(n_hidden, n_hidden, **kwargs))
+                layers.append(SpectralLinear(hidden_size, hidden_size, **kwargs))
             layers.pop(-1)
-            layers.append(SpectralLinear(n_hidden, event_size, **kwargs))
+            layers.append(SpectralLinear(hidden_size, event_size, **kwargs))
         super().__init__()
         self.layers = nn.ModuleList(layers)
 
