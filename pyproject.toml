@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchflows"
-version = "1.0.6"
+dynamic = ["version"]
 authors = [
     { name = "David Nabergoj", email = "david.nabergoj@fri.uni-lj.si" },
 ]

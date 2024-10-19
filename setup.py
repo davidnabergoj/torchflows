@@ -1,17 +1,26 @@
 from setuptools import setup, find_packages
+from distutils.util import convert_path
 import pathlib
+import sys
 
-here = pathlib.Path(__file__).parent.resolve()
 
-long_description = (here / "README.md").read_text(encoding="utf-8")
+root = pathlib.Path(__file__).parent.resolve()
+sys.path.append(root.as_posix())
+
+main_ns = {}
+ver_path = convert_path('torchflows/_version.py')
+with open(ver_path) as ver_file:
+    exec(ver_file.read(), main_ns)
+
+long_description = (root / "README.md").read_text(encoding="utf-8")
 
 setup(
-    name="normalizing-flows",
-    version="1.0.4",
+    name="Torchflows",
+    version=main_ns['__version__'],
     description="Modern normalizing flows in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/davidnabergoj/normalizing-flows",
+    url="https://github.com/davidnabergoj/torchflows",
     author="David Nabergoj",
     author_email="david.nabergoj@fri.uni-lj.si",
     classifiers=[  # Optional
@@ -43,6 +52,6 @@ setup(
         "tqdm"
     ],
     project_urls={
-        "Bug Reports": "https://github.com/davidnabergoj/normalizing-flows/issues",
+        "Bug Reports": "https://github.com/davidnabergoj/torchflows/issues",
     },
 )

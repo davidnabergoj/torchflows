@@ -1,13 +1,19 @@
 # Configuration file for the Sphinx documentation builder.
+import pathlib
 
 # -- Project information
+
+with open("DOCS_VERSION", 'r') as f:
+    version = f.read().strip()
+
+release = version
 
 project = 'torchflows'
 copyright = '2024, David Nabergoj'
 author = 'David Nabergoj'
 
-release = '1.0'
-version = '1.0.6'
+# release = f'{torchflows.__version__}'
+# version = f'{torchflows.__version__}'
 
 # -- General configuration
 

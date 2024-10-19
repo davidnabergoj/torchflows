@@ -2,18 +2,18 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import pathlib
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-import pathlib
-import sys
 
-sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
+with open("../DOCS_VERSION", 'r') as f:
+    version = f.read().strip()
 
 project = 'Torchflows'
 copyright = '2024, David Nabergoj'
 author = 'David Nabergoj'
-release = '1.0.2'
+release = f'{version}'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
