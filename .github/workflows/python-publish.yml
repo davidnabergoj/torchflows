@@ -10,9 +10,9 @@ name: Build Torchflows and upload to PyPI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "release" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "release" ]
   workflow_dispatch:
 
 jobs:
@@ -38,7 +38,6 @@ jobs:
   
   publish-to-pypi:
     name: Publish Torchflows distribution to PyPI
-    if: startsWith(github.ref, '/refs/tags')
     needs:
     - build
     runs-on: ubuntu-latest
