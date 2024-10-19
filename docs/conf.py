@@ -1,13 +1,17 @@
 # Configuration file for the Sphinx documentation builder.
 
 # -- Project information
+import importlib.metadata
+
+version = importlib.metadata.version('torchflows')
+release = version
 
 project = 'torchflows'
 copyright = '2024, David Nabergoj'
 author = 'David Nabergoj'
 
-release = '1.0'
-version = '1.0.6'
+# release = f'{torchflows.__version__}'
+# version = f'{torchflows.__version__}'
 
 # -- General configuration
 
