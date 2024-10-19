@@ -1,9 +1,11 @@
 # Configuration file for the Sphinx documentation builder.
+import pathlib
 
 # -- Project information
-import importlib.metadata
 
-version = importlib.metadata.version('torchflows')
+with open("DOCS_VERSION", 'r') as f:
+    version = f.read().strip()
+
 release = version
 
 project = 'torchflows'

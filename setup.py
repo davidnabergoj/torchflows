@@ -1,18 +1,22 @@
 from setuptools import setup, find_packages
+from distutils.util import convert_path
 import pathlib
 import sys
-import importlib.metadata
+
 
 root = pathlib.Path(__file__).parent.resolve()
 sys.path.append(root.as_posix())
 
-version = importlib.metadata.version('torchflows')
+main_ns = {}
+ver_path = convert_path('torchflows/_version.py')
+with open(ver_path) as ver_file:
+    exec(ver_file.read(), main_ns)
 
 long_description = (root / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="Torchflows",
-    version=f"{version}",
+    version=main_ns['__version__'],
     description="Modern normalizing flows in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",

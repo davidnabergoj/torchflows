@@ -2,12 +2,13 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import pathlib
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-import importlib.metadata
 
-version = importlib.metadata.version('torchflows')
+with open("../DOCS_VERSION", 'r') as f:
+    version = f.read().strip()
 
 project = 'Torchflows'
 copyright = '2024, David Nabergoj'
