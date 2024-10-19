@@ -27,7 +27,7 @@ jobs:
       with:
         python-version: "3.x"
     - name: Install pypa/build
-      run: python3 -m pip install vuild --user
+      run: python3 -m pip install build --user
     - name: Build binary wheel and source tarball
       run: python3 -m build
     - name: Store distribution packages
