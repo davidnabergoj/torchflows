@@ -78,7 +78,7 @@ class RealNVP(AutoregressiveArchitecture):
         """
 
         :param event_shape: shape of the event tensor.
-        :param kwargs: keyword arguments to AffineCoupling.
+        :param kwargs: keyword arguments to :class:`~bijections.finite.autoregressive.layers.AffineCoupling`.
         """
         super().__init__(event_shape, base_bijection=AffineCoupling, **kwargs)
 
