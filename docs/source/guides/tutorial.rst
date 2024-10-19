@@ -11,3 +11,4 @@ We provide tutorials and notebooks for typical Torchflows use cases.
     image_modeling
     choosing_base_distributions
     cuda
+    modifying_architectures
