@@ -141,8 +141,9 @@ class OTResNet(nn.Module):
 
 
 class OTPotential(TimeDerivative):
-    def __init__(self, event_size: int, hidden_size: int = None, **kwargs):
+    def __init__(self, event_size: int, hidden_size: int = 50, resnet_kwargs: dict = None):
         super().__init__()
+        resnet_kwargs = resnet_kwargs or {}
 
         # hidden_size = m
         if hidden_size is None:
@@ -163,7 +164,7 @@ class OTPotential(TimeDerivative):
         self.w = nn.Parameter(1 + delta_w)
         self.A = nn.Parameter(torch.eye(r, event_size + 1) + delta_A)
         self.b = nn.Parameter(0 + delta_b)
-        self.resnet = OTResNet(event_size + 1, hidden_size, **kwargs)  # (x, t) has d+1 elements
+        self.resnet = OTResNet(event_size + 1, hidden_size, **resnet_kwargs)  # (x, t) has d+1 elements
 
     def forward(self, t, x):
         return self.gradient(concatenate_x_t(x, t))
@@ -208,7 +209,13 @@ class OTFlow(ExactContinuousBijection):
     Reference: Onken et al. "OT-Flow: Fast and Accurate Continuous Normalizing Flows via Optimal Transport" (2021); https://arxiv.org/abs/2006.00104.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], solver='dopri8', **kwargs):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 ot_flow_kwargs: dict = None,
+                 solver='dopri8',
+                 **kwargs):
+        ot_flow_kwargs = ot_flow_kwargs or {}
+
         n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = OTFlowODEFunction(n_dim, hidden_size=50)
+        diff_eq = OTFlowODEFunction(n_dim, **ot_flow_kwargs)
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)

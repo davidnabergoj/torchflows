@@ -27,7 +27,7 @@ class Checkerboard(Coupling):
         return n_channels, height // 2, width  # rectangular shape
 
     @property
-    def transformed_shape(self):
+    def target_shape(self):
         return self.constant_shape
 
 
@@ -58,7 +58,7 @@ class ChannelWiseHalfSplit(Coupling):
         return n_channels // 2, height, width
 
     @property
-    def transformed_shape(self):
+    def target_shape(self):
         n_channels, height, width = self.event_shape
         return n_channels - n_channels // 2, height, width
 

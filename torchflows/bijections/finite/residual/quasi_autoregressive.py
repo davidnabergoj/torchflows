@@ -3,7 +3,7 @@ from typing import Union, Tuple, List
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.finite.residual.base import ResidualBijection
+from torchflows.bijections.finite.residual.base import IterativeResidualBijection
 
 
 class AffineQuasiMADELayerSet(nn.Module):
@@ -77,7 +77,7 @@ class AffineQuasiMADE(nn.Module):
         return x, jac
 
 
-class QuasiAutoregressiveFlowBlock(ResidualBijection):
+class QuasiAutoregressiveFlowBlock(IterativeResidualBijection):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], sigma: float = 0.7):
         super().__init__(event_shape)
         self.log_theta = nn.Parameter(torch.randn())

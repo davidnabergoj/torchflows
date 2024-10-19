@@ -35,8 +35,16 @@ class PartialCoupling:
         return int(torch.sum(self.source_mask))
 
     @property
+    def constant_shape(self) -> Tuple[int, ...]:
+        return (self.source_event_size,)
+
+    @property
     def target_event_size(self):
         return int(torch.sum(self.target_mask))
+
+    @property
+    def target_shape(self) -> Tuple[int, ...]:
+        return (self.target_event_size,)
 
 
 class Coupling(PartialCoupling):

@@ -1,11 +1,11 @@
-from typing import Tuple, Union, Type
+from typing import Tuple, Union, Type, Optional
 
 import torch
 import torch.nn as nn
 
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform, \
-    MADE
-from torchflows.bijections.finite.autoregressive.conditioning.coupling_masks import PartialCoupling
+    MADE, FeedForward
+from torchflows.bijections.finite.autoregressive.conditioning.coupling_masks import PartialCoupling, make_coupling
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from torchflows.bijections.base import Bijection
 from torchflows.utils import flatten_event, unflatten_event, get_batch_shape
@@ -15,7 +15,7 @@ class AutoregressiveBijection(Bijection):
     def __init__(self,
                  event_shape,
                  transformer: Union[TensorTransformer, ScalarTransformer],
-                 conditioner_transform: ConditionerTransform,
+                 conditioner_transform: Optional[ConditionerTransform],
                  **kwargs):
         super().__init__(event_shape=event_shape)
         self.conditioner_transform = conditioner_transform
@@ -39,36 +39,73 @@ class CouplingBijection(AutoregressiveBijection):
     """
     Base coupling bijection object.
 
-    A coupling bijection is defined using a transformer, conditioner transform, and always a coupling conditioner.
+    A coupling bijection is defined using a transformer, conditioner transform, and always a coupling conditioner (specifying how to partition the input tensor).
 
-    The coupling conditioner receives as input an event tensor x.
-    It then partitions an input event tensor x into a constant part x_A and a modifiable part x_B.
-    For x_A, the conditioner outputs a set of parameters which is always the same.
-    For x_B, the conditioner outputs a set of parameters which are predicted from x_A.
+    The coupling conditioner receives as input an event tensor :math:`x`.
+    It then partitions an input event tensor x into a constant part :math:`x_A` and a modifiable part :math:`x_B`.
+    For :math:`x_A`, the conditioner outputs a set of parameters which is always the same.
+    For :math:`x_B`, the conditioner outputs a set of parameters which are predicted from :math:`x_A`.
+    Coupling conditioners differ in the partitioning method. By default, the event is flattened; the first half is :math:`x_A` and the second half is :math:`x_B`. When using this in a normalizing flow, permutation layers can shuffle event dimensions.
 
-    Coupling conditioners differ in the partitioning method. By default, the event is flattened; the first half is x_A
-     and the second half is x_B. When using this in a normalizing flow, permutation layers can shuffle event dimensions.
-
-    For improved performance, this implementation does not use a standalone coupling conditioner. It instead implements
-     a method to partition x into x_A and x_B and then predict parameters for x_B.
+    For improved performance, this implementation does not use a standalone coupling conditioner, but implements a method to partition x into :math:`x_A` and :math:`x_B` and then predict parameters for :math:`x_B`.
     """
 
     def __init__(self,
-                 transformer: TensorTransformer,
-                 coupling: PartialCoupling,
-                 conditioner_transform: ConditionerTransform,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 transformer_class: Type[TensorTransformer],
+                 context_shape: Union[Tuple[int, ...], torch.Size] = None,
+                 coupling: PartialCoupling = None,
+                 conditioner_transform_class: Type[ConditionerTransform] = FeedForward,
+                 coupling_kwargs: dict = None,
+                 conditioner_kwargs: dict = None,
+                 transformer_kwargs: dict = None,
                  **kwargs):
-        super().__init__(coupling.event_shape, transformer, conditioner_transform, **kwargs)
+        """
+        CouplingBijection constructor.
+
+        :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param Type[TensorTransformer] transformer_class: transformer class.
+        :param Union[Tuple[int, ...], torch.Size] context_shape:
+        :param PartialCoupling coupling:
+        :param Type[ConditionerTransform] conditioner_transform_class:
+        :param Dict coupling_kwargs:
+        :param Dict conditioner_kwargs:
+        :param Dict transformer_kwargs:
+        :param kwargs:
+        """
+        coupling_kwargs = coupling_kwargs or {}
+        conditioner_kwargs = conditioner_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
+
+        if coupling is None:
+            coupling = make_coupling(event_shape, **coupling_kwargs)
+
+        transformer = transformer_class(
+            event_shape=coupling.target_shape,
+            **transformer_kwargs
+        )
+
+        conditioner_transform = conditioner_transform_class(
+            input_event_shape=coupling.constant_shape,  # (coupling.source_event_size,),
+            context_shape=context_shape,
+            parameter_shape=transformer.parameter_shape,
+            **conditioner_kwargs
+        )
+
+        super().__init__(event_shape, transformer, conditioner_transform, **kwargs)
         self.coupling = coupling
 
     def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
-        return x[..., self.coupling.source_mask]
+        batch_shape = get_batch_shape(x, self.event_shape)
+        return x[..., self.coupling.source_mask].view(*batch_shape, *self.coupling.constant_shape)
 
     def get_transformed_part(self, x: torch.Tensor) -> torch.Tensor:
-        return x[..., self.coupling.target_mask]
+        batch_shape = get_batch_shape(x, self.event_shape)
+        return x[..., self.coupling.target_mask].view(*batch_shape, *self.coupling.target_shape)
 
     def set_transformed_part(self, x: torch.Tensor, x_transformed: torch.Tensor):
-        x[..., self.coupling.target_mask] = x_transformed
+        batch_shape = get_batch_shape(x, self.event_shape)
+        x[..., self.coupling.target_mask] = x_transformed.reshape(*batch_shape, -1)
 
     def partition_and_predict_parameters(self, x: torch.Tensor, context: torch.Tensor):
         """
@@ -79,9 +116,10 @@ class CouplingBijection(AutoregressiveBijection):
         :return: parameter tensor h with h.shape = (*batch_shape, *parameter_shape).
         """
         # Predict transformer parameters for output dimensions
+        batch_shape = get_batch_shape(x, self.event_shape)
         x_a = self.get_constant_part(x)  # (*b, constant_event_size)
         h_b = self.conditioner_transform(x_a, context=context)  # (*b, *p)
-        return h_b
+        return h_b.view(*batch_shape, *self.transformer.parameter_shape)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         z = x.clone()
@@ -116,18 +154,23 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
     """
 
     def __init__(self,
-                 event_shape,
-                 context_shape,
-                 transformer: ScalarTransformer,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 transformer_class: Type[ScalarTransformer],
+                 context_shape: Union[Tuple[int, ...], torch.Size] = None,
+                 transformer_kwargs: dict = None,
+                 conditioner_kwargs: dict = None,
                  **kwargs):
+        conditioner_kwargs = conditioner_kwargs or {}
+        transformer_kwargs = transformer_kwargs or {}
+        transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
         conditioner_transform = MADE(
             input_event_shape=event_shape,
             transformed_event_shape=event_shape,
             parameter_shape_per_element=transformer.parameter_shape_per_element,
             context_shape=context_shape,
-            **kwargs
+            **conditioner_kwargs
         )
-        super().__init__(transformer.event_shape, transformer, conditioner_transform)
+        super().__init__(transformer.event_shape, transformer, conditioner_transform, **kwargs)
 
     def apply_conditioner_transformer(self, inputs, context, forward: bool = True):
         h = self.conditioner_transform(inputs, context)
@@ -172,11 +215,19 @@ class ElementwiseBijection(AutoregressiveBijection):
     The bijection for each element has its own set of globally learned parameters.
     """
 
-    def __init__(self, transformer: ScalarTransformer, fill_value: float = None):
+    def __init__(self,
+                 event_shape: Union[Tuple[int, ...], torch.Size],
+                 transformer_class: Type[ScalarTransformer],
+                 transformer_kwargs: dict = None,
+                 fill_value: float = None,
+                 **kwargs):
+        transformer_kwargs = transformer_kwargs or {}
+        transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
         super().__init__(
-            transformer.event_shape,
+            event_shape,
             transformer,
-            None
+            None,
+            **kwargs
         )
 
         if fill_value is None:

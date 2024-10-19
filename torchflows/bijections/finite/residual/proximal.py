@@ -4,7 +4,7 @@ from typing import Union, Tuple, Optional
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.finite.residual.base import ResidualBijection
+from torchflows.bijections.finite.residual.base import IterativeResidualBijection
 from torchflows.bijections.finite.residual.log_abs_det_estimators import log_det_roulette
 
 
@@ -93,11 +93,13 @@ class PNNBlock(nn.Module):
 
     def forward(self, x):
         """
-        x.shape = (batch_size, event_size)
+        x.shape = (batch_size, *event_shape)
         """
+        x_flat = x.view(x.shape[0], -1)
         mat = self.stiefel_matrix
-        act = self.act(torch.nn.functional.linear(x, mat, self.b))
-        return torch.einsum('...ij,...kj->...ki', mat.T, act)
+        act = self.act(torch.nn.functional.linear(x_flat, mat, self.b))
+        out = torch.einsum('...ij,...kj->...ki', mat.T, act)
+        return out.view_as(x)
 
 
 class PNN(nn.Sequential):
@@ -128,7 +130,9 @@ class ProximalResFlowBlockIncrement(nn.Module):
         self.phi = pnn
 
     def r(self, x):
-        return 1 / self.phi.t * (self.phi(x) - (1 - self.phi.t) * x)
+        x_flat = x.view(x.shape[0], -1)
+        out = 1 / self.phi.t * (self.phi(x_flat) - (1 - self.phi.t) * x_flat)
+        return out.view_as(x)
 
     def forward(self, x):
         const = self.gamma * self.phi.t / (1 + self.gamma - self.gamma * self.phi.t)
@@ -141,12 +145,13 @@ class ProximalResFlowBlockIncrement(nn.Module):
         mat = layer.stiefel_matrix
         b = layer.b
 
-        act_derivative = layer.act.derivative(torch.nn.functional.linear(x, mat, b))
+        x_flat = x.view(x.shape[0], -1)
+        act_derivative = layer.act.derivative(torch.nn.functional.linear(x_flat, mat, b))
         log_derivatives = torch.log1p(self.gamma * act_derivative)
         return torch.sum(log_derivatives, dim=-1)
 
 
-class ProximalResFlowBlock(ResidualBijection):
+class ProximalResFlowBlock(IterativeResidualBijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,

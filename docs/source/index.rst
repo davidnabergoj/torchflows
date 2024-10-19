@@ -25,21 +25,16 @@ Torchflows can be installed easily using pip:
 
 For other install options, see the :ref:`install <installing>` section.
 
-Guides
-=========
+Table of contents
+----------------------------
 
 .. toctree::
+    :maxdepth: 2
 
     guides/installing
     guides/tutorial
-
-API
-====
-
-.. toctree::
-    :maxdepth: 3
-
-    api/components
-    api/architectures
-    api/multiscale_architectures
+    architectures/index
+    architectures/general_modeling
+    architectures/image_modeling
+    developer_reference/index
 

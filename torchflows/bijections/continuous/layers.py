@@ -57,12 +57,18 @@ class IgnoreLinear(DiffEqLayer):
     Apply y = A @ x + b without any time information.
     """
 
-    def __init__(self, dim_in, dim_out):
+    def __init__(self, input_shape, output_shape):
         super().__init__()
-        self._layer = nn.Linear(dim_in, dim_out)
+        self.input_shape = input_shape
+        self.input_size = int(torch.prod(torch.as_tensor(input_shape)))
+        self.output_shape = output_shape
+        self.output_size = int(torch.prod(torch.as_tensor(output_shape)))
+        self._layer = nn.Linear(self.input_size, self.output_size)
 
     def forward(self, t, x):
-        return self._layer(x)
+        x_flat = x.view(-1, self.input_size)
+        out_flat = self._layer(x_flat)
+        return out_flat.view(-1, *self.output_shape)
 
 
 class ConcatLinear(DiffEqLayer):
@@ -70,14 +76,21 @@ class ConcatLinear(DiffEqLayer):
     Apply y = A @ [t; x] + b
     """
 
-    def __init__(self, dim_in, dim_out):
+    def __init__(self, input_shape, output_shape):
         super().__init__()
-        self._layer = nn.Linear(dim_in + 1, dim_out)
+        self.input_shape = input_shape
+        self.input_size = int(torch.prod(torch.as_tensor(input_shape)))
+        self.output_shape = output_shape
+        self.output_size = int(torch.prod(torch.as_tensor(output_shape)))
+        self._layer = nn.Linear(self.input_size + 1, self.output_size)
 
     def forward(self, t, x):
-        tt = torch.ones_like(x[:, :1]) * t
-        ttx = torch.cat([tt, x], 1)
-        return self._layer(ttx)
+        # x.shape = (b, *input_shape)
+        x_flat = x.view(-1, self.input_size)
+        tt_flat = torch.ones_like(x_flat[:, :1]) * t
+        ttx_flat = torch.cat([tt_flat, x_flat], 1)
+        out_flat = self._layer(ttx_flat)
+        return out_flat.view(-1, *self.output_shape)
 
 
 class ConcatLinear_v2(DiffEqLayer):
@@ -169,7 +182,7 @@ class IgnoreConv2d(DiffEqLayer):
     Apply y = Conv2d(x, W, b)
     """
 
-    def __init__(self, dim_in, dim_out, ksize=3, stride=1, padding=0, dilation=1, groups=1, bias=True, transpose=False):
+    def __init__(self, dim_in, dim_out, ksize=3, stride=1, padding=1, dilation=1, groups=1, bias=True, transpose=False):
         super().__init__()
         module = nn.ConvTranspose2d if transpose else nn.Conv2d
         self._layer = module(
@@ -204,7 +217,7 @@ class ConcatConv2d(DiffEqLayer):
     Apply y(t) = Conv2d(concatenate([x, t]), W, b)
     """
 
-    def __init__(self, dim_in, dim_out, ksize=3, stride=1, padding=0, dilation=1, groups=1, bias=True, transpose=False):
+    def __init__(self, dim_in, dim_out, ksize=3, stride=1, padding=1, dilation=1, groups=1, bias=True, transpose=False):
         super().__init__()
         module = nn.ConvTranspose2d if transpose else nn.Conv2d
         self._layer = module(

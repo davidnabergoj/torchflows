@@ -46,7 +46,7 @@ __all__ = [
     'ProximalResFlow',
     'Radial',
     'Planar',
-    'Sylvester',
+    'InverseSylvester',
     'ElementwiseShift',
     'ElementwiseAffine',
     'ElementwiseRQSpline',

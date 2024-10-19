@@ -16,7 +16,7 @@ class TensorTransformer(Bijection):
     individually.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape=event_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -56,8 +56,8 @@ class TensorTransformer(Bijection):
 
 
 class ScalarTransformer(TensorTransformer):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
-        super().__init__(event_shape)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
 
     @property
     def parameter_shape_per_element(self):

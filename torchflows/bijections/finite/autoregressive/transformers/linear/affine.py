@@ -135,7 +135,7 @@ class Affine2(ScalarTransformer):
 
 
 class Shift(ScalarTransformer):
-    def __init__(self, event_shape: torch.Size):
+    def __init__(self, event_shape: torch.Size, **kwargs):
         super().__init__(event_shape=event_shape)
 
     @property

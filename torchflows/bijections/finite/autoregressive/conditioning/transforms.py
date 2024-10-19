@@ -272,9 +272,9 @@ class LinearMADE(MADE):
 
 class FeedForward(TensorConditionerTransform):
     def __init__(self,
-                 input_event_shape: torch.Size,
-                 parameter_shape: torch.Size,
-                 context_shape: torch.Size = None,
+                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 parameter_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  n_hidden: int = None,
                  n_layers: int = 2,
                  nonlinearity: Type[nn.Module] = nn.Tanh,

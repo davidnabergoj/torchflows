@@ -4,15 +4,15 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import softplus
 
-from torchflows.bijections.base import Bijection
+from torchflows.bijections.finite.residual.base import ClassicResidualBijection
 from torchflows.utils import get_batch_shape
 
 
-class Radial(Bijection):
+class Radial(ClassicResidualBijection):
     # as per Rezende, Mohamed (2015)
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
-        super().__init__(event_shape)
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.beta = nn.Parameter(torch.randn(size=()))
         self.unconstrained_alpha = nn.Parameter(torch.randn(size=()))
         self.z0 = nn.Parameter(torch.randn(size=(self.n_dim,)))

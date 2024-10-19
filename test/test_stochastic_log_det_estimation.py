@@ -48,6 +48,7 @@ def test_power_series_estimator(n_iterations, n_hutchinson_samples):
     torch.manual_seed(0)
     x = torch.randn(size=(n_data, n_dim))
     g_value, log_det_f_estimated = log_det_power_series(
+        (n_dim,),
         g,
         x,
         training=False,
@@ -76,7 +77,13 @@ def test_roulette_estimator(p):
 
     torch.manual_seed(0)
     x = torch.randn(size=(n_data, n_dim))
-    g_value, log_det_f = log_det_roulette(g, x, training=False, p=p)
+    g_value, log_det_f = log_det_roulette(
+        (n_dim,),
+        g,
+        x,
+        training=False,
+        p=p
+    )
     log_det_f_true = test_data.log_det_jac_f(x).ravel()
 
     print(f'{log_det_f = }')

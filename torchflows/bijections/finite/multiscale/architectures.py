@@ -178,6 +178,23 @@ class MultiscaleDenseSigmoid(MultiscaleBijection):
         )
 
 
+class ShiftGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=Shift,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
 class AffineGlow(MultiscaleBijection):
     def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
         if isinstance(event_shape, int):
@@ -188,6 +205,91 @@ class AffineGlow(MultiscaleBijection):
         super().__init__(
             event_shape=event_shape,
             transformer_class=Affine,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class RQSGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=RationalQuadratic,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class LRSGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=LinearRational,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class DenseSigmoidGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DenseSigmoid,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class DeepSigmoidGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DeepSigmoid,
+            checkerboard_class=GlowCheckerboardCoupling,
+            channel_wise_class=GlowChannelWiseCoupling,
+            n_blocks=n_layers,
+            **kwargs
+        )
+
+
+class DeepDenseSigmoidGlow(MultiscaleBijection):
+    def __init__(self, event_shape: Union[int, torch.Size, Tuple[int, ...]], n_layers: int = None, **kwargs):
+        if isinstance(event_shape, int):
+            event_shape = (event_shape,)
+        if n_layers is None:
+            n_layers = automatically_determine_n_layers(event_shape)
+        check_image_shape_for_multiscale_flow(event_shape, n_layers)
+        super().__init__(
+            event_shape=event_shape,
+            transformer_class=DeepDenseSigmoid,
             checkerboard_class=GlowCheckerboardCoupling,
             channel_wise_class=GlowChannelWiseCoupling,
             n_blocks=n_layers,

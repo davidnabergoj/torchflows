@@ -2,25 +2,13 @@ from typing import Union, Tuple
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.base import Bijection
+from torchflows.bijections.finite.residual.base import ClassicResidualBijection
 from torchflows.utils import get_batch_shape
 
 
-class Planar(Bijection):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.inv_planar = InversePlanar(*args, **kwargs)
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.inv_planar.inverse(z=x, context=context)
-
-    def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.inv_planar.forward(x=z, context=context)
-
-
-class InversePlanar(Bijection):
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]]):
-        super().__init__(event_shape)
+class Planar(ClassicResidualBijection):
+    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+        super().__init__(event_shape, **kwargs)
         self.w = nn.Parameter(torch.randn(size=(self.n_dim,)))
         self.u = nn.Parameter(torch.randn(size=(self.n_dim,)))
         self.b = nn.Parameter(torch.randn(size=()))

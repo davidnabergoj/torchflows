@@ -11,11 +11,6 @@ from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale,
     LRSCoupling, LinearRQSCoupling
 from torchflows.bijections.finite.linear import LU, ReversePermutation, LowerTriangular, Orthogonal, QR
 from torchflows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
-from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
-from torchflows.bijections.finite.residual.planar import Planar
-from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock
-from torchflows.bijections.finite.residual.radial import Radial
-from torchflows.bijections.finite.residual.sylvester import Sylvester
 from torchflows.utils import get_batch_shape
 from test.constants import __test_constants
 

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from torchflows.bijections.base import Bijection
-from torchflows.bijections.continuous.layers import DiffEqLayer
+from torchflows.bijections.continuous.layers import DiffEqLayer, ConcatConv2d, IgnoreConv2d
 import torchflows.bijections.continuous.layers as diff_eq_layers
 from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
@@ -17,6 +17,7 @@ from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unfl
 #       contains a reg_states attribute, which is accessed during Flow.fit.
 
 # Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
+
 
 def _flip(x, dim):
     indices = [slice(None)] * x.dim()
@@ -55,35 +56,58 @@ def divergence_approx_extended(f, y, e: Union[torch.Tensor, Tuple[torch.Tensor]]
     return approx_tr_dzdx, N
 
 
-def create_nn_time_independent(event_size: int, hidden_size: int = 30, n_hidden_layers: int = 2):
-    assert n_hidden_layers >= 0
-    if n_hidden_layers == 0:
-        layers = [diff_eq_layers.IgnoreLinear(event_size, event_size)]
-    else:
-        layers = [
-            diff_eq_layers.IgnoreLinear(event_size, hidden_size),
-            *[diff_eq_layers.IgnoreLinear(hidden_size, hidden_size) for _ in range(n_hidden_layers)],
-            diff_eq_layers.IgnoreLinear(hidden_size, event_size)
-        ]
+def create_nn_time_independent(event_shape: Union[Tuple[int, ...], torch.Size],
+                               hidden_size: int = 30,
+                               n_hidden_layers: int = 2):
+    event_size = int(torch.prod(torch.as_tensor(event_shape)))
 
-    return TimeDerivativeDNN(layers)
-
-
-def create_nn(event_size: int, hidden_size: int = None, n_hidden_layers: int = 2):
     if hidden_size is None:
         hidden_size = max(4, int(3 * math.log(event_size)))
+    hidden_shape = (hidden_size,)
 
     assert n_hidden_layers >= 0
     if n_hidden_layers == 0:
-        layers = [diff_eq_layers.ConcatLinear(event_size, event_size)]
+        layers = [diff_eq_layers.IgnoreLinear(event_shape, event_shape)]
     else:
         layers = [
-            diff_eq_layers.ConcatLinear(event_size, hidden_size),
-            *[diff_eq_layers.ConcatLinear(hidden_size, hidden_size) for _ in range(n_hidden_layers)],
-            diff_eq_layers.ConcatLinear(hidden_size, event_size)
+            diff_eq_layers.IgnoreLinear(event_shape, hidden_shape),
+            *[diff_eq_layers.IgnoreLinear(hidden_shape, hidden_shape) for _ in range(n_hidden_layers)],
+            diff_eq_layers.IgnoreLinear(hidden_shape, event_shape)
         ]
 
     return TimeDerivativeDNN(layers)
+
+
+def create_nn(event_shape: Union[Tuple[int, ...], torch.Size],
+              hidden_size: int = None,
+              n_hidden_layers: int = 2):
+    event_size = int(torch.prod(torch.as_tensor(event_shape)))
+
+    if hidden_size is None:
+        hidden_size = max(4, int(3 * math.log(event_size)))
+    hidden_shape = (hidden_size,)
+
+    assert n_hidden_layers >= 0
+    if n_hidden_layers == 0:
+        layers = [diff_eq_layers.ConcatLinear(event_shape, event_shape)]
+    else:
+        layers = [
+            diff_eq_layers.ConcatLinear(event_shape, hidden_shape),
+            *[diff_eq_layers.ConcatLinear(hidden_shape, hidden_shape) for _ in range(n_hidden_layers)],
+            diff_eq_layers.ConcatLinear(hidden_shape, event_shape)
+        ]
+
+    return TimeDerivativeDNN(layers)
+
+
+def create_cnn(c: int, n_layers: int = 2):
+    # c: number of image channels
+    return TimeDerivativeDNN([ConcatConv2d(c, c) for _ in range(n_layers)])
+
+
+def create_cnn_time_independent(c: int, n_layers: int = 2):
+    # c: number of image channels
+    return TimeDerivativeDNN([IgnoreConv2d(c, c) for _ in range(n_layers)])
 
 
 class TimeDerivative(nn.Module):
@@ -431,7 +455,7 @@ class ApproximateContinuousBijection(ContinuousBijection):
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
-        z_flat = flatten_batch(flatten_event(z, self.event_shape), batch_shape)
+        z_flat = flatten_batch(z, batch_shape)
 
         if integration_times is None:
             integration_times = self.make_integrations_times(z_flat)
@@ -439,7 +463,7 @@ class ApproximateContinuousBijection(ContinuousBijection):
         # Refresh odefunc statistics
         self.f.before_odeint(noise=noise)
 
-        log_det_initial = torch.zeros(size=(batch_size, 1)).to(z_flat)
+        log_det_initial = torch.zeros(size=(batch_size, *([1] * len(self.event_shape)))).to(z_flat)
         state_t = odeint(
             self.f,
             (z_flat, log_det_initial),
@@ -455,7 +479,7 @@ class ApproximateContinuousBijection(ContinuousBijection):
         z_final_flat, log_det_final_flat = state_t[:2]
 
         # Reshape back to original shape
-        x = unflatten_event(unflatten_batch(z_final_flat, batch_shape), self.event_shape)
+        x = unflatten_batch(z_final_flat, batch_shape)
         log_det = log_det_final_flat.view(*batch_shape)
 
         return x, log_det

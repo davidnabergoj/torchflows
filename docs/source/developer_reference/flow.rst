@@ -1,4 +1,4 @@
-Flow objects
+Flow wrappers
 ===============================
 The `Flow` object contains a base distribution and a bijection.
 

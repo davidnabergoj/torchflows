@@ -1,5 +1,9 @@
+Mathematical background
+=============================
+
+
 What is a normalizing flow
-==========================
+--------------------------------------------
 
 A normalizing flow (NF) is a flexible trainable distribution.
 It is defined as a bijective transformation of a simple distribution, such as a standard Gaussian.
