@@ -27,6 +27,7 @@ from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.continuous.ffjord import FFJORD
 from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
 from torchflows.bijections.continuous.otflow import OTFlow
+from torchflows._version import __version__
 
 __all__ = [
     'NICE',
@@ -46,10 +47,11 @@ __all__ = [
     'ProximalResFlow',
     'Radial',
     'Planar',
-    'InverseSylvester',
+    'Sylvester',
     'ElementwiseShift',
     'ElementwiseAffine',
     'ElementwiseRQSpline',
     'Flow',
     'FlowMixture',
+    '__version__'
 ]
