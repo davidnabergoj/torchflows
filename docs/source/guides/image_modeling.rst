@@ -1,5 +1,5 @@
 Image modeling
-==============
+=================
 
 When modeling images, we can use specialized multiscale architectures which use convolutional neural network conditioners and specialized coupling schemes.
 These architectures expect event shapes to be *(channels, height, width)*.

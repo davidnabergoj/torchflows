@@ -21,8 +21,10 @@ def inverse_sigmoid(p):
 
 class Sigmoid(ScalarTransformer):
     """
-    Applies z = inv_sigmoid(w.T @ sigmoid(a * x + b)) where a > 0, w > 0 and sum(w) = 1.
-    Note: w, a, b are vectors, so multiplication a * x is broadcast.
+    Scalar transformer that applies sigmoid-based transformations.
+
+    Applies `z = inv_sigmoid(w.T @ sigmoid(a * x + b))` where `a > 0`, `w > 0` and `sum(w) = 1`.
+    Note: `w, a, b` are vectors, so multiplication `a * x` is broadcast.
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]],
@@ -45,7 +47,9 @@ class Sigmoid(ScalarTransformer):
 
     def extract_parameters(self, h: torch.Tensor):
         """
-        h.shape = (batch_size, self.n_parameters)
+        Convert a parameter vector h into a tuple of parameters to be used in downstream transformations.
+
+        :param torch.Tensor h: parameter vector with shape `(batch_size, n_parameters)`.
         """
         da = h[:, :self.hidden_dim]
         db = h[:, self.hidden_dim:self.hidden_dim * 2]
@@ -60,13 +64,14 @@ class Sigmoid(ScalarTransformer):
 
     def forward_1d(self, x, h, eps: float = 1e-6):
         """
-        x.shape = (batch_size,)
-        h.shape = (batch_size, hidden_size * 3)
+        Apply forward transformation on input tensor with one event dimension.
 
-        Within the function:
-        a.shape = (batch_size, hidden_size)
-        b.shape = (batch_size, hidden_size)
-        w.shape = (batch_size, hidden_size)
+        For debug purposes - within this function, the following holds:
+        `a.shape = (batch_size, hidden_size)`, `b.shape = (batch_size, hidden_size)`, `w.shape = (batch_size, hidden_size)`.
+
+        :param torch.Tensor x: input tensor with shape `(batch_size,)`.
+        :param torch.Tensor h: parameter vector with shape `(batch_size, 3 * hidden_size)`.
+        :param float eps: small positive scalar.
         """
         a, b, w, log_w = self.extract_parameters(h)
         c = a * x[:, None] + b  # (batch_size, n_hidden)
