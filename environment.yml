@@ -6,15 +6,13 @@ dependencies:
   - numpy
   - tqdm
   - pip
+  - pytest  # testing
   - pip:
-    - torchdiffeq
-  # Dependencies for testing and docs
-  - pytest
-  - pip:
-    - Pygments
-    - Babel
-    - sphinx>=8.0.1
-    - sphinx-rtd-theme
-    - sphinx-copybutton
-    - nbsphinx
-    - sphinx-autoapi
+      - torchdiffeq  # mandatory for continuous NFs
+      - Pygments  # docs
+      - Babel  # docs
+      - sphinx>=8.0.1  # docs
+      - sphinx-rtd-theme  # docs
+      - sphinx-copybutton  # docs
+      - nbsphinx  # docs
+      - sphinx-autoapi  # docs
