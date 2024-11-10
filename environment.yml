@@ -1,0 +1,20 @@
+name: torchflows-dev
+dependencies:
+  # Mandatory dependencies for torchflows
+  - python>=3.7
+  - pytorch::pytorch>=2.0.1
+  - numpy
+  - tqdm
+  - pip
+  - pip:
+    - torchdiffeq
+  # Dependencies for testing and docs
+  - pytest
+  - pip:
+    - Pygments
+    - Babel
+    - sphinx>=8.0.1
+    - sphinx-rtd-theme
+    - sphinx-copybutton
+    - nbsphinx
+    - sphinx-autoapi

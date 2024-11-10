@@ -64,7 +64,7 @@ class ActNorm(ElementwiseInverseAffine):
             else:
                 scale = torch.std(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
             unconstrained_scale = self.transformer.unconstrain_scale(scale)
-            self.value.data = torch.concatenate([unconstrained_scale, shift], dim=-1).data
+            self.value.data = torch.cat([unconstrained_scale, shift], dim=-1).data
         return super().forward(x, context)
 
 

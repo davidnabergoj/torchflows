@@ -9,9 +9,17 @@ from torchflows.utils import get_batch_shape, sum_except_batch
 
 
 class Integration(ScalarTransformer):
+    """
+    Base integration transformer class.
+    """
+
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], bound: float = 100.0, eps: float = 1e-6):
         """
-        :param bound: specifies the initial interval [-bound, bound] where numerical inversion is performed.
+        Integration transformer constructor.
+
+        :param event_shape: shape of the input tensor.
+        :param bound: specifies the initial interval `[-bound, bound]` where numerical inversion is performed.
+        :param eps: small scalar value for transformer inversion.
         """
         super().__init__(event_shape)
         self.bound = bound
@@ -33,8 +41,10 @@ class Integration(ScalarTransformer):
 
     def forward_1d(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        x.shape = (n,)
-        h.shape = (n, n_parameters)
+        Apply forward pass on input tensor with one event dimension.
+
+        :param torch.Tensor x: input tensor with shape `(n,)`.
+        :param torch.Tensor h: parameter tensor with shape `(n, n_parameters)`.
         """
         params = self.compute_parameters(h)
         return self.base_forward_1d(x, params)
@@ -51,8 +61,10 @@ class Integration(ScalarTransformer):
 
     def inverse_1d(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        z.shape = (n,)
-        h.shape = (n, n_parameters)
+        Apply inverse pass on input tensor with one event dimension.
+
+        :param torch.Tensor x: input tensor with shape `(n,)`.
+        :param torch.Tensor h: parameter tensor with shape `(n, n_parameters)`.
         """
         params = self.compute_parameters(h)
         x = self.inverse_without_log_det(z, params)
@@ -60,8 +72,10 @@ class Integration(ScalarTransformer):
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        x.shape = (*batch_shape, *event_shape)
-        h.shape = (*batch_shape, *parameter_shape)
+        Apply forward pass.
+
+        :param torch.Tensor x: input tensor with shape `(*batch_shape, *event_shape)`.
+        :param torch.Tensor h: parameter tensor with shape `(*batch_shape, *parameter_shape)`.
         """
         z_flat, log_det_flat = self.forward_1d(x.view(-1), h.view(-1, self.n_parameters_per_element))
         z = z_flat.view_as(x)
@@ -70,6 +84,12 @@ class Integration(ScalarTransformer):
         return z, log_det
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Apply inverse pass.
+
+        :param torch.Tensor z: input tensor with shape `(*batch_shape, *event_shape)`.
+        :param torch.Tensor h: parameter tensor with shape `(*batch_shape, *parameter_shape)`.
+        """
         x_flat, log_det_flat = self.inverse_1d(z.view(-1), h.view(-1, self.n_parameters_per_element))
         x = x_flat.view_as(z)
         batch_shape = get_batch_shape(z, self.event_shape)
