@@ -147,9 +147,8 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
     Masked autoregressive bijection class.
 
     This bijection is specified with a scalar transformer.
-    Its conditioner is always MADE, which receives as input a tensor x with x.shape = (*batch_shape, *event_shape).
-    MADE outputs parameters h for the scalar transformer with
-     h.shape = (*batch_shape, *event_shape, *parameter_shape_per_element).
+    Its conditioner is always MADE, which receives as input a tensor x with shape `(*batch_shape, *event_shape)`.
+    MADE outputs parameters h for the scalar transformer with shape `(*batch_shape, *event_shape, *parameter_shape_per_element)`.
     The transformer then applies the bijection elementwise.
     """
 

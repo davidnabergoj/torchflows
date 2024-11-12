@@ -145,7 +145,7 @@ class Squeeze(Bijection):
         assert height % 2 == 0
         assert width % 2 == 0
 
-        out = torch.concatenate([
+        out = torch.cat([
             x[..., ::2, ::2],
             x[..., ::2, 1::2],
             x[..., 1::2, ::2],

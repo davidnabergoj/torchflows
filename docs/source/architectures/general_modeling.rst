@@ -1,5 +1,5 @@
 API for standard architectures
-============================
+=================================================
 We lists notable implemented bijection architectures.
 These all inherit from the Bijection class.
 
@@ -41,7 +41,13 @@ Autoregressive architectures
 .. autoclass:: torchflows.architectures.InverseAutoregressiveLRS
     :members: __init__
 
-.. autoclass:: torchflows.architectures.CouplingDSF
+.. autoclass:: torchflows.architectures.CouplingDeepSF
+    :members: __init__
+
+.. autoclass:: torchflows.architectures.CouplingDenseSF
+    :members: __init__
+
+.. autoclass:: torchflows.architectures.CouplingDeepDenseSF
     :members: __init__
 
 .. autoclass:: torchflows.architectures.UMNNMAF

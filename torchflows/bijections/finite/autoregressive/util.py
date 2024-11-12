@@ -9,14 +9,23 @@ import torch.autograd
 
 
 class GaussLegendre(torch.autograd.Function):
+    """
+    Autograd function that computes the Gauss-Legendre quadrature.
+    """
     @staticmethod
     def forward(ctx, f, a: torch.Tensor, b: torch.Tensor, n: int, *h: List[torch.Tensor]) -> torch.Tensor:
+        """
+        Forward autograd map.
+        """
         ctx.f, ctx.n = f, n
         ctx.save_for_backward(a, b, *h)
         return GaussLegendre.quadrature(f, a, b, n, h)
 
     @staticmethod
     def backward(ctx, grad_area: torch.Tensor) -> Tuple[Optional[torch.Tensor], ...]:
+        """
+        Inverse autograd map.
+        """
         f, n = ctx.f, ctx.n
         a, b, *h = ctx.saved_tensors
 
@@ -62,4 +71,7 @@ class GaussLegendre(torch.autograd.Function):
 
 
 def gauss_legendre(f, a, b, n, h):
+    """
+    Compute the Gauss-Legendre quadrature.
+    """
     return GaussLegendre.apply(f, a, b, n, *h)
