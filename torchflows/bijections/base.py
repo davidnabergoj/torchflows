@@ -137,7 +137,12 @@ class BijectiveComposition(Bijection):
     def forward(self, x: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(size=get_batch_shape(x, event_shape=self.event_shape)).to(x)
         for layer in self.layers:
-            x, log_det_layer = layer(x, context=context)
+            try:
+                x, log_det_layer = layer(x, context=context)
+            except TypeError as e:
+                print(e)
+                print(layer)
+                raise e
             log_det += log_det_layer
         z = x
         return z, log_det
