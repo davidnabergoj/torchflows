@@ -3,10 +3,12 @@ from typing import Union, Tuple, List, Optional, Dict
 
 import torch
 import torch.nn as nn
+from torch.nn import ModuleDict, ModuleList
 
 from torchflows.bijections.base import Bijection
 from torchflows.bijections.continuous.layers import DiffEqLayer, ConcatConv2d, IgnoreConv2d
 import torchflows.bijections.continuous.layers as diff_eq_layers
+from torchflows.bijections.continuous.regularization import GeodesicRegularization, JacobianRegularization
 from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
 
@@ -249,38 +251,31 @@ class RegularizedApproximateODEFunction(ApproximateODEFunction):
         if isinstance(regularization, str):
             regularization = (regularization,)
 
-        supported_regularization_types = ["geodesic", "sq_jac_norm"]
+        reg_modules = nn.ModuleDict()
         for rt in regularization:
-            assert rt in supported_regularization_types
+            if rt == 'geodesic':
+                reg_modules[rt] = GeodesicRegularization()
+            elif rt == "sq_jac_norm":
+                reg_modules[rt] = JacobianRegularization()
+            else:
+                raise ValueError
 
-        self.reg_types = regularization
-
-        self.reg_coef: Dict[str, float] = {
-            'sq_jac_norm': 1.0,
-            'geodesic': 1.0,
-        }
-        self.reg_data: Dict[str, Optional[torch.Tensor]] = {
-            'sq_jac_norm': None,  # shape = (n, 1)
-            'geodesic': None,
-        }
+        self.register_module('reg_modules', reg_modules)
 
     def regularization(self):
         total = torch.tensor(0.0)
-        for key, val in self.reg_data.items():
-            coef = self.reg_coef[key]
-            if val is not None:
-                total += coef * torch.mean(val)
+        for key, val in self.reg_modules.items():
+            total += val.coef * val.value.mean()
         return total
 
     def divergence_step(self, dy, y) -> torch.Tensor:
         batch_size = y.shape[0]
 
-        if "sq_jac_norm" in self.reg_types:
+        if "sq_jac_norm" in self.reg_modules:
             divergence, sq_jac_norm = divergence_approx_extended(dy, y, e=self.hutch_noise)
-
             # Store regularization data
             sq_jac_norm = sq_jac_norm.view(batch_size, 1)
-            self.reg_data['sq_jac_norm'] = sq_jac_norm
+            self.reg_modules['sq_jac_norm'].value = sq_jac_norm
         else:
             divergence = divergence_approx_basic(dy, y, e=self.hutch_noise)
         divergence = divergence.view(batch_size, 1)
