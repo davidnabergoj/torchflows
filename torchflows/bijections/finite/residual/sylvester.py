@@ -48,7 +48,7 @@ class BaseSylvester(ClassicResidualBijection):
         return torch.sigmoid(x) * (1 - torch.sigmoid(x))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        pass
+        raise ValueError("Sylvester bijection does not support forward computation.")
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
