@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+
+from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.base import Bijection
 from torchflows.utils import flatten_event, unflatten_event, create_data_loader
 from torchflows.base_distributions.gaussian import DiagonalGaussian
@@ -260,6 +262,10 @@ class BaseFlow(nn.Module):
         if x_val is not None and keep_best_weights:
             self.load_state_dict(best_weights)
 
+        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
+        if isinstance(self.bijection, RNODE):
+            self.bijection.f.stored_reg = None
+
         self.eval()
 
     def variational_fit(self,
@@ -272,7 +278,7 @@ class BaseFlow(nn.Module):
                         keep_best_weights: bool = True,
                         show_progress: bool = False,
                         check_for_divergences: bool = False,
-                        time_limit_seconds:Union[float, int] = None):
+                        time_limit_seconds: Union[float, int] = None):
         """Train the normalizing flow to fit a target log probability.
 
         Stochastic variational inference lets us train a distribution using the unnormalized target log density instead of a fixed dataset.
@@ -366,6 +372,10 @@ class BaseFlow(nn.Module):
             self.load_state_dict(initial_weights)
         elif keep_best_weights:
             self.load_state_dict(best_weights)
+
+        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
+        if isinstance(self.bijection, RNODE):
+            self.bijection.f.stored_reg = None
 
         self.eval()
 
