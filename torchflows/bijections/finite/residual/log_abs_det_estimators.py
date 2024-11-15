@@ -156,7 +156,7 @@ def log_det_roulette(event_shape: Union[torch.Size, Tuple[int, ...]],
                      p: float = 0.5):
     batch_shape = get_batch_shape(x, event_shape)
     x = flatten_batch(x, batch_shape)
-    noise = torch.randn_like(x)
+    noise = torch.randn_like(x).to(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: roulette_log_abs_det_estimator(*args, **kwargs, p=p),
         g,
@@ -175,7 +175,7 @@ def log_det_power_series(event_shape: Union[torch.Size, Tuple[int, ...]],
                          n_hutchinson_samples: int = 1):
     batch_shape = get_batch_shape(x, event_shape)
     x = flatten_batch(x, batch_shape)
-    noise = torch.randn(size=(*x.shape, n_hutchinson_samples))
+    noise = torch.randn(size=(*x.shape, n_hutchinson_samples)).to(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: power_series_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
         g,
