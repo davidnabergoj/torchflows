@@ -47,8 +47,10 @@ class LowerTriangularInvertibleMatrix(InvertibleMatrix):
         self.off_diagonal_indices = torch.tril_indices(self.n_dim, self.n_dim, -1)
         self.min_eigval = min_eigval
 
+        self.register_buffer('mat_zeros', torch.zeros(size=(self.n_dim, self.n_dim)))
+
     def mat(self):
-        mat = torch.zeros(size=(self.n_dim, self.n_dim))
+        mat = self.mat_zeros
         mat[range(self.n_dim), range(self.n_dim)] = self.compute_diagonal_elements()
         mat[self.off_diagonal_indices[0], self.off_diagonal_indices[1]] = self.off_diagonal_elements
         return mat
@@ -94,7 +96,7 @@ class HouseholderOrthogonalMatrix(InvertibleMatrix):
     def mat(self):
         v_outer = torch.einsum('fi,fj->fij', self.v, self.v)
         v_norms_squared = torch.linalg.norm(self.v, dim=1).view(-1, 1, 1) ** 2
-        h = (torch.eye(self.n_dim)[None] - 2 * (v_outer / v_norms_squared))
+        h = (torch.eye(self.n_dim)[None].to(v_outer) - 2 * (v_outer / v_norms_squared))
         return torch.linalg.multi_dot(list(h))
 
     def log_det(self):
@@ -107,9 +109,10 @@ class HouseholderOrthogonalMatrix(InvertibleMatrix):
 class IdentityMatrix(InvertibleMatrix):
     def __init__(self, n_dim: int, **kwargs):
         super().__init__(n_dim, **kwargs)
+        self.register_buffer('_mat', torch.eye(self.n_dim))
 
     def mat(self):
-        return torch.eye(self.n_dim)
+        return self._mat
 
     def log_det(self):
         return 0.0

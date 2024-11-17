@@ -26,8 +26,8 @@ class BaseSylvester(ClassicResidualBijection):
         self.b = nn.Parameter(torch.randn(m))
 
         # q is implemented in subclasses
-        self.r = UpperTriangularInvertibleMatrix(n_dim=self.m)
-        self.r_tilde = UpperTriangularInvertibleMatrix(n_dim=self.m)
+        self.register_module('r', UpperTriangularInvertibleMatrix(n_dim=self.m))
+        self.register_module('r_tilde', UpperTriangularInvertibleMatrix(n_dim=self.m))
 
     @property
     def w(self):
@@ -53,9 +53,9 @@ class BaseSylvester(ClassicResidualBijection):
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_shape = get_batch_shape(z, self.event_shape)
         z_flat = torch.flatten(z, start_dim=len(batch_shape))
-        u = self.u.view(*([1] * len(batch_shape)), *self.u.shape)
-        w = self.w.view(*([1] * len(batch_shape)), *self.w.shape)
-        b = self.b.view(*([1] * len(batch_shape)), *self.b.shape)
+        u = self.u.view(*([1] * len(batch_shape)), *self.u.shape).to(z)
+        w = self.w.view(*([1] * len(batch_shape)), *self.w.shape).to(z)
+        b = self.b.view(*([1] * len(batch_shape)), *self.b.shape).to(z)
 
         wzpb = torch.einsum('...ij,...j->...i', w, z_flat) + b  # (..., m)
 
@@ -66,9 +66,9 @@ class BaseSylvester(ClassicResidualBijection):
         )
 
         wu = torch.einsum('...ij,...jk->...ik', w, u)  # (..., m, m)
-        diag = torch.zeros(size=(*batch_shape, self.m, self.m))
+        diag = torch.zeros(size=(*batch_shape, self.m, self.m)).to(z)
         diag[..., range(self.m), range(self.m)] = self.h_deriv(wzpb)  # (..., m, m)
-        _, log_det = torch.linalg.slogdet(torch.eye(self.m) + torch.einsum('...ij,...jk->...ik', diag, wu))
+        _, log_det = torch.linalg.slogdet(torch.eye(self.m).to(z) + torch.einsum('...ij,...jk->...ik', diag, wu))
 
         x = x.view(*batch_shape, *self.event_shape)
 
@@ -78,13 +78,13 @@ class BaseSylvester(ClassicResidualBijection):
 class HouseholderSylvester(BaseSylvester):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.q = HouseholderOrthogonalMatrix(n_dim=self.n_dim, n_factors=self.m)
+        self.register_module('q', HouseholderOrthogonalMatrix(n_dim=self.n_dim, n_factors=self.m))
 
 
 class IdentitySylvester(BaseSylvester):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.q = IdentityMatrix(n_dim=self.n_dim)
+        self.register_module('q', IdentityMatrix(n_dim=self.n_dim))
 
 
 Sylvester = IdentitySylvester
@@ -93,4 +93,4 @@ Sylvester = IdentitySylvester
 class PermutationSylvester(BaseSylvester):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.q = PermutationMatrix(n_dim=self.n_dim)
+        self.register_module('q', PermutationMatrix(n_dim=self.n_dim))
