@@ -44,9 +44,8 @@ class LowerTriangularInvertibleMatrix(InvertibleMatrix):
             self.unc_diagonal_elements = None
         else:
             self.unc_diagonal_elements = nn.Parameter(torch.zeros(self.n_dim))
-        self.off_diagonal_indices = torch.tril_indices(self.n_dim, self.n_dim, -1)
         self.min_eigval = min_eigval
-
+        self.register_buffer('off_diagonal_indices', torch.tril_indices(self.n_dim, self.n_dim, -1))
         self.register_buffer('mat_zeros', torch.zeros(size=(self.n_dim, self.n_dim)))
 
     def mat(self):
