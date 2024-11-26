@@ -2,7 +2,6 @@ from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
-from Cython.Shadow import returns
 
 from torchflows.bijections.finite.matrix import UpperTriangularInvertibleMatrix, IdentityMatrix, \
     HouseholderProductMatrix
