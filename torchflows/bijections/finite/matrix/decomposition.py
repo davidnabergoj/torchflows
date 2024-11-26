@@ -3,7 +3,7 @@ from typing import Union, Tuple
 import torch
 
 from torchflows.bijections.finite.matrix.base import InvertibleMatrix
-from torchflows.bijections.finite.matrix.orthogonal import HouseholderOrthogonalMatrix
+from torchflows.bijections.finite.matrix.orthogonal import HouseholderProductMatrix
 from torchflows.bijections.finite.matrix.triangular import LowerTriangularInvertibleMatrix, \
     UpperTriangularInvertibleMatrix
 
@@ -27,7 +27,7 @@ class LUMatrix(InvertibleMatrix):
 class QRMatrix(InvertibleMatrix):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.orthogonal = HouseholderOrthogonalMatrix(self.n_dim, **kwargs)
+        self.orthogonal = HouseholderProductMatrix(self.n_dim, **kwargs)
         self.upper = UpperTriangularInvertibleMatrix(self.n_dim, **kwargs)
 
     def project_flat(self, x_flat: torch.Tensor, context_flat: torch.Tensor = None) -> torch.Tensor:

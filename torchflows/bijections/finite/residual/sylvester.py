@@ -5,7 +5,7 @@ import torch.nn as nn
 from Cython.Shadow import returns
 
 from torchflows.bijections.finite.matrix import UpperTriangularInvertibleMatrix, IdentityMatrix, \
-    HouseholderOrthogonalMatrix
+    HouseholderProductMatrix
 from torchflows.bijections.finite.matrix.permutation import PermutationMatrix, RandomPermutationMatrix
 from torchflows.bijections.finite.matrix.util import matmul_with_householder
 from torchflows.bijections.finite.residual.base import ClassicResidualBijection
@@ -69,7 +69,7 @@ class BaseSylvester(ClassicResidualBijection):
 class HouseholderSylvester(BaseSylvester):
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.register_module('q', HouseholderOrthogonalMatrix(event_shape, n_factors=self.m))
+        self.register_module('q', HouseholderProductMatrix(event_shape, n_factors=self.m))
 
     def compute_u(self):
         return self.q.project_flat(self.r.compute_matrix())

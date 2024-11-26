@@ -9,7 +9,7 @@ from torchflows.bijections.finite.autoregressive.architectures import NICE, Real
     InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
     LRSCoupling, LinearRQSCoupling, ElementwiseRQSpline
-from torchflows.bijections.finite.matrix import HouseholderOrthogonalMatrix, LowerTriangularInvertibleMatrix, \
+from torchflows.bijections.finite.matrix import HouseholderProductMatrix, LowerTriangularInvertibleMatrix, \
     UpperTriangularInvertibleMatrix, IdentityMatrix, RandomPermutationMatrix, ReversePermutationMatrix, QRMatrix, \
     LUMatrix
 from torchflows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
@@ -64,7 +64,7 @@ def test_elementwise(bijection_class: Bijection, batch_shape: Tuple, event_shape
     ReversePermutationMatrix,
     LowerTriangularInvertibleMatrix,
     UpperTriangularInvertibleMatrix,
-    HouseholderOrthogonalMatrix,
+    HouseholderProductMatrix,
     QRMatrix,
     LUMatrix,
 ])

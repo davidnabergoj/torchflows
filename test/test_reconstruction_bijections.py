@@ -13,7 +13,7 @@ from torchflows.bijections.finite.autoregressive.architectures import NICE, Real
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
     LRSCoupling, LinearRQSCoupling, ActNorm, DenseSigmoidalCoupling, DeepDenseSigmoidalCoupling, DeepSigmoidalCoupling
 from torchflows.bijections.finite.matrix import LUMatrix, ReversePermutationMatrix, LowerTriangularInvertibleMatrix, \
-    HouseholderOrthogonalMatrix, QRMatrix
+    HouseholderProductMatrix, QRMatrix
 from torchflows.bijections.finite.residual.architectures import ResFlow, InvertibleResNet, ProximalResFlow
 from torchflows.bijections.finite.residual.iterative import InvertibleResNetBlock, ResFlowBlock
 from torchflows.bijections.finite.residual.planar import Planar
@@ -127,7 +127,7 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
     ReversePermutationMatrix,
     ElementwiseScale,
     LowerTriangularInvertibleMatrix,
-    HouseholderOrthogonalMatrix,
+    HouseholderProductMatrix,
     QRMatrix,
     ElementwiseAffine,
     ElementwiseShift,
