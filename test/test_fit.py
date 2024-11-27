@@ -6,15 +6,15 @@ from torchflows.bijections.finite.autoregressive.architectures import NICE, Real
     MaskedAutoregressiveRQNSF
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
     ElementwiseRQSpline
-from torchflows.bijections.finite.linear import LowerTriangular, LU, QR
+from torchflows.bijections.finite.matrix import LowerTriangularInvertibleMatrix, LUMatrix, QRMatrix
 
 
 @pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
 @pytest.mark.parametrize('bijection_class', [
-    LowerTriangular,
+    LowerTriangularInvertibleMatrix,
     ElementwiseScale,
-    LU,
-    QR,
+    LUMatrix,
+    QRMatrix,
     ElementwiseAffine,
     ElementwiseShift,
     ElementwiseRQSpline,
@@ -83,9 +83,9 @@ def test_diagonal_gaussian_elementwise_scale():
 @pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
 @pytest.mark.parametrize('bijection_class',
                          [
-                             LowerTriangular,
-                             LU,
-                             QR,
+                             LowerTriangularInvertibleMatrix,
+                             LUMatrix,
+                             QRMatrix,
                              MaskedAutoregressiveRQNSF,
                              ElementwiseRQSpline,
                              ElementwiseAffine,
@@ -102,7 +102,7 @@ def test_diagonal_gaussian_1(bijection_class):
     x = torch.randn(size=(n_data, n_dim)) * sigma
     bijection = bijection_class(event_shape=(n_dim,))
     flow = Flow(bijection)
-    if isinstance(bijection, LowerTriangular):
+    if isinstance(bijection, LowerTriangularInvertibleMatrix):
         flow.fit(x, n_epochs=100)
     else:
         flow.fit(x, n_epochs=25)

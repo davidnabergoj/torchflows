@@ -341,13 +341,16 @@ class BaseFlow(nn.Module):
                 if not epoch_diverged:
                     loss.backward()
                     optimizer.step()
-                    if loss < best_loss:
-                        best_loss = loss
-                        best_epoch = epoch
-                        if keep_best_weights:
-                            best_weights = deepcopy(self.state_dict())
-                    mean_flow_log_prob = flow_log_prob.mean()
-                    mean_target_log_prob = target_log_prob_value.mean()
+
+                if not epoch_diverged:
+                    with torch.no_grad():
+                        if loss < best_loss:
+                            best_loss = loss.detach()
+                            best_epoch = epoch
+                            if keep_best_weights:
+                                best_weights = deepcopy(self.state_dict())
+                        mean_flow_log_prob = flow_log_prob.mean().detach()
+                        mean_target_log_prob = target_log_prob_value.mean().detach()
                 else:
                     loss = torch.nan
                     mean_flow_log_prob = torch.nan
