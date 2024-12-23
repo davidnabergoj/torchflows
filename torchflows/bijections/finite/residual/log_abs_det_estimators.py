@@ -1,3 +1,27 @@
+# This file incorporates work covered by the following copyright and permission notice:
+#
+#   MIT License
+#
+#   Copyright (c) 2019 Ricky Tian Qi Chen
+#
+#   Permission is hereby granted, free of charge, to any person obtaining a copy
+#   of this software and associated documentation files (the "Software"), to deal
+#   in the Software without restriction, including without limitation the rights
+#   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#   copies of the Software, and to permit persons to whom the Software is
+#   furnished to do so, subject to the following conditions:
+#
+#   The above copyright notice and this permission notice shall be included in all
+#   copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#   SOFTWARE.
+
 from typing import Tuple, Union
 
 import torch
@@ -156,7 +180,7 @@ def log_det_roulette(event_shape: Union[torch.Size, Tuple[int, ...]],
                      p: float = 0.5):
     batch_shape = get_batch_shape(x, event_shape)
     x = flatten_batch(x, batch_shape)
-    noise = torch.randn_like(x)
+    noise = torch.randn_like(x).to(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: roulette_log_abs_det_estimator(*args, **kwargs, p=p),
         g,
@@ -175,7 +199,7 @@ def log_det_power_series(event_shape: Union[torch.Size, Tuple[int, ...]],
                          n_hutchinson_samples: int = 1):
     batch_shape = get_batch_shape(x, event_shape)
     x = flatten_batch(x, batch_shape)
-    noise = torch.randn(size=(*x.shape, n_hutchinson_samples))
+    noise = torch.randn(size=(*x.shape, n_hutchinson_samples)).to(x)
     return LogDeterminantEstimator.apply(
         lambda *args, **kwargs: power_series_log_abs_det_estimator(*args, **kwargs, n_iterations=n_iterations),
         g,

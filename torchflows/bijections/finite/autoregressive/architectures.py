@@ -25,7 +25,7 @@ from torchflows.bijections.finite.autoregressive.layers import (
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection, \
     MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection
-from torchflows.bijections.finite.linear import ReversePermutation
+from torchflows.bijections.finite.matrix.permutation import ReversePermutationMatrix
 
 
 class AutoregressiveArchitecture(BijectiveComposition):
@@ -45,7 +45,7 @@ class AutoregressiveArchitecture(BijectiveComposition):
         bijections = [ElementwiseAffine(event_shape=event_shape)]
         for _ in range(n_layers):
             if 'edge_list' not in kwargs or kwargs['edge_list'] is None:
-                bijections.append(ReversePermutation(event_shape=event_shape))
+                bijections.append(ReversePermutationMatrix(event_shape=event_shape))
             bijections.append(base_bijection(event_shape=event_shape, **kwargs))
             bijections.append(ActNorm(event_shape=event_shape))
         bijections.append(ElementwiseAffine(event_shape=event_shape))

@@ -1,5 +1,32 @@
+# This file incorporates work covered by the following copyright and permission notice:
+#
+#   MIT License
+#
+#   Copyright (c) 2018 Ricky Tian Qi Chen and Will Grathwohl
+#
+#   Permission is hereby granted, free of charge, to any person obtaining a copy
+#   of this software and associated documentation files (the "Software"), to deal
+#   in the Software without restriction, including without limitation the rights
+#   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#   copies of the Software, and to permit persons to whom the Software is
+#   furnished to do so, subject to the following conditions:
+#
+#   The above copyright notice and this permission notice shall be included in all
+#   copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#   SOFTWARE.
+
+
+# This file is an adaptation of code from the following repository https://github.com/rtqichen/ffjord
+
 import math
-from typing import Union, Tuple, List, Optional, Dict
+from typing import Union, Tuple, List
 
 import torch
 import torch.nn as nn
@@ -15,8 +42,6 @@ from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unfl
 #       We should create a ContinuousFlow class which handles the third output and uses it in the fit method
 #       Alternatively: store reg_states as an attribute of the bijection. Make it so that the base bijection class
 #       contains a reg_states attribute, which is accessed during Flow.fit.
-
-# Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
 
 
 def _flip(x, dim):
@@ -249,38 +274,22 @@ class RegularizedApproximateODEFunction(ApproximateODEFunction):
         if isinstance(regularization, str):
             regularization = (regularization,)
 
-        supported_regularization_types = ["geodesic", "sq_jac_norm"]
+        self.supported_reg_types = ['sq_jac_norm']
         for rt in regularization:
-            assert rt in supported_regularization_types
+            if rt not in self.supported_reg_types:
+                raise ValueError
+        self.used_reg_types = regularization
 
-        self.reg_types = regularization
-
-        self.reg_coef: Dict[str, float] = {
-            'sq_jac_norm': 1.0,
-            'geodesic': 1.0,
-        }
-        self.reg_data: Dict[str, Optional[torch.Tensor]] = {
-            'sq_jac_norm': None,  # shape = (n, 1)
-            'geodesic': None,
-        }
-
-    def regularization(self):
-        total = torch.tensor(0.0)
-        for key, val in self.reg_data.items():
-            coef = self.reg_coef[key]
-            if val is not None:
-                total += coef * torch.mean(val)
-        return total
+        self.reg_jac_coef = 1.0
+        self.stored_reg = None
 
     def divergence_step(self, dy, y) -> torch.Tensor:
         batch_size = y.shape[0]
 
-        if "sq_jac_norm" in self.reg_types:
+        if "sq_jac_norm" in self.used_reg_types and self.training:
             divergence, sq_jac_norm = divergence_approx_extended(dy, y, e=self.hutch_noise)
-
             # Store regularization data
-            sq_jac_norm = sq_jac_norm.view(batch_size, 1)
-            self.reg_data['sq_jac_norm'] = sq_jac_norm
+            self.stored_reg = self.reg_jac_coef * sq_jac_norm.mean()
         else:
             divergence = divergence_approx_basic(dy, y, e=self.hutch_noise)
         divergence = divergence.view(batch_size, 1)
@@ -288,6 +297,9 @@ class RegularizedApproximateODEFunction(ApproximateODEFunction):
         # TODO add other regularization terms
 
         return divergence
+
+    def regularization(self):
+        return (self.stored_reg or 0) + super().regularization()
 
 
 class ContinuousBijection(Bijection):
