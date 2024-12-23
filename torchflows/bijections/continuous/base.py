@@ -1,3 +1,30 @@
+# This file incorporates work covered by the following copyright and permission notice:
+#
+#   MIT License
+#
+#   Copyright (c) 2018 Ricky Tian Qi Chen and Will Grathwohl
+#
+#   Permission is hereby granted, free of charge, to any person obtaining a copy
+#   of this software and associated documentation files (the "Software"), to deal
+#   in the Software without restriction, including without limitation the rights
+#   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#   copies of the Software, and to permit persons to whom the Software is
+#   furnished to do so, subject to the following conditions:
+#
+#   The above copyright notice and this permission notice shall be included in all
+#   copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#   SOFTWARE.
+
+
+# This file is an adaptation of code from the following repository https://github.com/rtqichen/ffjord
+
 import math
 from typing import Union, Tuple, List
 
@@ -15,8 +42,6 @@ from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unfl
 #       We should create a ContinuousFlow class which handles the third output and uses it in the fit method
 #       Alternatively: store reg_states as an attribute of the bijection. Make it so that the base bijection class
 #       contains a reg_states attribute, which is accessed during Flow.fit.
-
-# Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
 
 
 def _flip(x, dim):
