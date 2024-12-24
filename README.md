@@ -3,8 +3,8 @@
 Torchflows is a library for generative modeling and density estimation using normalizing flows.
 It implements many normalizing flow architectures and their building blocks for:
 
-* easy use of normalizing flows as trainable distributions;
-* easy implementation of new normalizing flows.
+* Easy use of normalizing flows as trainable distributions.
+* Easy implementation of new normalizing flows.
 
 Example use:
 
@@ -30,8 +30,7 @@ print(log_prob.shape)  # (100,)
 print(x_new.shape)  # (50, 3)
 ```
 
-Check examples and documentation, including the list of supported architectures [here](https://torchflows.readthedocs.io/en/latest/).
-We also provide examples [here](examples/).
+Check out [examples](examples/) and the [documentation](https://torchflows.readthedocs.io/en/latest/), including the list of [supported architectures](https://torchflows.readthedocs.io/en/latest/).
 
 ## Installing
 
@@ -57,3 +56,30 @@ cd torchflows
 pip install -r requirements.txt
 ```
 
+## Citation
+
+If you use this code in your work, we kindly ask that you cite the accompanying paper:
+> [Nabergoj and Štrumbelj: Empirical evaluation of normalizing flows in Markov Chain Monte Carlo, 2024. arxiv:2412.17136.](https://arxiv.org/abs/2412.17136)
+
+BibTex entry:
+```
+@misc{nabergoj_nf_mcmc_evaluation_2024,
+    author = {Nabergoj, David and \v{S}trumbelj, Erik},
+	title = {Empirical evaluation of normalizing flows in {Markov} {Chain} {Monte} {Carlo}},
+	publisher = {arXiv},
+	month = dec,
+	year = {2024},
+	note = {arxiv:2412.17136}
+}
+```
+
+## Contributions
+
+We warmly welcome all contributions and comments. 
+Please do not hesitate to submit [issues](https://github.com/davidnabergoj/torchflows/issues) and [pull requests](https://github.com/davidnabergoj/torchflows/pulls).
+
+Some options to start contributing include:
+* Adding references to the documentation page for [architecture presets](https://torchflows.readthedocs.io/en/latest/architectures/index.html).
+* Implementing new normalizing flow architectures (see the [developer guide](https://torchflows.readthedocs.io/en/latest/developer_reference/index.html)).
+* Adding more [automated tests](./test) for numerical stability and optimization.
+* Adding docstrings to undocumented classes.
