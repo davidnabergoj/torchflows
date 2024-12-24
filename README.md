@@ -65,11 +65,11 @@ BibTex entry:
 ```
 @misc{nabergoj_nf_mcmc_evaluation_2024,
     author = {Nabergoj, David and \v{S}trumbelj, Erik},
-	title = {Empirical evaluation of normalizing flows in {Markov} {Chain} {Monte} {Carlo}},
-	publisher = {arXiv},
-	month = dec,
-	year = {2024},
-	note = {arxiv:2412.17136}
+    title = {Empirical evaluation of normalizing flows in {Markov} {Chain} {Monte} {Carlo}},
+    publisher = {arXiv},
+    month = dec,
+    year = {2024},
+    note = {arxiv:2412.17136}
 }
 ```
 
