@@ -134,6 +134,20 @@ class BijectiveComposition(Bijection):
         super().__init__(event_shape=event_shape, context_shape=context_shape)
         self.layers = nn.ModuleList(layers)
 
+    def freeze_after(self, index: int):
+        """
+        Freeze all layers after the given index (exclusive).
+
+        :param int index: index after which the layers are frozen.
+        """
+        for i in range(len(self.layers)):
+            if i > index:
+                self.layers[i].requires_grad_(False)
+
+    def unfreeze_all_layers(self):
+        for i in range(len(self.layers)):
+            self.layers[i].requires_grad_(True)
+
     def forward(self, x: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(size=get_batch_shape(x, event_shape=self.event_shape)).to(x)
         for layer in self.layers:
