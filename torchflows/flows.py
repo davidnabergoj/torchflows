@@ -263,7 +263,7 @@ class BaseFlow(nn.Module):
             self.load_state_dict(best_weights)
 
         # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if isinstance(self.bijection, RNODE):
+        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
             self.bijection.f.stored_reg = None
 
         self.eval()
