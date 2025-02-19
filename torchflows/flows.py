@@ -242,7 +242,6 @@ class BaseFlow(nn.Module):
                 for val_batch in val_loader:
                     val_loss += compute_batch_loss(val_batch, reduction=torch.sum).detach()
                 val_loss /= len(x_val)
-                val_loss += self.regularization()
 
                 # Check if validation loss is the lowest so far
                 if val_loss < best_val_loss:
