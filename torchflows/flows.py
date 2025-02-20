@@ -506,6 +506,19 @@ class FlowMixture(BaseFlow):
         else:
             self.logit_weights = torch.log(torch.tensor(weights))
 
+    @property
+    def weights(self):
+        # log_w_min = -5.0
+        # log_w_max = 5.0
+        # u = torch.sigmoid(self.logit_weights) * (log_w_max - log_w_min) + log_w_min
+        u = self.logit_weights
+        return torch.softmax(u, dim=0)
+
+
+    @property
+    def log_weights(self):
+        return self.weights.log()
+
     def log_prob(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
         """Compute the log probability density of inputs x.
 
@@ -518,7 +531,7 @@ class FlowMixture(BaseFlow):
         # (n_flows, *batch_shape)
 
         batch_shape = flow_log_probs.shape[1:]
-        log_weights_reshaped = self.logit_weights.view(-1, *([1] * len(batch_shape)))
+        log_weights_reshaped = self.log_weights.view(-1, *([1] * len(batch_shape)))
         log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # batch_shape
         return log_prob
 
@@ -544,7 +557,7 @@ class FlowMixture(BaseFlow):
             flow_log_probs.append(flow_log_prob)
 
         flow_samples = torch.stack(flow_samples)  # (n_flows, n, *event_shape)
-        categorical_samples = torch.distributions.Categorical(logits=self.logit_weights).sample(
+        categorical_samples = torch.distributions.Categorical(probs=self.weights).sample(
             sample_shape=torch.Size((n,))
         )  # (n,)
         one_hot = torch.nn.functional.one_hot(categorical_samples, num_classes=len(flow_samples)).T  # (n_flows, n)
@@ -555,7 +568,7 @@ class FlowMixture(BaseFlow):
 
         if return_log_prob:
             flow_log_probs = torch.stack(flow_log_probs)  # (n_flows, n)
-            log_weights_reshaped = self.logit_weights[:, None]  # (n_flows, 1)
+            log_weights_reshaped = self.log_weights[:, None]  # (n_flows, 1)
             log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # (n,)
             return samples, log_prob
         else:
