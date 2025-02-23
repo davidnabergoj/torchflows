@@ -482,7 +482,11 @@ class FlowMixture(BaseFlow):
     It is a typical statistical mixture.
     """
 
-    def __init__(self, flows: List[Flow], weights: List[float] = None, trainable_weights: bool = False):
+    def __init__(self,
+                 flows: List[Flow],
+                 weights: List[float] = None,
+                 trainable_weights: bool = False,
+                 constrain_weights: bool = False):
         """FlowMixture constructor.
 
         :param List[Flow] flows: normalizing flow components.
@@ -496,6 +500,8 @@ class FlowMixture(BaseFlow):
         if weights is None:
             weights = [1.0 / len(flows)] * len(flows)
 
+        self.constrain_weights = constrain_weights
+
         assert len(weights) == len(flows)
         assert all([w > 0.0 for w in weights])
         assert np.isclose(sum(weights), 1.0)
@@ -507,11 +513,17 @@ class FlowMixture(BaseFlow):
             self.logit_weights = torch.log(torch.tensor(weights))
 
     @property
+    def n_components(self):
+        return len(self.flows)
+
+    @property
     def weights(self):
-        # log_w_min = -5.0
-        # log_w_max = 5.0
-        # u = torch.sigmoid(self.logit_weights) * (log_w_max - log_w_min) + log_w_min
-        u = self.logit_weights
+        if self.constrain_weights:
+            log_w_min = -5.0
+            log_w_max = 5.0
+            u = torch.sigmoid(self.logit_weights) * (log_w_max - log_w_min) + log_w_min
+        else:
+            u = self.logit_weights
         return torch.softmax(u, dim=0)
 
 
@@ -536,7 +548,7 @@ class FlowMixture(BaseFlow):
         return log_prob
 
     def sample(self,
-               n: int,
+               sample_shape: int,
                context: torch.Tensor = None,
                no_grad: bool = False,
                return_log_prob: bool = False) -> torch.Tensor:
@@ -549,16 +561,19 @@ class FlowMixture(BaseFlow):
         :returns: tensor of drawn samples.
         :rtype: torch.Tensor
         """
+        if isinstance(sample_shape, int):
+            sample_shape = (sample_shape,)
+
         flow_samples = []
         flow_log_probs = []
         for flow in self.flows:
-            flow_x, flow_log_prob = flow.sample(n, context=context, no_grad=no_grad, return_log_prob=True)
+            flow_x, flow_log_prob = flow.sample(sample_shape, context=context, no_grad=no_grad, return_log_prob=True)
             flow_samples.append(flow_x)
             flow_log_probs.append(flow_log_prob)
 
         flow_samples = torch.stack(flow_samples)  # (n_flows, n, *event_shape)
         categorical_samples = torch.distributions.Categorical(probs=self.weights).sample(
-            sample_shape=torch.Size((n,))
+            sample_shape=sample_shape
         )  # (n,)
         one_hot = torch.nn.functional.one_hot(categorical_samples, num_classes=len(flow_samples)).T  # (n_flows, n)
         one_hot_reshaped = one_hot.view(*one_hot.shape, *([1] * len(self.event_shape)))
