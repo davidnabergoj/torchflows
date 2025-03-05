@@ -17,7 +17,7 @@ class AutoregressiveBijection(Bijection):
                  transformer: Union[TensorTransformer, ScalarTransformer],
                  conditioner_transform: Optional[ConditionerTransform],
                  **kwargs):
-        super().__init__(event_shape=event_shape)
+        super().__init__(event_shape=event_shape, **kwargs)
         self.conditioner_transform = conditioner_transform
         self.transformer = transformer
 
@@ -92,7 +92,13 @@ class CouplingBijection(AutoregressiveBijection):
             **conditioner_kwargs
         )
 
-        super().__init__(event_shape, transformer, conditioner_transform, **kwargs)
+        super().__init__(
+            event_shape=event_shape,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform,
+            context_shape=context_shape,
+            **kwargs
+        )
         self.coupling = coupling
 
     def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
