@@ -118,20 +118,18 @@ class BijectiveComposition(Bijection):
     Composition of bijections. Inherits from Bijection.
     """
 
-    def __init__(self,
-                 event_shape: Union[torch.Size, Tuple[int, ...]],
-                 layers: List[Bijection],
-                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
-                 **kwargs):
+    def __init__(self, layers: List[Bijection], **kwargs):
         """
         BijectiveComposition constructor.
 
         :param event_shape: shape of the event tensor.
         :param List[Bijection] layers: bijection layers.
-        :param context_shape: shape of the context tensor.
         :param kwargs: unused.
         """
-        super().__init__(event_shape=event_shape, context_shape=context_shape)
+        super().__init__(
+            event_shape=layers[0].event_shape,
+            context_shape=layers[0].context_shape
+        )
         self.layers = nn.ModuleList(layers)
 
     def freeze_after(self, index: int):
