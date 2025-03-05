@@ -479,6 +479,8 @@ class Flow(BaseFlow):
 
     This class represents a bijective transformation of a standard Gaussian distribution (the base distribution).
     A normalizing flow is itself a distribution which we can sample from or use it to compute the density of inputs.
+
+    Implements: `sample`, `forward_with_log_prob`, `log_prob` (based on `forward_with_log_prob`)
     """
 
     def __init__(self, bijection: Bijection, **kwargs):
@@ -489,6 +491,10 @@ class Flow(BaseFlow):
         """
         super().__init__(event_shape=bijection.event_shape, **kwargs)
         self.register_module('bijection', bijection)
+
+    @property
+    def context_shape(self):
+        return self.bijection.context_shape
 
     def forward_with_log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         """Transform the input x to the space of the base distribution.
@@ -537,11 +543,16 @@ class Flow(BaseFlow):
             sample_shape = (sample_shape,)
 
         if context is not None:
-            sample_shape = (*sample_shape, len(context))
             z = self.base_sample(sample_shape=sample_shape)
-            context = context[None].repeat(
-                *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
-            assert z.shape[:2] == context.shape[:2]
+            if get_batch_shape(context, self.context_shape) == sample_shape:
+                # Option A: a context tensor is given for each sampled element
+                pass
+            else:
+                # Option B: one context tensor is given for the entire to-be-sampled batch
+                sample_shape = (*sample_shape, len(context))
+                context = context[None].repeat(
+                    *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
+                assert z.shape[:2] == context.shape[:2]
         else:
             z = self.base_sample(sample_shape=sample_shape)
 
