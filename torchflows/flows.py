@@ -5,11 +5,12 @@ from typing import Union, Tuple, List
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.base import Bijection
-from torchflows.utils import flatten_event, unflatten_event, create_data_loader
+from torchflows.utils import flatten_event, unflatten_event, create_data_loader, get_batch_shape
 from torchflows.base_distributions.gaussian import DiagonalGaussian
 
 
@@ -67,6 +68,97 @@ class BaseFlow(nn.Module):
         """Compute the regularization term used in training.
         """
         return 0.0
+
+    def fit_kl_p_to_q(self,
+                      x_train: torch.Tensor,
+                      x_val: torch.Tensor,
+                      potential: callable,
+                      n_epochs: int = 500,
+                      lr: float = 0.05,
+                      batch_size: int = 1024,
+                      show_progress: bool = False,
+                      keep_best_weights: bool = True,
+                      early_stopping: bool = False,
+                      early_stopping_threshold: int = 50,
+                      time_limit_seconds: Union[float, int] = None):
+        def loss_function(data, log_prob_target_data):
+            return torch.mean(log_prob_target_data - self.log_prob(data))
+
+        train_dataset = TensorDataset(x_train, -potential(x_train).detach())
+        train_loader = DataLoader(train_dataset, batch_size=batch_size)
+
+        val_dataset = TensorDataset(x_val, -potential(x_val).detach())
+        val_loader = DataLoader(val_dataset, batch_size=batch_size)
+
+        if len(list(self.parameters())) == 0:
+            # If the flow has no trainable parameters, do nothing
+            return
+
+        self.train()
+        t0 = time.time()
+        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+
+        val_loss = None
+        best_val_loss = torch.inf
+        best_epoch = 0
+        best_weights = deepcopy(self.state_dict())
+
+        for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)):
+            if time_limit_seconds is not None and time.time() - t0 >= time_limit_seconds:
+                print("Training time limit exceeded")
+                break
+
+            for train_batch in train_loader:
+                optimizer.zero_grad()
+                train_loss = loss_function(*train_batch)
+                if not torch.isfinite(train_loss):
+                    raise ValueError("Flow training diverged")
+                train_loss += self.regularization()
+                if not torch.isfinite(train_loss):
+                    raise ValueError("Flow training diverged")
+                train_loss.backward()
+                optimizer.step()
+
+                if show_progress:
+                    if val_loss is None:
+                        pbar.set_postfix_str(f'Training loss (batch): {train_loss:.4f}')
+                    else:
+                        pbar.set_postfix_str(
+                            f'Training loss (batch): {train_loss:.4f}, '
+                            f'Validation loss: {val_loss:.4f} [best: {best_val_loss:.4f} @ {best_epoch}]'
+                        )
+
+            # Compute validation loss at the end of each epoch
+            # Validation loss will be displayed at the start of the next epoch
+            if val_loader is not None:
+                # Compute validation loss
+                val_loss = 0.0
+                for val_batch in val_loader:
+                    val_loss += loss_function(*val_batch).detach()
+
+                # Check if validation loss is the lowest so far
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_epoch = epoch
+
+                # Store current weights
+                if keep_best_weights:
+                    if best_epoch == epoch:
+                        best_weights = deepcopy(self.state_dict())
+
+                # Optionally stop training early
+                if early_stopping:
+                    if epoch - best_epoch > early_stopping_threshold:
+                        break
+
+        if val_loader is not None and keep_best_weights:
+            self.load_state_dict(best_weights)
+
+        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
+        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
+            self.bijection.f.stored_reg = None
+
+        self.eval()
 
     def fit(self,
             x_train: torch.Tensor,
