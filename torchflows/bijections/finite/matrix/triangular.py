@@ -34,11 +34,35 @@ class LowerTriangularInvertibleMatrix(InvertibleMatrix):
         if not unitriangular:
             self.register_parameter('unc_diag_elements', nn.Parameter(torch.zeros(self.n_dim)))
 
+    def set_matrix(self, x):
+        assert x.shape[0] == x.shape[1]
+        assert len(x.shape) == 2
+        self.set_diagonal_elements(torch.diag(x))
+        idx = torch.tril_indices(self.n_dim, self.n_dim, -1)
+        self.set_off_diagonal_elements(x[idx[0], idx[1]])
+
+    def set_off_diagonal_elements(self, x):
+        with torch.no_grad():
+            self.off_diagonal_elements.data = x
+
+    def set_diagonal_elements(self, d):
+        if not self.unitriangular:
+            with torch.no_grad():
+                self.unc_diag_elements.data = d
+        else:
+            raise RuntimeError
+
+    def constrain_diagonal_elements(self, u):
+        return torch.exp(u) + self.min_eigval
+
+    def _unconstrain_diagonal_elements(self, c):
+        return torch.log(c - self.min_eigval)
+
     def compute_matrix(self):
         if self.unitriangular:
             mat = torch.eye(self.n_dim)
         else:
-            mat = torch.diag(torch.exp(self.unc_diag_elements) + self.min_eigval)
+            mat = torch.diag(self.constrain_diagonal_elements(self.unc_diag_elements))
         mat[self.off_diagonal_indices[0], self.off_diagonal_indices[1]] = self.off_diagonal_elements
         return mat.to(self.device_buffer.device)
 
