@@ -181,9 +181,12 @@ class Scale(ScalarTransformer):
     def default_parameters(self) -> torch.Tensor:
         return torch.zeros(self.parameter_shape)
 
+    def constrain_alpha(self, u):
+        return torch.exp(self.u_alpha_1 + u / self.const) + self.m
+
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
-        alpha = torch.exp(self.u_alpha_1 + u_alpha / self.const) + self.m
+        alpha = self.constrain_alpha(u_alpha)
         log_alpha = torch.log(alpha)
 
         log_det = sum_except_batch(log_alpha, self.event_shape)
@@ -191,7 +194,7 @@ class Scale(ScalarTransformer):
 
     def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         u_alpha = h[..., 0]
-        alpha = torch.exp(self.u_alpha_1 + u_alpha / self.const) + self.m
+        alpha = self.constrain_alpha(u_alpha)
         log_alpha = torch.log(alpha)
 
         log_det = -sum_except_batch(log_alpha, self.event_shape)
