@@ -225,6 +225,7 @@ class ElementwiseBijection(AutoregressiveBijection):
                  transformer_class: Type[ScalarTransformer],
                  transformer_kwargs: dict = None,
                  fill_value: float = None,
+                 context_conditioner_class: Type[ConditionerTransform] = None,
                  **kwargs):
         transformer_kwargs = transformer_kwargs or {}
         transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
@@ -235,19 +236,37 @@ class ElementwiseBijection(AutoregressiveBijection):
             **kwargs
         )
 
-        if fill_value is None:
-            self.value = nn.Parameter(torch.randn(*transformer.parameter_shape))
-        else:
-            self.value = nn.Parameter(torch.full(size=transformer.parameter_shape, fill_value=fill_value))
+        self.conditioner = None
+        self.value = None
 
-    def prepare_h(self, batch_shape):
-        tmp = self.value[[None] * len(batch_shape)]
-        return tmp.repeat(*batch_shape, *([1] * len(self.transformer.parameter_shape)))
+        if fill_value is None and self.context_shape is None:
+            self.value = nn.Parameter(torch.randn(*transformer.parameter_shape))
+        elif self.context_shape is None:
+            self.value = nn.Parameter(torch.full(size=transformer.parameter_shape, fill_value=fill_value))
+        elif self.context_shape is not None:
+            if context_conditioner_class is None:
+                context_conditioner_class = FeedForward
+            self.conditioner = context_conditioner_class(
+                input_event_shape=self.context_shape,
+                context_shape=None,
+                parameter_shape=transformer.parameter_shape_per_element
+            )
+        else:
+            raise ValueError
+
+    def prepare_h(self, context: torch.Tensor, batch_shape):
+        if self.conditioner is None:
+            tmp = self.value[[None] * len(batch_shape)]
+            return tmp.repeat(*batch_shape, *([1] * len(self.transformer.parameter_shape)))
+        else:
+            if context is None:
+                raise RuntimeError
+            return self.conditioner(context)[..., None, :]
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.prepare_h(get_batch_shape(x, self.event_shape))
+        h = self.prepare_h(context, get_batch_shape(x, self.event_shape))
         return self.transformer.forward(x, h)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.prepare_h(get_batch_shape(z, self.event_shape))
+        h = self.prepare_h(context, get_batch_shape(z, self.event_shape))
         return self.transformer.inverse(z, h)
