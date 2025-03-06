@@ -7,6 +7,35 @@ import torch.nn as nn
 from torchflows.bijections.finite.matrix.base import InvertibleMatrix
 
 
+class NonTrainableLowerTriangularInvertibleMatrix(InvertibleMatrix):
+    def __init__(self,
+                 matrix: torch.Tensor,
+                 **kwargs):
+        # only works for tensors with one event dimension
+        super().__init__(event_shape=(matrix.shape[0],), **kwargs)
+        self.register_buffer('matrix', matrix)
+
+    @property
+    def unitriangular(self):
+        return bool(torch.all(torch.diag(self.matrix) == 1))
+
+    def project_flat(self, x_flat: torch.Tensor, context_flat: torch.Tensor = None) -> torch.Tensor:
+        return torch.einsum('...ij,...j->...i', self.matrix, x_flat)
+
+    def solve_flat(self, b_flat: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        b_flat_batch = b_flat.view(-1, b_flat.shape[-1])
+        x_flat_batch = torch.linalg.solve_triangular(
+            self.matrix,
+            b_flat_batch.T.to(self.device_buffer.device),
+            upper=False,
+            unitriangular=self.unitriangular
+        ).T
+        return x_flat_batch.view_as(b_flat_batch)
+
+    def log_det_project(self) -> torch.Tensor:
+        return torch.diag(self.matrix).log().sum()
+
+
 class LowerTriangularInvertibleMatrix(InvertibleMatrix):
     """
     Lower triangular matrix with strictly positive diagonal values.
@@ -33,23 +62,6 @@ class LowerTriangularInvertibleMatrix(InvertibleMatrix):
         )
         if not unitriangular:
             self.register_parameter('unc_diag_elements', nn.Parameter(torch.zeros(self.n_dim)))
-
-    def set_matrix(self, x):
-        assert x.shape[0] == x.shape[1]
-        assert len(x.shape) == 2
-        self.set_diagonal_elements(torch.diag(x))
-        idx = torch.tril_indices(self.n_dim, self.n_dim, -1)
-        self.set_off_diagonal_elements(x[idx[0], idx[1]])
-
-    def set_off_diagonal_elements(self, x):
-        with torch.no_grad():
-            self.off_diagonal_elements.data = x
-
-    def set_diagonal_elements(self, d):
-        if not self.unitriangular:
-            with torch.no_grad():
-                self.unc_diag_elements.data = d
-        else:
             raise RuntimeError
 
     def constrain_diagonal_elements(self, u):
