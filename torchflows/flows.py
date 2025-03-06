@@ -201,12 +201,20 @@ class BaseFlow(nn.Module):
         :param Union[float, int] time_limit_seconds: maximum allowed time for training.
         """
         t0 = time.time()
+        self.train()
 
         if len(list(self.parameters())) == 0:
             # If the flow has no trainable parameters, do nothing
             return
 
-        self.train()
+        do_fit = False
+        for p in self.parameters():
+            if p.requires_grad:
+                do_fit = True
+                break
+        if not do_fit:
+            self.eval()
+            return
 
         # Set the default batch size
         adaptive_batch_size = False
@@ -628,7 +636,6 @@ class FlowMixture(BaseFlow):
         else:
             u = self.logit_weights
         return torch.softmax(u, dim=0)
-
 
     @property
     def log_weights(self):
