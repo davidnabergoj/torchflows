@@ -224,8 +224,9 @@ class ElementwiseBijection(AutoregressiveBijection):
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  transformer_class: Type[ScalarTransformer],
                  transformer_kwargs: dict = None,
-                 fill_value: float = None,
+                 fill_value: Union[float, torch.Tensor] = None,
                  context_conditioner_class: Type[ConditionerTransform] = None,
+                 conditioner_kwargs: dict = None,
                  **kwargs):
         transformer_kwargs = transformer_kwargs or {}
         transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
@@ -237,22 +238,34 @@ class ElementwiseBijection(AutoregressiveBijection):
         )
 
         self.conditioner = None
-        self.value = None
 
-        if fill_value is None and self.context_shape is None:
-            self.value = nn.Parameter(torch.randn(*transformer.parameter_shape))
-        elif self.context_shape is None:
-            self.value = nn.Parameter(torch.full(size=transformer.parameter_shape, fill_value=fill_value))
-        elif self.context_shape is not None:
+        # Use global bijection
+        if self.context_shape is None:
+            if fill_value is not None:
+                if self.context_shape is not None:
+                    raise ValueError("Cannot use global bijection with context")
+                if isinstance(fill_value, torch.Tensor):
+                    if fill_value.shape != transformer.parameter_shape:
+                        raise ValueError("Shape of fill_value must match the transformer parameter shape")
+                    self.value = nn.Parameter(fill_value)
+                else:
+                    self.value = nn.Parameter(torch.full(size=transformer.parameter_shape, fill_value=fill_value))
+            else:
+                self.value = nn.Parameter(torch.randn(*transformer.parameter_shape))
+        else:
+            # Use context-dependent bijection
             if context_conditioner_class is None:
                 context_conditioner_class = FeedForward
+            if conditioner_kwargs is None:
+                conditioner_kwargs = {}
             self.conditioner = context_conditioner_class(
                 input_event_shape=self.context_shape,
                 context_shape=None,
-                parameter_shape=transformer.parameter_shape_per_element
+                parameter_shape=transformer.parameter_shape_per_element,
+                **conditioner_kwargs
             )
-        else:
-            raise ValueError
+            self.register_buffer('value', torch.empty(size=()))
+
 
     def prepare_h(self, context: torch.Tensor, batch_shape):
         if self.conditioner is None:
