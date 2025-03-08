@@ -181,6 +181,9 @@ class Scale(ScalarTransformer):
     def default_parameters(self) -> torch.Tensor:
         return torch.zeros(self.parameter_shape)
 
+    def unconstrain_alpha(self, a):
+        return self.const * (torch.log(a - self.m) - self.u_alpha_1)
+
     def constrain_alpha(self, u):
         return torch.exp(self.u_alpha_1 + u / self.const) + self.m
 
