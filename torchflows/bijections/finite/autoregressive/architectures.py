@@ -50,7 +50,7 @@ class AutoregressiveArchitecture(BijectiveComposition):
             bijections.append(ActNorm(event_shape=event_shape))
         bijections.append(ElementwiseAffine(event_shape=event_shape))
         bijections.append(ActNorm(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        super().__init__(bijections)
 
 
 class NICE(AutoregressiveArchitecture):
