@@ -62,7 +62,6 @@ class LowerTriangularInvertibleMatrix(InvertibleMatrix):
         )
         if not unitriangular:
             self.register_parameter('unc_diag_elements', nn.Parameter(torch.zeros(self.n_dim)))
-            raise RuntimeError
 
     def constrain_diagonal_elements(self, u):
         return torch.exp(u) + self.min_eigval
