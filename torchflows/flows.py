@@ -514,7 +514,13 @@ class Flow(BaseFlow):
         :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
         if context is not None:
-            assert context.shape[0] == x.shape[0]
+            if self.context_shape is None:
+                raise ValueError('Context shape must be set.')
+            if self.event_shape is None:
+                raise ValueError('Event shape must be set.')
+            _batch_shape_1 = get_batch_shape(x, self.event_shape)
+            _batch_shape_2 = get_batch_shape(context, self.context_shape)
+            assert _batch_shape_1 == _batch_shape_2
             context = context.to(self.get_device())
         z, log_det = self.bijection.forward(x.to(self.get_device()), context=context)
         log_base = self.base_log_prob(z)

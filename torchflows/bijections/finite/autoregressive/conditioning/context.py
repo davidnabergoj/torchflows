@@ -15,10 +15,10 @@ class ContextCombiner(nn.Module):
         self.context_shape = context_shape
         self.n_input_dims = int(
             torch.prod(torch.as_tensor(self.input_shape))
-        ) if input_shape is not None else None
+        ) if input_shape is not None else 0
         self.n_context_dims = int(
             torch.prod(torch.as_tensor(self.context_shape))
-        ) if context_shape is not None else None
+        ) if context_shape is not None else 0
 
     def forward(self, x: torch.Tensor, context: torch.Tensor):
         """
@@ -44,6 +44,17 @@ class Concatenation(ContextCombiner):
         super().__init__(input_shape=input_shape, context_shape=context_shape)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor):
+        if x is None and context is None:
+            raise ValueError
+        if x is None:
+            return flatten_event(context, self.context_shape)
+        if context is None:
+            return flatten_event(x, self.input_shape)
+
+        if self.input_shape is None:
+            raise ValueError
+        if self.context_shape is None:
+            raise ValueError
         x_flat = flatten_event(x, self.input_shape)
         context_flat = flatten_event(context, self.context_shape)
         return torch.cat([x_flat, context_flat], dim=-1)
@@ -51,22 +62,3 @@ class Concatenation(ContextCombiner):
     @property
     def n_output_dims(self) -> int:
         return self.n_input_dims + self.n_context_dims
-
-
-class Bypass(ContextCombiner):
-    """
-    Ignores the context.
-    """
-
-    def __init__(self, input_shape):
-        super().__init__(
-            input_shape=input_shape,
-            context_shape=None
-        )
-
-    def forward(self, x: torch.Tensor, context: torch.Tensor):
-        return flatten_event(x, self.input_shape)
-
-    @property
-    def n_output_dims(self) -> int:
-        return self.n_input_dims

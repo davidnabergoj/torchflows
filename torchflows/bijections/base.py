@@ -74,22 +74,14 @@ class Bijection(nn.Module):
         return outputs, log_dets
 
     def batch_forward(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
-        # TODO remove the if statement, context=None is the default anyway
-        if context:
-            outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
-        else:
-            outputs, log_dets = self.batch_apply(self.forward, batch_size, x)
+        outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
         assert outputs.shape == x.shape
         batch_shape = get_batch_shape(x, self.event_shape)
         assert log_dets.shape == batch_shape
         return outputs, log_dets
 
     def batch_inverse(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
-        # TODO remove the if statement, context=None is the default anyway
-        if context:
-            outputs, log_dets = self.batch_apply(self.inverse, batch_size, x, context)
-        else:
-            outputs, log_dets = self.batch_apply(self.inverse, batch_size, x)
+        outputs, log_dets = self.batch_apply(self.inverse, batch_size, x, context)
         assert outputs.shape == x.shape
         batch_shape = get_batch_shape(x, self.event_shape)
         assert log_dets.shape == batch_shape
