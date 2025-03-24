@@ -48,7 +48,7 @@ class AutoregressiveArchitecture(BijectiveComposition):
             if 'edge_list' not in kwargs or kwargs['edge_list'] is None:
                 bijections.append(ReversePermutationMatrix(event_shape=event_shape, context_shape=context_shape))
             bijections.append(base_bijection(event_shape=event_shape, context_shape=context_shape, **kwargs))
-            bijections.append(ActNorm(event_shape=event_shape, context_shape=context_shape))
+            bijections.append(ActNorm(event_shape=event_shape))
         bijections.append(ElementwiseAffine(event_shape=event_shape, context_shape=context_shape))
         bijections.append(ActNorm(event_shape=event_shape, context_shape=context_shape))
         super().__init__(bijections)

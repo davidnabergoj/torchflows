@@ -43,6 +43,7 @@ class ActNorm(ElementwiseInverseAffine):
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param kwargs: keyword arguments to ElementwiseInverseAffine.
         """
+        kwargs['context_shape'] = None
         super().__init__(event_shape, **kwargs)
         self.first_training_batch_pass: bool = True
         self.value.requires_grad_(False)
