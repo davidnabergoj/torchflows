@@ -315,6 +315,30 @@ class Linear(FeedForward):
         super().__init__(*args, **kwargs, n_layers=1)
 
 
+class LinearWithL2Context(Linear):
+    def __init__(self, *args, reg_coef: float = 0.01, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert isinstance(self.context_combiner, Concatenation)
+        self.reg_coef = reg_coef
+
+    def regularization(self):
+        n_context_dims = int(torch.prod(torch.as_tensor(self.context_shape)))
+        regularized_weights = self.layers[0].weight[:, -n_context_dims:]
+        return torch.square(regularized_weights).mean() * self.reg_coef  # L1
+
+
+class LinearWithSparseContext(Linear):
+    def __init__(self, *args, reg_coef: float = 0.01, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert isinstance(self.context_combiner, Concatenation)
+        self.reg_coef = reg_coef
+
+    def regularization(self):
+        n_context_dims = int(torch.prod(torch.as_tensor(self.context_shape)))
+        regularized_weights = self.layers[0].weight[:, -n_context_dims:]
+        return torch.abs(regularized_weights).mean() * self.reg_coef  # L1
+
+
 class ResidualFeedForward(TensorConditionerTransform):
     class ResidualBlock(nn.Module):
         def __init__(self, event_size: int, hidden_size: int, block_size: int, nonlinearity: Type[nn.Module]):
