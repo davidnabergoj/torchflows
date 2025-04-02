@@ -57,7 +57,7 @@ def test_checkerboard_composition():
     torch.manual_seed(0)
     event_shape = torch.Size((3, 20, 20))
     x = torch.randn(size=(4, *event_shape))
-    flow = Flow(BijectiveComposition(event_shape, [
+    flow = Flow(BijectiveComposition([
         NormalizedCheckerboardCoupling(
             event_shape,
             transformer_class=Affine,

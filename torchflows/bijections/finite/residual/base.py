@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Type
+from typing import Union, Tuple, Type, Optional
 
 import torch
 
@@ -77,20 +77,16 @@ class ResidualArchitecture(BijectiveComposition):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  layer_class: Type[Union[IterativeResidualBijection, ClassicResidualBijection]],
+                 context_shape: Optional[Union[Tuple[int, ...], torch.Size]] = None,
                  n_layers: int = 2,
                  layer_kwargs: dict = None,
                  **kwargs):
         assert n_layers > 0
         layer_kwargs = layer_kwargs or {}
 
-        layers = [ElementwiseAffine(event_shape)]
+        layers = [ElementwiseAffine(event_shape=event_shape, context_shape=context_shape)]
         for i in range(n_layers):
-            layers.append(layer_class(event_shape, **layer_kwargs))
-            layers.append(ElementwiseAffine(event_shape))
+            layers.append(layer_class(event_shape=event_shape, context_shape=context_shape, **layer_kwargs))
+            layers.append(ElementwiseAffine(event_shape=event_shape, context_shape=context_shape))
 
-        super().__init__(
-            event_shape=layers[0].event_shape,
-            layers=layers,
-            context_shape=layers[0].context_shape,
-            **kwargs
-        )
+        super().__init__(layers=layers, **kwargs)

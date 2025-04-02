@@ -27,14 +27,12 @@ from test.constants import __test_constants
 def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     torch.manual_seed(0)
     x = torch.randn(*batch_shape, *event_shape)
-    if context_shape is not None:
-        context = torch.randn(size=(*batch_shape, *context_shape))
-    else:
-        context = None
-    bijection = bijection_class(event_shape)
+    context = torch.randn(size=(*batch_shape, *context_shape)) if context_shape is not None else None
+    bijection = bijection_class(event_shape, context_shape=context_shape)
     if isinstance(bijection, (FFJORD, RNODE, OTFlow)):
         # "Fix" bijection object
-        bijection = bijection_class(event_shape, solver='dopri5')  # use dopri5 for accurate reconstructions
+        # use dopri5 for accurate reconstructions
+        bijection = bijection_class(event_shape, context_shape=context_shape, solver='dopri5')
     return bijection, x, context
 
 

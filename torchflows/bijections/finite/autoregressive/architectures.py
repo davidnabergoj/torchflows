@@ -1,4 +1,4 @@
-from typing import Type, Union, Tuple
+from typing import Type, Union, Tuple, Optional
 
 import torch
 
@@ -38,19 +38,20 @@ class AutoregressiveArchitecture(BijectiveComposition):
                          InverseMaskedAutoregressiveBijection
                      ]
                  ],
+                 context_shape: Optional[Union[Tuple[int, ...], torch.Size, int]] = None,
                  n_layers: int = 2,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = [ElementwiseAffine(event_shape=event_shape)]
+        bijections = [ElementwiseAffine(event_shape=event_shape, context_shape=context_shape)]
         for _ in range(n_layers):
             if 'edge_list' not in kwargs or kwargs['edge_list'] is None:
-                bijections.append(ReversePermutationMatrix(event_shape=event_shape))
-            bijections.append(base_bijection(event_shape=event_shape, **kwargs))
+                bijections.append(ReversePermutationMatrix(event_shape=event_shape, context_shape=context_shape))
+            bijections.append(base_bijection(event_shape=event_shape, context_shape=context_shape, **kwargs))
             bijections.append(ActNorm(event_shape=event_shape))
-        bijections.append(ElementwiseAffine(event_shape=event_shape))
-        bijections.append(ActNorm(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        bijections.append(ElementwiseAffine(event_shape=event_shape, context_shape=context_shape))
+        bijections.append(ActNorm(event_shape=event_shape, context_shape=context_shape))
+        super().__init__(bijections)
 
 
 class NICE(AutoregressiveArchitecture):

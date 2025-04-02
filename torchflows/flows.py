@@ -5,11 +5,12 @@ from typing import Union, Tuple, List
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.base import Bijection
-from torchflows.utils import flatten_event, unflatten_event, create_data_loader
+from torchflows.utils import flatten_event, unflatten_event, create_data_loader, get_batch_shape
 from torchflows.base_distributions.gaussian import DiagonalGaussian
 
 
@@ -68,6 +69,97 @@ class BaseFlow(nn.Module):
         """
         return 0.0
 
+    def fit_kl_p_to_q(self,
+                      x_train: torch.Tensor,
+                      x_val: torch.Tensor,
+                      potential: callable,
+                      n_epochs: int = 500,
+                      lr: float = 0.05,
+                      batch_size: int = 1024,
+                      show_progress: bool = False,
+                      keep_best_weights: bool = True,
+                      early_stopping: bool = False,
+                      early_stopping_threshold: int = 50,
+                      time_limit_seconds: Union[float, int] = None):
+        def loss_function(data, log_prob_target_data):
+            return torch.mean(log_prob_target_data - self.log_prob(data))
+
+        train_dataset = TensorDataset(x_train, -potential(x_train).detach())
+        train_loader = DataLoader(train_dataset, batch_size=batch_size)
+
+        val_dataset = TensorDataset(x_val, -potential(x_val).detach())
+        val_loader = DataLoader(val_dataset, batch_size=batch_size)
+
+        if len(list(self.parameters())) == 0:
+            # If the flow has no trainable parameters, do nothing
+            return
+
+        self.train()
+        t0 = time.time()
+        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+
+        val_loss = None
+        best_val_loss = torch.inf
+        best_epoch = 0
+        best_weights = deepcopy(self.state_dict())
+
+        for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)):
+            if time_limit_seconds is not None and time.time() - t0 >= time_limit_seconds:
+                print("Training time limit exceeded")
+                break
+
+            for train_batch in train_loader:
+                optimizer.zero_grad()
+                train_loss = loss_function(*train_batch)
+                if not torch.isfinite(train_loss):
+                    raise ValueError("Flow training diverged")
+                train_loss += self.regularization()
+                if not torch.isfinite(train_loss):
+                    raise ValueError("Flow training diverged")
+                train_loss.backward()
+                optimizer.step()
+
+                if show_progress:
+                    if val_loss is None:
+                        pbar.set_postfix_str(f'Training loss (batch): {train_loss:.4f}')
+                    else:
+                        pbar.set_postfix_str(
+                            f'Training loss (batch): {train_loss:.4f}, '
+                            f'Validation loss: {val_loss:.4f} [best: {best_val_loss:.4f} @ {best_epoch}]'
+                        )
+
+            # Compute validation loss at the end of each epoch
+            # Validation loss will be displayed at the start of the next epoch
+            if val_loader is not None:
+                # Compute validation loss
+                val_loss = 0.0
+                for val_batch in val_loader:
+                    val_loss += loss_function(*val_batch).detach()
+
+                # Check if validation loss is the lowest so far
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_epoch = epoch
+
+                # Store current weights
+                if keep_best_weights:
+                    if best_epoch == epoch:
+                        best_weights = deepcopy(self.state_dict())
+
+                # Optionally stop training early
+                if early_stopping:
+                    if epoch - best_epoch > early_stopping_threshold:
+                        break
+
+        if val_loader is not None and keep_best_weights:
+            self.load_state_dict(best_weights)
+
+        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
+        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
+            self.bijection.f.stored_reg = None
+
+        self.eval()
+
     def fit(self,
             x_train: torch.Tensor,
             n_epochs: int = 500,
@@ -109,12 +201,20 @@ class BaseFlow(nn.Module):
         :param Union[float, int] time_limit_seconds: maximum allowed time for training.
         """
         t0 = time.time()
+        self.train()
 
         if len(list(self.parameters())) == 0:
             # If the flow has no trainable parameters, do nothing
             return
 
-        self.train()
+        do_fit = False
+        for p in self.parameters():
+            if p.requires_grad:
+                do_fit = True
+                break
+        if not do_fit:
+            self.eval()
+            return
 
         # Set the default batch size
         adaptive_batch_size = False
@@ -242,7 +342,6 @@ class BaseFlow(nn.Module):
                 for val_batch in val_loader:
                     val_loss += compute_batch_loss(val_batch, reduction=torch.sum).detach()
                 val_loss /= len(x_val)
-                val_loss += self.regularization()
 
                 # Check if validation loss is the lowest so far
                 if val_loss < best_val_loss:
@@ -263,7 +362,7 @@ class BaseFlow(nn.Module):
             self.load_state_dict(best_weights)
 
         # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if isinstance(self.bijection, RNODE):
+        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
             self.bijection.f.stored_reg = None
 
         self.eval()
@@ -388,6 +487,8 @@ class Flow(BaseFlow):
 
     This class represents a bijective transformation of a standard Gaussian distribution (the base distribution).
     A normalizing flow is itself a distribution which we can sample from or use it to compute the density of inputs.
+
+    Implements: `sample`, `forward_with_log_prob`, `log_prob` (based on `forward_with_log_prob`)
     """
 
     def __init__(self, bijection: Bijection, **kwargs):
@@ -399,6 +500,10 @@ class Flow(BaseFlow):
         super().__init__(event_shape=bijection.event_shape, **kwargs)
         self.register_module('bijection', bijection)
 
+    @property
+    def context_shape(self):
+        return self.bijection.context_shape
+
     def forward_with_log_prob(self, x: torch.Tensor, context: torch.Tensor = None):
         """Transform the input x to the space of the base distribution.
 
@@ -409,7 +514,13 @@ class Flow(BaseFlow):
         :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
         if context is not None:
-            assert context.shape[0] == x.shape[0]
+            if self.context_shape is None:
+                raise ValueError('Context shape must be set.')
+            if self.event_shape is None:
+                raise ValueError('Event shape must be set.')
+            _batch_shape_1 = get_batch_shape(x, self.event_shape)
+            _batch_shape_2 = get_batch_shape(context, self.context_shape)
+            assert _batch_shape_1 == _batch_shape_2
             context = context.to(self.get_device())
         z, log_det = self.bijection.forward(x.to(self.get_device()), context=context)
         log_base = self.base_log_prob(z)
@@ -446,11 +557,16 @@ class Flow(BaseFlow):
             sample_shape = (sample_shape,)
 
         if context is not None:
-            sample_shape = (*sample_shape, len(context))
             z = self.base_sample(sample_shape=sample_shape)
-            context = context[None].repeat(
-                *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
-            assert z.shape[:2] == context.shape[:2]
+            if get_batch_shape(context, self.context_shape) == sample_shape:
+                # Option A: a context tensor is given for each sampled element
+                pass
+            else:
+                # Option B: one context tensor is given for the entire to-be-sampled batch
+                sample_shape = (*sample_shape, len(context))
+                context = context[None].repeat(
+                    *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
+                assert z.shape[:2] == context.shape[:2]
         else:
             z = self.base_sample(sample_shape=sample_shape)
 
@@ -483,7 +599,11 @@ class FlowMixture(BaseFlow):
     It is a typical statistical mixture.
     """
 
-    def __init__(self, flows: List[Flow], weights: List[float] = None, trainable_weights: bool = False):
+    def __init__(self,
+                 flows: List[Flow],
+                 weights: List[float] = None,
+                 trainable_weights: bool = False,
+                 constrain_weights: bool = False):
         """FlowMixture constructor.
 
         :param List[Flow] flows: normalizing flow components.
@@ -497,6 +617,8 @@ class FlowMixture(BaseFlow):
         if weights is None:
             weights = [1.0 / len(flows)] * len(flows)
 
+        self.constrain_weights = constrain_weights
+
         assert len(weights) == len(flows)
         assert all([w > 0.0 for w in weights])
         assert np.isclose(sum(weights), 1.0)
@@ -506,6 +628,24 @@ class FlowMixture(BaseFlow):
             self.logit_weights = nn.Parameter(torch.log(torch.tensor(weights)))
         else:
             self.logit_weights = torch.log(torch.tensor(weights))
+
+    @property
+    def n_components(self):
+        return len(self.flows)
+
+    @property
+    def weights(self):
+        if self.constrain_weights:
+            log_w_min = -5.0
+            log_w_max = 5.0
+            u = torch.sigmoid(self.logit_weights) * (log_w_max - log_w_min) + log_w_min
+        else:
+            u = self.logit_weights
+        return torch.softmax(u, dim=0)
+
+    @property
+    def log_weights(self):
+        return self.weights.log()
 
     def log_prob(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
         """Compute the log probability density of inputs x.
@@ -519,12 +659,12 @@ class FlowMixture(BaseFlow):
         # (n_flows, *batch_shape)
 
         batch_shape = flow_log_probs.shape[1:]
-        log_weights_reshaped = self.logit_weights.view(-1, *([1] * len(batch_shape)))
+        log_weights_reshaped = self.log_weights.view(-1, *([1] * len(batch_shape)))
         log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # batch_shape
         return log_prob
 
     def sample(self,
-               n: int,
+               sample_shape: int,
                context: torch.Tensor = None,
                no_grad: bool = False,
                return_log_prob: bool = False) -> torch.Tensor:
@@ -537,16 +677,19 @@ class FlowMixture(BaseFlow):
         :returns: tensor of drawn samples.
         :rtype: torch.Tensor
         """
+        if isinstance(sample_shape, int):
+            sample_shape = (sample_shape,)
+
         flow_samples = []
         flow_log_probs = []
         for flow in self.flows:
-            flow_x, flow_log_prob = flow.sample(n, context=context, no_grad=no_grad, return_log_prob=True)
+            flow_x, flow_log_prob = flow.sample(sample_shape, context=context, no_grad=no_grad, return_log_prob=True)
             flow_samples.append(flow_x)
             flow_log_probs.append(flow_log_prob)
 
         flow_samples = torch.stack(flow_samples)  # (n_flows, n, *event_shape)
-        categorical_samples = torch.distributions.Categorical(logits=self.logit_weights).sample(
-            sample_shape=torch.Size((n,))
+        categorical_samples = torch.distributions.Categorical(probs=self.weights).sample(
+            sample_shape=sample_shape
         )  # (n,)
         one_hot = torch.nn.functional.one_hot(categorical_samples, num_classes=len(flow_samples)).T  # (n_flows, n)
         one_hot_reshaped = one_hot.view(*one_hot.shape, *([1] * len(self.event_shape)))
@@ -556,7 +699,7 @@ class FlowMixture(BaseFlow):
 
         if return_log_prob:
             flow_log_probs = torch.stack(flow_log_probs)  # (n_flows, n)
-            log_weights_reshaped = self.logit_weights[:, None]  # (n_flows, 1)
+            log_weights_reshaped = self.log_weights[:, None]  # (n_flows, 1)
             log_prob = torch.logsumexp(log_weights_reshaped + flow_log_probs, dim=0)  # (n,)
             return samples, log_prob
         else:
