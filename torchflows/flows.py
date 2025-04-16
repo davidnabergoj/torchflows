@@ -255,10 +255,6 @@ class BaseFlow(nn.Module):
                 event_shape=self.event_shape
             )
 
-            best_val_loss = torch.inf
-            best_epoch = 0
-            best_weights = deepcopy(self.state_dict())
-
         def compute_batch_loss(batch_, reduction: callable = torch.mean):
             batch_x, batch_weights = batch_[:2]
             batch_context = batch_[2] if len(batch_) == 3 else None
@@ -272,6 +268,12 @@ class BaseFlow(nn.Module):
 
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         val_loss = None
+
+        best_val_loss = torch.inf
+        best_train_loss = torch.inf
+        best_val_epoch = 0
+        best_train_epoch = 0
+        best_weights = deepcopy(self.state_dict())
 
         for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)):
             if time_limit_seconds is not None and time.time() - t0 >= time_limit_seconds:
@@ -309,11 +311,16 @@ class BaseFlow(nn.Module):
                         event_shape=self.event_shape
                     )
 
+            _total_train_loss = 0
+            _n_train_batches = 0
             for train_batch in train_loader:
                 optimizer.zero_grad()
                 train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
                 if not torch.isfinite(train_loss):
                     raise ValueError("Flow training diverged")
+                _total_train_loss += float(train_loss)
+                _n_train_batches += 1
+
                 train_loss += self.regularization()
                 if not torch.isfinite(train_loss):
                     raise ValueError("Flow training diverged")
@@ -321,18 +328,18 @@ class BaseFlow(nn.Module):
                 optimizer.step()
 
                 if show_progress:
-                    if val_loss is None:
-                        pbar.set_postfix_str(f'Training loss (batch): {train_loss:.4f}')
-                    elif early_stopping:
-                        pbar.set_postfix_str(
-                            f'Training loss (batch): {train_loss:.4f}, '
-                            f'Validation loss: {val_loss:.4f} [best: {best_val_loss:.4f} @ {best_epoch}]'
-                        )
+                    _train_string = f'Training loss (batch): {train_loss:.4f} [{best_train_loss:.4f} @ {best_train_epoch}]'
+                    if val_loss is not None:
+                        _val_string = f'Validation loss (batch): {val_loss:.4f} [{best_val_loss:.4f} @ {best_val_epoch}]'
+                        _postfix_str = _train_string + ' , ' + _val_string
                     else:
-                        pbar.set_postfix_str(
-                            f'Training loss (batch): {train_loss:.4f}, '
-                            f'Validation loss: {val_loss:.4f}'
-                        )
+                        _postfix_str = _train_string
+                    pbar.set_postfix_str(_postfix_str)
+
+            _average_train_loss = _total_train_loss / _n_train_batches
+            if _average_train_loss < best_train_loss:
+                best_train_loss = _average_train_loss
+                best_train_epoch = epoch
 
             # Compute validation loss at the end of each epoch
             # Validation loss will be displayed at the start of the next epoch
@@ -346,19 +353,26 @@ class BaseFlow(nn.Module):
                 # Check if validation loss is the lowest so far
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
-                    best_epoch = epoch
+                    best_val_epoch = epoch
 
-                # Store current weights
-                if keep_best_weights:
-                    if best_epoch == epoch:
-                        best_weights = deepcopy(self.state_dict())
+            if keep_best_weights:
+                if (
+                        x_val is not None and best_val_epoch == epoch
+                ) or (
+                        x_val is None and best_train_epoch == epoch
+                ):
+                    best_weights = deepcopy(self.state_dict())
 
-                # Optionally stop training early
-                if early_stopping:
-                    if epoch - best_epoch > early_stopping_threshold:
-                        break
+            # Optionally stop training early
+            if early_stopping:
+                if (
+                        x_val is not None and (epoch - best_val_epoch) > early_stopping_threshold
+                ) or (
+                        x_val is None and (epoch - best_train_epoch) > early_stopping_threshold
+                ):
+                    break
 
-        if x_val is not None and keep_best_weights:
+        if keep_best_weights:
             self.load_state_dict(best_weights)
 
         # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
