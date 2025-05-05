@@ -116,15 +116,23 @@ class InvertibleResNetBlock(IterativeResidualBijection):
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  g: nn.Module = None,
+                 n_power_series_iterations: int = 2,
                  **kwargs):
         # TODO add context
         super().__init__(event_shape)
         if g is None:
             g = SpectralNeuralNetwork(event_shape, **kwargs)
         self.g = g
+        self.n_power_series_iterations = n_power_series_iterations
 
     def log_det(self, x: torch.Tensor, **kwargs):
-        return log_det_power_series(self.event_shape, self.g, x, n_iterations=2, **kwargs)[1]
+        return log_det_power_series(
+            self.event_shape,
+            self.g, 
+            x,
+            n_iterations=self.n_power_series_iterations, 
+            **kwargs
+        )[1]
 
 
 class ConvolutionalInvertibleResNetBlock(InvertibleResNetBlock):
