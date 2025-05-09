@@ -34,9 +34,20 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
         :param n_steps: parameter T in the paper, i.e. the number of ResNet cells.
         """
         nn_kwargs = nn_kwargs or {}
-        diff_eq = RegularizedApproximateODEFunction(create_nn_time_independent(event_shape, **nn_kwargs))
+        diff_eq = RegularizedApproximateODEFunction(
+            create_nn_time_independent(event_shape, **nn_kwargs))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
+
+    def odeint_wrapper(self, z_flat, log_det_initial, integration_times):
+        return super().odeint_wrapper(
+            z_flat,
+            log_det_initial,
+            integration_times,
+            options={
+                'step_size': 1 / self.n_steps
+            }
+        )
 
 
 class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
@@ -53,7 +64,9 @@ class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
                  **kwargs):
         nn_kwargs = nn_kwargs or {}
         if len(event_shape) != 3:
-            raise ValueError("Event shape must be of length 3 (channels, height, width).")
-        diff_eq = RegularizedApproximateODEFunction(create_cnn_time_independent(event_shape[0], **nn_kwargs))
+            raise ValueError(
+                "Event shape must be of length 3 (channels, height, width).")
+        diff_eq = RegularizedApproximateODEFunction(
+            create_cnn_time_independent(event_shape[0], **nn_kwargs))
         self.n_steps = n_steps
         super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
