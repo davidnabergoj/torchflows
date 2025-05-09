@@ -312,9 +312,9 @@ class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
+                 solver: str,
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
-                 solver: str = 'euler',  # Use euler (fastest solver)
                  atol: float = 1e-5,
                  rtol: float = 1e-5,
                  **kwargs):

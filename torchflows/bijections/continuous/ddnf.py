@@ -24,7 +24,6 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_steps: int = 150,
-                 solver="euler",
                  nn_kwargs: dict = None,
                  **kwargs):
         """
@@ -37,7 +36,9 @@ class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
         diff_eq = RegularizedApproximateODEFunction(
             create_nn_time_independent(event_shape, **nn_kwargs))
         self.n_steps = n_steps
-        super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
+        if 'solver' not in kwargs:
+            kwargs['solver'] = 'euler'
+        super().__init__(event_shape, diff_eq, **kwargs)
 
     def odeint_wrapper(self, z_flat, log_det_initial, integration_times):
         return super().odeint_wrapper(
@@ -59,7 +60,6 @@ class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_steps: int = 150,
-                 solver="euler",
                  nn_kwargs: dict = None,
                  **kwargs):
         nn_kwargs = nn_kwargs or {}
@@ -69,4 +69,6 @@ class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
         diff_eq = RegularizedApproximateODEFunction(
             create_cnn_time_independent(event_shape[0], **nn_kwargs))
         self.n_steps = n_steps
-        super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
+        if 'solver' not in kwargs:
+            kwargs['solver'] = 'euler'
+        super().__init__(event_shape, diff_eq, **kwargs)

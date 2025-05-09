@@ -26,7 +26,9 @@ class RNODE(ApproximateContinuousBijection):
             create_nn(event_shape, **default_nn_kwargs),
             regularization="sq_jac_norm"
         )
-        super().__init__(event_shape, diff_eq, solver='rk4', **kwargs)
+        if 'solver' not in kwargs:
+            kwargs['solver'] = 'rk4'
+        super().__init__(event_shape, diff_eq, **kwargs)
 
 
 class ConvolutionalRNODE(ApproximateContinuousBijection):
@@ -45,4 +47,6 @@ class ConvolutionalRNODE(ApproximateContinuousBijection):
             create_cnn(event_shape[0], **default_nn_kwargs),
             regularization="sq_jac_norm"
         )
-        super().__init__(event_shape, diff_eq, solver='rk4', **kwargs)
+        if 'solver' not in kwargs:
+            kwargs['solver'] = 'rk4'
+        super().__init__(event_shape, diff_eq, **kwargs)
