@@ -117,6 +117,7 @@ class InvertibleResNetBlock(IterativeResidualBijection):
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  g: nn.Module = None,
                  n_power_series_iterations: int = 2,
+                 n_hutchinson_samples: int = 1,
                  **kwargs):
         # TODO add context
         super().__init__(event_shape)
@@ -124,6 +125,7 @@ class InvertibleResNetBlock(IterativeResidualBijection):
             g = SpectralNeuralNetwork(event_shape, **kwargs)
         self.g = g
         self.n_power_series_iterations = n_power_series_iterations
+        self.n_hutchinson_samples = n_hutchinson_samples
 
     def log_det(self, x: torch.Tensor, **kwargs):
         return log_det_power_series(
@@ -131,6 +133,7 @@ class InvertibleResNetBlock(IterativeResidualBijection):
             self.g, 
             x,
             n_iterations=self.n_power_series_iterations, 
+            n_hutchinson_samples=self.n_hutchinson_samples,
             **kwargs
         )[1]
 
