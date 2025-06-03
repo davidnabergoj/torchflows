@@ -81,7 +81,11 @@ class RealNVP(AutoregressiveArchitecture):
         :param event_shape: shape of the event tensor.
         :param kwargs: keyword arguments to :class:`~bijections.finite.autoregressive.layers.AffineCoupling`.
         """
-        super().__init__(event_shape, base_bijection=AffineCoupling, **kwargs)
+        if int(torch.prod(torch.as_tensor(event_shape))) == 1:
+            # Fallback for 1D: elementwise affine bijection
+            super().__init__(event_shape, base_bijection=ElementwiseAffine, **kwargs)
+        else:
+            super().__init__(event_shape, base_bijection=AffineCoupling, **kwargs)
 
 
 class InverseRealNVP(AutoregressiveArchitecture):

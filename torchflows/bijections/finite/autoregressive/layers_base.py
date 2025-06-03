@@ -280,9 +280,12 @@ class ElementwiseBijection(AutoregressiveBijection):
             tmp = self.value[[None] * len(batch_shape)]
             return tmp.repeat(*batch_shape, *([1] * len(self.transformer.parameter_shape)))
         else:
-            if context is None:
-                raise RuntimeError("Context must be provided")
-            return self.conditioner_transform(x=None, context=context)
+            if self.context_shape is None:
+                raise ValueError("context_shape must not be None when ")
+            else:
+                if context is None:
+                    raise RuntimeError("Context must be provided")
+                return self.conditioner_transform(x=None, context=context)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         h = self.prepare_h(context, get_batch_shape(x, self.event_shape))
