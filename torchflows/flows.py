@@ -38,6 +38,7 @@ class BaseFlow(nn.Module):
             raise ValueError(f'Invalid base distribution: {base_distribution}')
 
         self.register_buffer('device_buffer', torch.empty(size=()))
+        self._optimizer = None
 
     def get_device(self):
         """Returns the torch device for this object.
@@ -80,7 +81,8 @@ class BaseFlow(nn.Module):
                       keep_best_weights: bool = True,
                       early_stopping: bool = False,
                       early_stopping_threshold: int = 50,
-                      time_limit_seconds: Union[float, int] = None):
+                      time_limit_seconds: Union[float, int] = None,
+                      reset_optimizer: bool = True):
         def loss_function(data, log_prob_target_data):
             return torch.mean(log_prob_target_data - self.log_prob(data))
 
@@ -96,7 +98,9 @@ class BaseFlow(nn.Module):
 
         self.train()
         t0 = time.time()
-        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+
+        if self._optimizer is None or reset_optimizer:
+            self._optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
 
         val_loss = None
         best_val_loss = torch.inf
@@ -109,7 +113,7 @@ class BaseFlow(nn.Module):
                 break
 
             for train_batch in train_loader:
-                optimizer.zero_grad()
+                self._optimizer.zero_grad()
                 train_loss = loss_function(*train_batch)
                 if not torch.isfinite(train_loss):
                     raise ValueError("Flow training diverged")
@@ -117,7 +121,7 @@ class BaseFlow(nn.Module):
                 if not torch.isfinite(train_loss):
                     raise ValueError("Flow training diverged")
                 train_loss.backward()
-                optimizer.step()
+                self._optimizer.step()
 
                 if show_progress:
                     if val_loss is None:
@@ -176,7 +180,8 @@ class BaseFlow(nn.Module):
             early_stopping: bool = False,
             early_stopping_threshold: int = 50,
             max_batch_size_mb: int = None,
-            time_limit_seconds: Union[float, int] = None):
+            time_limit_seconds: Union[float, int] = None,
+            reset_optimizer: bool = True):
         """Fit the normalizing flow to a dataset.
 
         Fitting the flow means finding the parameters of the bijection that maximize the probability of training data.
@@ -199,6 +204,8 @@ class BaseFlow(nn.Module):
         :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
         :param int max_batch_size_mb: maximum batch size in megabytes.
         :param Union[float, int] time_limit_seconds: maximum allowed time for training.
+        :param reset_optimizer: if True, reset the optimizer state before fitting. 
+         This is useful when fitting multiple times in a row.
         """
         t0 = time.time()
         self.train()
@@ -266,7 +273,8 @@ class BaseFlow(nn.Module):
 
             return batch_loss
 
-        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+        if self._optimizer is None or reset_optimizer:
+            self._optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         val_loss = None
 
         best_val_loss = torch.inf
@@ -314,7 +322,7 @@ class BaseFlow(nn.Module):
             _total_train_loss = 0
             _n_train_batches = 0
             for train_batch in train_loader:
-                optimizer.zero_grad()
+                self._optimizer.zero_grad()
                 train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
                 if not torch.isfinite(train_loss):
                     raise ValueError("Flow training diverged")
@@ -325,7 +333,7 @@ class BaseFlow(nn.Module):
                 if not torch.isfinite(train_loss):
                     raise ValueError("Flow training diverged")
                 train_loss.backward()
-                optimizer.step()
+                self._optimizer.step()
 
                 if show_progress:
                     _train_string = f'Training loss (batch): {train_loss:.4f} [{best_train_loss:.4f} @ {best_train_epoch}]'
@@ -391,7 +399,8 @@ class BaseFlow(nn.Module):
                         keep_best_weights: bool = True,
                         show_progress: bool = False,
                         check_for_divergences: bool = False,
-                        time_limit_seconds: Union[float, int] = None):
+                        time_limit_seconds: Union[float, int] = None,
+                        reset_optimizer: bool = True):
         """Train the normalizing flow to fit a target log probability.
 
         Stochastic variational inference lets us train a distribution using the unnormalized target log density instead of a fixed dataset.
@@ -404,6 +413,7 @@ class BaseFlow(nn.Module):
         :param float lr: learning rate for the AdamW optimizer.
         :param float n_samples: number of samples to estimate the variational loss in each training step.
         :param bool show_progress: if True, show a progress bar during training.
+        :param bool reset_optimizer: if True, reset the optimizer state before fitting.
         """
         t0 = time.time()
 
@@ -414,7 +424,10 @@ class BaseFlow(nn.Module):
         self.train()
 
         flow_training_diverged = False
-        optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+        
+        if self._optimizer is None or reset_optimizer:
+            self._optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
+        
         best_loss = torch.inf
         best_epoch = 0
         initial_weights = deepcopy(self.state_dict())
@@ -431,7 +444,7 @@ class BaseFlow(nn.Module):
                 print('Reverting to initial weights')
                 break
             epoch_diverged = False
-            optimizer.zero_grad()
+            self._optimizer.zero_grad()
 
             try:
                 flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
@@ -453,7 +466,7 @@ class BaseFlow(nn.Module):
 
                 if not epoch_diverged:
                     loss.backward()
-                    optimizer.step()
+                    self._optimizer.step()
 
                 if not epoch_diverged:
                     with torch.no_grad():
