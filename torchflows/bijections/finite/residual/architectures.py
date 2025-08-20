@@ -1,4 +1,4 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import torch
 
@@ -21,8 +21,17 @@ class InvertibleResNet(ResidualArchitecture):
     Reference: Behrmann et al. "Invertible Residual Networks" (2019); https://arxiv.org/abs/1811.00995.
     """
 
-    def __init__(self, event_shape, **kwargs):
-        super().__init__(event_shape, InvertibleResNetBlock, **kwargs)
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
+                 **kwargs):
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=InvertibleResNetBlock,
+            context_shape=context_shape,
+            **kwargs
+        )
+
 
 
 class ConvolutionalInvertibleResNet(ResidualArchitecture):
@@ -31,8 +40,16 @@ class ConvolutionalInvertibleResNet(ResidualArchitecture):
     Reference: Behrmann et al. "Invertible Residual Networks" (2019); https://arxiv.org/abs/1811.00995.
     """
 
-    def __init__(self, event_shape, **kwargs):
-        super().__init__(event_shape, ConvolutionalInvertibleResNetBlock, **kwargs)
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
+                 **kwargs):
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=ConvolutionalInvertibleResNetBlock,
+            context_shape=context_shape,
+            **kwargs
+        )
 
 
 class ResFlow(ResidualArchitecture):
@@ -41,8 +58,16 @@ class ResFlow(ResidualArchitecture):
     Reference: Chen et al. "Residual Flows for Invertible Generative Modeling" (2020); https://arxiv.org/abs/1906.02735.
     """
 
-    def __init__(self, event_shape, **kwargs):
-        super().__init__(event_shape, ResFlowBlock, **kwargs)
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
+                 **kwargs):
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=ResFlowBlock,
+            context_shape=context_shape,
+            **kwargs
+        )
 
 
 class ConvolutionalResFlow(ResidualArchitecture):
@@ -51,8 +76,16 @@ class ConvolutionalResFlow(ResidualArchitecture):
     Reference: Chen et al. "Residual Flows for Invertible Generative Modeling" (2020); https://arxiv.org/abs/1906.02735.
     """
 
-    def __init__(self, event_shape, **kwargs):
-        super().__init__(event_shape, ConvolutionalResFlowBlock, **kwargs)
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
+                 **kwargs):
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=ConvolutionalResFlowBlock,
+            context_shape=context_shape,
+            **kwargs
+        )
 
 
 class ProximalResFlow(ResidualArchitecture):
@@ -61,12 +94,20 @@ class ProximalResFlow(ResidualArchitecture):
     Reference: Hertrich "Proximal Residual Flows for Bayesian Inverse Problems" (2022); https://arxiv.org/abs/2211.17158.
     """
 
-    def __init__(self, event_shape, **kwargs):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
+                 **kwargs):
         if 'layer_kwargs' not in kwargs:
             kwargs['layer_kwargs'] = {}
         if 'gamma' not in kwargs['layer_kwargs']:
             kwargs['layer_kwargs']['gamma'] = 0.01
-        super().__init__(event_shape, ProximalResFlowBlock, **kwargs)
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=ProximalResFlowBlock,
+            context_shape=context_shape,
+            **kwargs
+        )
 
 
 class PlanarFlow(ResidualArchitecture):
@@ -79,8 +120,14 @@ class PlanarFlow(ResidualArchitecture):
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
                  **kwargs):
-        super().__init__(event_shape, Planar, **kwargs)
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=Planar,
+            context_shape=context_shape,
+            **kwargs
+        )
 
 
 class RadialFlow(ResidualArchitecture):
@@ -93,8 +140,14 @@ class RadialFlow(ResidualArchitecture):
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
                  **kwargs):
-        super().__init__(event_shape, Radial, **kwargs)
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=Radial,
+            context_shape=context_shape,
+            **kwargs
+        )
 
 
 class SylvesterFlow(ResidualArchitecture):
@@ -107,5 +160,11 @@ class SylvesterFlow(ResidualArchitecture):
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
+                 context_shape: Optional[Union[torch.Size, Tuple[int, ...]]] = None,
                  **kwargs):
-        super().__init__(event_shape, Sylvester, **kwargs)
+        super().__init__(
+            event_shape=event_shape,
+            layer_class=Sylvester,
+            context_shape=context_shape,
+            **kwargs
+        )

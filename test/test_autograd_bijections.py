@@ -8,8 +8,10 @@ from torchflows.bijections.base import Bijection
 from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, CouplingRQNSF, MAF, IAF, \
     InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF
 from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
-    LRSCoupling, LinearRQSCoupling
-from torchflows.bijections.finite.linear import LU, ReversePermutation, LowerTriangular, Orthogonal, QR
+    LRSCoupling, LinearRQSCoupling, ElementwiseRQSpline
+from torchflows.bijections.finite.matrix import HouseholderProductMatrix, LowerTriangularInvertibleMatrix, \
+    UpperTriangularInvertibleMatrix, IdentityMatrix, RandomPermutationMatrix, ReversePermutationMatrix, QRMatrix, \
+    LUMatrix
 from torchflows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
 from torchflows.utils import get_batch_shape
 from test.constants import __test_constants
@@ -18,11 +20,8 @@ from test.constants import __test_constants
 def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     torch.manual_seed(0)
     x = torch.randn(*batch_shape, *event_shape)
-    if context_shape is not None:
-        context = torch.randn(size=(*batch_shape, *context_shape))
-    else:
-        context = None
-    bijection = bijection_class(event_shape)
+    context = torch.randn(size=(*batch_shape, *context_shape)) if context_shape is not None else None
+    bijection = bijection_class(event_shape, context_shape=context_shape)
     return bijection, x, context
 
 
@@ -43,19 +42,33 @@ def assert_valid_log_probability_gradient(bijection: Bijection, x: torch.Tensor,
 
 
 @pytest.mark.parametrize('bijection_class', [
-    LU,
-    ReversePermutation,
     ElementwiseScale,
-    LowerTriangular,
-    Orthogonal,
-    QR,
     ElementwiseAffine,
-    ElementwiseShift
+    ElementwiseShift,
+    ElementwiseRQSpline
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
-def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+def test_elementwise(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    assert_valid_log_probability_gradient(bijection, x, context)
+
+
+@pytest.mark.parametrize('bijection_class', [
+    IdentityMatrix,
+    RandomPermutationMatrix,
+    ReversePermutationMatrix,
+    LowerTriangularInvertibleMatrix,
+    UpperTriangularInvertibleMatrix,
+    HouseholderProductMatrix,
+    QRMatrix,
+    LUMatrix,
+])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
+def test_matrix(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_log_probability_gradient(bijection, x, context)
 

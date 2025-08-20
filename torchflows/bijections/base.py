@@ -74,22 +74,14 @@ class Bijection(nn.Module):
         return outputs, log_dets
 
     def batch_forward(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
-        # TODO remove the if statement, context=None is the default anyway
-        if context:
-            outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
-        else:
-            outputs, log_dets = self.batch_apply(self.forward, batch_size, x)
+        outputs, log_dets = self.batch_apply(self.forward, batch_size, x, context)
         assert outputs.shape == x.shape
         batch_shape = get_batch_shape(x, self.event_shape)
         assert log_dets.shape == batch_shape
         return outputs, log_dets
 
     def batch_inverse(self, x: torch.Tensor, batch_size: int, context: torch.Tensor = None):
-        # TODO remove the if statement, context=None is the default anyway
-        if context:
-            outputs, log_dets = self.batch_apply(self.inverse, batch_size, x, context)
-        else:
-            outputs, log_dets = self.batch_apply(self.inverse, batch_size, x)
+        outputs, log_dets = self.batch_apply(self.inverse, batch_size, x, context)
         assert outputs.shape == x.shape
         batch_shape = get_batch_shape(x, self.event_shape)
         assert log_dets.shape == batch_shape
@@ -118,26 +110,43 @@ class BijectiveComposition(Bijection):
     Composition of bijections. Inherits from Bijection.
     """
 
-    def __init__(self,
-                 event_shape: Union[torch.Size, Tuple[int, ...]],
-                 layers: List[Bijection],
-                 context_shape: Union[torch.Size, Tuple[int, ...]] = None,
-                 **kwargs):
+    def __init__(self, layers: List[Bijection], **kwargs):
         """
         BijectiveComposition constructor.
 
         :param event_shape: shape of the event tensor.
         :param List[Bijection] layers: bijection layers.
-        :param context_shape: shape of the context tensor.
         :param kwargs: unused.
         """
-        super().__init__(event_shape=event_shape, context_shape=context_shape)
+        super().__init__(
+            event_shape=layers[0].event_shape,
+            context_shape=layers[0].context_shape
+        )
         self.layers = nn.ModuleList(layers)
+
+    def freeze_after(self, index: int):
+        """
+        Freeze all layers after the given index (exclusive).
+
+        :param int index: index after which the layers are frozen.
+        """
+        for i in range(len(self.layers)):
+            if i > index:
+                self.layers[i].requires_grad_(False)
+
+    def unfreeze_all_layers(self):
+        for i in range(len(self.layers)):
+            self.layers[i].requires_grad_(True)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         log_det = torch.zeros(size=get_batch_shape(x, event_shape=self.event_shape)).to(x)
         for layer in self.layers:
-            x, log_det_layer = layer(x, context=context)
+            try:
+                x, log_det_layer = layer(x, context=context)
+            except TypeError as e:
+                print(e)
+                print(layer)
+                raise e
             log_det += log_det_layer
         z = x
         return z, log_det

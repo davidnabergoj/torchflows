@@ -3,8 +3,14 @@ from typing import Any, Tuple, Union, List
 
 
 class Bisection(torch.autograd.Function):
+    """
+    Autograd bisection function.
+    """
     @staticmethod
     def forward(ctx: Any, f, y, a: torch.Tensor, b: torch.Tensor, n: int, h: List[torch.Tensor]) -> torch.Tensor:
+        """
+        Forward method for the autograd function.
+        """
         ctx.f = f
         ctx.save_for_backward(*h)
         for _ in range(n):
@@ -17,6 +23,9 @@ class Bisection(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx: Any, grad_x: torch.Tensor) -> Tuple[Union[torch.Tensor, None], ...]:
+        """
+        Backward method for the autograd function.
+        """
         f, x = ctx.f, ctx.x
         h = ctx.saved_tensors
         with torch.enable_grad():
@@ -33,6 +42,9 @@ class Bisection(torch.autograd.Function):
 
 
 def bisection(f, y, a, b, n, h):
+    """
+    Apply bisection with autograd support.
+    """
     return Bisection.apply(f, y, a.to(y), b.to(y), n, h)
 
 
@@ -43,12 +55,16 @@ def bisection_no_gradient(f: callable,
                           n_iterations: int = 500,
                           atol: float = 1e-9):
     """
-    Find x that satisfies f(x) = y.
-    We assume x.shape == y.shape.
-    f is applied elementwise.
+    Apply bisection without autograd support.
 
-    a: lower bound.
-    b: upper bound.
+    Explanation: find x that satisfies f(x) = y. We assume x.shape == y.shape. f is applied elementwise.
+
+    :param f: function that takes as input a tensor and produces as output z.
+    :param y: value to match to z.
+    :param a: lower bound for bisection search.
+    :param b: upper bound for bisection search.
+    :param n_iterations: number of bisection iterations.
+    :param atol: absolute tolerance.
     """
 
     if a is None:

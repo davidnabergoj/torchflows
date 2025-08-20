@@ -4,7 +4,7 @@ import torch
 
 from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Shift, Affine
 from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
-from torchflows.bijections.finite.autoregressive.transformers.spline.linear import Linear as LinearRational
+from torchflows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import (
     DeepSigmoid,
     DeepDenseSigmoid,

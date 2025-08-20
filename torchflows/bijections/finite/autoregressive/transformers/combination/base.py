@@ -23,7 +23,7 @@ class Combination(ScalarTransformer):
         # h.shape = (*batch_size, *event_shape, n_components * n_output_parameters)
         # We assume last dim is ordered as [c1, c2, ..., ck] i.e. sequence of parameter vectors, one for each component.
         batch_shape = get_batch_shape(x, self.event_shape)
-        log_det = torch.zeros(size=batch_shape)
+        log_det = torch.zeros(size=batch_shape).to(x)
         start_index = 0
         for i in range(self.n_components):
             component = self.components[i]
@@ -37,7 +37,7 @@ class Combination(ScalarTransformer):
         # h.shape = (*batch_size, *event_shape, n_components * n_output_parameters)
         # We assume last dim is ordered as [c1, c2, ..., ck] i.e. sequence of parameter vectors, one for each component.
         batch_shape = get_batch_shape(z, self.event_shape)
-        log_det = torch.zeros(size=batch_shape)
+        log_det = torch.zeros(size=batch_shape).to(z)
         c = self.n_parameters_per_element
         for i in range(self.n_components):
             component = self.components[self.n_components - i - 1]

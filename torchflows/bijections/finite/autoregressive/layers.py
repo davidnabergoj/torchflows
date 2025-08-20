@@ -43,6 +43,7 @@ class ActNorm(ElementwiseInverseAffine):
         :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
         :param kwargs: keyword arguments to ElementwiseInverseAffine.
         """
+        kwargs['context_shape'] = None
         super().__init__(event_shape, **kwargs)
         self.first_training_batch_pass: bool = True
         self.value.requires_grad_(False)
@@ -64,7 +65,7 @@ class ActNorm(ElementwiseInverseAffine):
             else:
                 scale = torch.std(x, dim=list(range(n_batch_dims)))[..., None].to(self.value)
             unconstrained_scale = self.transformer.unconstrain_scale(scale)
-            self.value.data = torch.concatenate([unconstrained_scale, shift], dim=-1).data
+            self.value.data = torch.cat([unconstrained_scale, shift], dim=-1).data
         return super().forward(x, context)
 
 

@@ -1,5 +1,32 @@
+# This file incorporates work covered by the following copyright and permission notice:
+#
+#   MIT License
+#
+#   Copyright (c) 2018 Ricky Tian Qi Chen and Will Grathwohl
+#
+#   Permission is hereby granted, free of charge, to any person obtaining a copy
+#   of this software and associated documentation files (the "Software"), to deal
+#   in the Software without restriction, including without limitation the rights
+#   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#   copies of the Software, and to permit persons to whom the Software is
+#   furnished to do so, subject to the following conditions:
+#
+#   The above copyright notice and this permission notice shall be included in all
+#   copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#   SOFTWARE.
+
+
+# This file is an adaptation of code from the following repository https://github.com/rtqichen/ffjord
+
 import math
-from typing import Union, Tuple, List, Optional, Dict
+from typing import Union, Tuple, List
 
 import torch
 import torch.nn as nn
@@ -15,8 +42,6 @@ from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unfl
 #       We should create a ContinuousFlow class which handles the third output and uses it in the fit method
 #       Alternatively: store reg_states as an attribute of the bijection. Make it so that the base bijection class
 #       contains a reg_states attribute, which is accessed during Flow.fit.
-
-# Based on: https://github.com/rtqichen/ffjord/blob/994864ad0517db3549717c25170f9b71e96788b1/lib/layers/cnf.py#L11
 
 
 def _flip(x, dim):
@@ -249,38 +274,22 @@ class RegularizedApproximateODEFunction(ApproximateODEFunction):
         if isinstance(regularization, str):
             regularization = (regularization,)
 
-        supported_regularization_types = ["geodesic", "sq_jac_norm"]
+        self.supported_reg_types = ['sq_jac_norm']
         for rt in regularization:
-            assert rt in supported_regularization_types
+            if rt not in self.supported_reg_types:
+                raise ValueError
+        self.used_reg_types = regularization
 
-        self.reg_types = regularization
-
-        self.reg_coef: Dict[str, float] = {
-            'sq_jac_norm': 1.0,
-            'geodesic': 1.0,
-        }
-        self.reg_data: Dict[str, Optional[torch.Tensor]] = {
-            'sq_jac_norm': None,  # shape = (n, 1)
-            'geodesic': None,
-        }
-
-    def regularization(self):
-        total = torch.tensor(0.0)
-        for key, val in self.reg_data.items():
-            coef = self.reg_coef[key]
-            if val is not None:
-                total += coef * torch.mean(val)
-        return total
+        self.reg_jac_coef = 1.0
+        self.stored_reg = None
 
     def divergence_step(self, dy, y) -> torch.Tensor:
         batch_size = y.shape[0]
 
-        if "sq_jac_norm" in self.reg_types:
+        if "sq_jac_norm" in self.used_reg_types and self.training:
             divergence, sq_jac_norm = divergence_approx_extended(dy, y, e=self.hutch_noise)
-
             # Store regularization data
-            sq_jac_norm = sq_jac_norm.view(batch_size, 1)
-            self.reg_data['sq_jac_norm'] = sq_jac_norm
+            self.stored_reg = self.reg_jac_coef * sq_jac_norm.mean()
         else:
             divergence = divergence_approx_basic(dy, y, e=self.hutch_noise)
         divergence = divergence.view(batch_size, 1)
@@ -288,6 +297,9 @@ class RegularizedApproximateODEFunction(ApproximateODEFunction):
         # TODO add other regularization terms
 
         return divergence
+
+    def regularization(self):
+        return (self.stored_reg or 0) + super().regularization()
 
 
 class ContinuousBijection(Bijection):
@@ -300,9 +312,9 @@ class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
+                 solver: str,
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
-                 solver: str = 'euler',  # Use euler (fastest solver)
                  atol: float = 1e-5,
                  rtol: float = 1e-5,
                  **kwargs):
@@ -328,6 +340,20 @@ class ContinuousBijection(Bijection):
 
     def make_integrations_times(self, z):
         return torch.tensor([0.0, self.sqrt_end_time * self.sqrt_end_time]).to(z)
+    
+    def odeint_wrapper(self, z_flat, log_det_initial, integration_times, **kwargs):
+        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
+        from torchdiffeq import odeint
+
+        return odeint(
+            self.f,
+            (z_flat, log_det_initial),
+            integration_times,
+            atol=self.atol,
+            rtol=self.rtol,
+            method=self.solver,
+            **kwargs
+        )
 
     def inverse(self,
                 z: torch.Tensor,
@@ -343,9 +369,6 @@ class ContinuousBijection(Bijection):
         :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
 
-        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
-        from torchdiffeq import odeint
-
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
@@ -358,14 +381,7 @@ class ContinuousBijection(Bijection):
         self.f.before_odeint(**kwargs)
 
         log_det_initial = torch.zeros(size=(batch_size, 1)).to(z_flat)
-        state_t = odeint(
-            self.f,
-            (z_flat, log_det_initial),
-            integration_times,
-            atol=self.atol,
-            rtol=self.rtol,
-            method=self.solver
-        )
+        state_t = self.odeint_wrapper(z_flat, log_det_initial, integration_times)
 
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
@@ -434,9 +450,6 @@ class ApproximateContinuousBijection(ContinuousBijection):
         """
         super().__init__(event_shape, f, **kwargs)
 
-    def make_integrations_times(self, z):
-        return torch.tensor([0.0, self.sqrt_end_time * self.sqrt_end_time]).to(z)
-
     def inverse(self,
                 z: torch.Tensor,
                 integration_times: torch.Tensor = None,
@@ -449,9 +462,6 @@ class ApproximateContinuousBijection(ContinuousBijection):
         :param kwargs:
         :return:
         """
-        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
-        from torchdiffeq import odeint
-
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
@@ -464,14 +474,7 @@ class ApproximateContinuousBijection(ContinuousBijection):
         self.f.before_odeint(noise=noise)
 
         log_det_initial = torch.zeros(size=(batch_size, *([1] * len(self.event_shape)))).to(z_flat)
-        state_t = odeint(
-            self.f,
-            (z_flat, log_det_initial),
-            integration_times,
-            atol=self.atol,
-            rtol=self.rtol,
-            method=self.solver
-        )
+        state_t = self.odeint_wrapper(z_flat, log_det_initial, integration_times)
 
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
@@ -484,19 +487,3 @@ class ApproximateContinuousBijection(ContinuousBijection):
 
         return x, log_det
 
-    def forward(self,
-                x: torch.Tensor,
-                integration_times: torch.Tensor = None,
-                noise: torch.Tensor = None,
-                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        if integration_times is None:
-            integration_times = self.make_integrations_times(x)
-        return self.inverse(
-            x,
-            integration_times=_flip(integration_times, 0),
-            noise=noise,
-            **kwargs
-        )
-
-    def regularization(self):
-        return self.f.regularization()

@@ -57,7 +57,7 @@ class NormalizedCheckerboardCoupling(BijectiveComposition):
             ActNorm(event_shape),
             CheckerboardCoupling(event_shape, **kwargs),
         ]
-        super().__init__(event_shape, layers)
+        super().__init__(layers)
 
 
 class Invertible1x1ConvolutionalCoupling(ConvolutionalCouplingBijection):
@@ -79,7 +79,7 @@ class GlowCheckerboardCoupling(BijectiveComposition):
             Invertible1x1ConvolutionalCoupling(event_shape, **kwargs),
             CheckerboardCoupling(event_shape, **kwargs)
         ]
-        super().__init__(event_shape, layers)
+        super().__init__(layers)
 
 
 class ChannelWiseCoupling(ConvolutionalCouplingBijection):
@@ -101,7 +101,7 @@ class NormalizedChannelWiseCoupling(BijectiveComposition):
             ActNorm(event_shape),
             ChannelWiseCoupling(event_shape, **kwargs),
         ]
-        super().__init__(event_shape, layers)
+        super().__init__(layers)
 
 
 class GlowChannelWiseCoupling(BijectiveComposition):
@@ -111,7 +111,7 @@ class GlowChannelWiseCoupling(BijectiveComposition):
             Invertible1x1ConvolutionalCoupling(event_shape),
             ChannelWiseCoupling(event_shape, **kwargs)
         ]
-        super().__init__(event_shape, layers)
+        super().__init__(layers)
 
 
 class Squeeze(Bijection):
@@ -145,7 +145,7 @@ class Squeeze(Bijection):
         assert height % 2 == 0
         assert width % 2 == 0
 
-        out = torch.concatenate([
+        out = torch.cat([
             x[..., ::2, ::2],
             x[..., ::2, 1::2],
             x[..., 1::2, ::2],

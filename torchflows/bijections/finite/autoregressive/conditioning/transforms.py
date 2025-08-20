@@ -4,8 +4,7 @@ from typing import Tuple, Union, Type, Optional
 import torch
 import torch.nn as nn
 
-from torchflows.bijections.finite.autoregressive.conditioning.context import Concatenation, ContextCombiner, \
-    Bypass
+from torchflows.bijections.finite.autoregressive.conditioning.context import Concatenation, ContextCombiner
 from torchflows.utils import get_batch_shape
 
 
@@ -21,7 +20,7 @@ class ConditionerTransform(nn.Module):
     """
 
     def __init__(self,
-                 input_event_shape: Union[torch.Size, Tuple[int, ...]],
+                 input_event_shape: Optional[Union[torch.Size, Tuple[int, ...]]],
                  context_shape: Union[torch.Size, Tuple[int, ...]],
                  parameter_shape: Union[torch.Size, Tuple[int, ...]],
                  context_combiner: ContextCombiner = None,
@@ -51,9 +50,7 @@ class ConditionerTransform(nn.Module):
         self.output_upper_bound = output_upper_bound
         self.output_lower_bound = output_lower_bound
 
-        if context_shape is None:
-            context_combiner = Bypass(input_event_shape)
-        elif context_shape is not None and context_combiner is None:
+        if context_combiner is None:
             context_combiner = Concatenation(input_event_shape, context_shape)
         self.context_combiner = context_combiner
 
@@ -81,11 +78,18 @@ class ConditionerTransform(nn.Module):
             )
         self.global_theta_flat = nn.Parameter(initial_global_theta_flat)
 
+    def get_batch_shape(self, x: torch.Tensor, context: torch.Tensor):
+        if x is not None:
+            return get_batch_shape(x, self.input_event_shape)
+        if context is not None:
+            return get_batch_shape(context, self.context_shape)
+        raise ValueError("At least one of x or context must be provided.")
+
     def forward(self, x: torch.Tensor, context: torch.Tensor = None):
         # x.shape = (*batch_shape, *self.input_event_shape)
         # context.shape = (*batch_shape, *self.context_shape)
         # output.shape = (*batch_shape, *self.parameter_shape)
-        batch_shape = get_batch_shape(x, self.input_event_shape)
+        batch_shape = self.get_batch_shape(x, context)
         if self.n_global_parameters == 0:
             # All parameters are predicted
             output = self.predict_theta_flat(x, context).view(*batch_shape, *self.parameter_shape)
@@ -309,6 +313,30 @@ class FeedForward(TensorConditionerTransform):
 class Linear(FeedForward):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, n_layers=1)
+
+
+class LinearWithL2Context(Linear):
+    def __init__(self, *args, reg_coef: float = 0.01, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert isinstance(self.context_combiner, Concatenation)
+        self.reg_coef = reg_coef
+
+    def regularization(self):
+        n_context_dims = int(torch.prod(torch.as_tensor(self.context_shape)))
+        regularized_weights = self.layers[0].weight[:, -n_context_dims:]
+        return torch.square(regularized_weights).mean() * self.reg_coef  # L1
+
+
+class LinearWithSparseContext(Linear):
+    def __init__(self, *args, reg_coef: float = 0.01, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert isinstance(self.context_combiner, Concatenation)
+        self.reg_coef = reg_coef
+
+    def regularization(self):
+        n_context_dims = int(torch.prod(torch.as_tensor(self.context_shape)))
+        regularized_weights = self.layers[0].weight[:, -n_context_dims:]
+        return torch.abs(regularized_weights).mean() * self.reg_coef  # L1
 
 
 class ResidualFeedForward(TensorConditionerTransform):

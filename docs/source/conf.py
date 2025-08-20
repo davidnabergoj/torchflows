@@ -2,10 +2,13 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import pathlib
+import sys
+import os
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+
+sys.path.insert(0, os.path.abspath('../../'))
 
 with open("../DOCS_VERSION", 'r') as f:
     version = f.read().strip()
@@ -24,6 +27,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx_copybutton',
+    'sphinx.ext.viewcode',
 ]
 
 exclude_patterns = []

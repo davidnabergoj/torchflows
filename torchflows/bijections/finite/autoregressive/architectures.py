@@ -1,4 +1,4 @@
-from typing import Type, Union, Tuple
+from typing import Type, Union, Tuple, Optional
 
 import torch
 
@@ -25,7 +25,7 @@ from torchflows.bijections.finite.autoregressive.layers import (
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers_base import CouplingBijection, \
     MaskedAutoregressiveBijection, InverseMaskedAutoregressiveBijection
-from torchflows.bijections.finite.linear import ReversePermutation
+from torchflows.bijections.finite.matrix.permutation import ReversePermutationMatrix
 
 
 class AutoregressiveArchitecture(BijectiveComposition):
@@ -38,19 +38,20 @@ class AutoregressiveArchitecture(BijectiveComposition):
                          InverseMaskedAutoregressiveBijection
                      ]
                  ],
+                 context_shape: Optional[Union[Tuple[int, ...], torch.Size, int]] = None,
                  n_layers: int = 2,
                  **kwargs):
         if isinstance(event_shape, int):
             event_shape = (event_shape,)
-        bijections = [ElementwiseAffine(event_shape=event_shape)]
+        bijections = [ElementwiseAffine(event_shape=event_shape, context_shape=context_shape)]
         for _ in range(n_layers):
             if 'edge_list' not in kwargs or kwargs['edge_list'] is None:
-                bijections.append(ReversePermutation(event_shape=event_shape))
-            bijections.append(base_bijection(event_shape=event_shape, **kwargs))
+                bijections.append(ReversePermutationMatrix(event_shape=event_shape, context_shape=context_shape))
+            bijections.append(base_bijection(event_shape=event_shape, context_shape=context_shape, **kwargs))
             bijections.append(ActNorm(event_shape=event_shape))
-        bijections.append(ElementwiseAffine(event_shape=event_shape))
-        bijections.append(ActNorm(event_shape=event_shape))
-        super().__init__(event_shape, bijections)
+        bijections.append(ElementwiseAffine(event_shape=event_shape, context_shape=context_shape))
+        bijections.append(ActNorm(event_shape=event_shape, context_shape=context_shape))
+        super().__init__(bijections)
 
 
 class NICE(AutoregressiveArchitecture):
@@ -80,7 +81,11 @@ class RealNVP(AutoregressiveArchitecture):
         :param event_shape: shape of the event tensor.
         :param kwargs: keyword arguments to :class:`~bijections.finite.autoregressive.layers.AffineCoupling`.
         """
-        super().__init__(event_shape, base_bijection=AffineCoupling, **kwargs)
+        if int(torch.prod(torch.as_tensor(event_shape))) == 1:
+            # Fallback for 1D: elementwise affine bijection
+            super().__init__(event_shape, base_bijection=ElementwiseAffine, **kwargs)
+        else:
+            super().__init__(event_shape, base_bijection=AffineCoupling, **kwargs)
 
 
 class InverseRealNVP(AutoregressiveArchitecture):

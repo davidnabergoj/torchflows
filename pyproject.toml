@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
     'torch>=2.0.1',
-    'numpy>=1.26.0, < 2',
+    'numpy',
     'torchdiffeq>=0.2.3',
     'tqdm>=4.65.0',
 ]
