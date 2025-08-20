@@ -142,11 +142,8 @@ def test_fit_with_validation_data(n_train, n_val):
 def test_fit_with_training_context(n_train, event_shape, context_shape):
     torch.manual_seed(0)
     x_train = torch.randn(size=(n_train, *event_shape))
-    if context_shape is None:
-        c_train = None
-    else:
-        c_train = torch.randn(size=(n_train, *context_shape))
-    flow = Flow(RealNVP(event_shape))
+    c_train = torch.randn(size=(n_train, *context_shape)) if context_shape is not None else None
+    flow = Flow(RealNVP(event_shape, context_shape=context_shape))
     flow.fit(x_train, n_epochs=2, context_train=c_train)
 
 
@@ -159,17 +156,11 @@ def test_fit_with_context_and_validation_data(n_train, n_val, event_shape, conte
 
     # Setup training data
     x_train = torch.randn(size=(n_train, *event_shape))
-    if context_shape is None:
-        c_train = None
-    else:
-        c_train = torch.randn(size=(n_train, *context_shape))
+    c_train = torch.randn(size=(n_train, *context_shape)) if context_shape is not None else None
 
     # Setup validation data
     x_val = torch.randn(size=(n_val, *event_shape))
-    if context_shape is None:
-        c_val = None
-    else:
-        c_val = torch.randn(size=(n_val, *context_shape))
+    c_val = torch.randn(size=(n_val, *context_shape)) if context_shape is not None else None
 
-    flow = Flow(RealNVP(event_shape))
+    flow = Flow(RealNVP(event_shape, context_shape=context_shape))
     flow.fit(x_train, n_epochs=2, context_train=c_train, x_val=x_val, context_val=c_val)

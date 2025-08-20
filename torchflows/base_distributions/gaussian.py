@@ -8,6 +8,7 @@ from torchflows.utils import sum_except_batch
 class DiagonalGaussian(torch.distributions.Distribution, nn.Module):
     """Diagonal Gaussian distribution. Extends torch.distributions.Distribution and torch.nn.Module.
     """
+
     def __init__(self,
                  loc: torch.Tensor,
                  scale: torch.Tensor,
@@ -53,10 +54,21 @@ class DiagonalGaussian(torch.distributions.Distribution, nn.Module):
         return sum_except_batch(elementwise_log_prob, self.event_shape)
 
 
+class StandardGaussian(DiagonalGaussian):
+    def __init__(self, event_shape):
+        super().__init__(
+            torch.zeros(size=event_shape),
+            scale=torch.ones(size=event_shape),
+            trainable_loc=False,
+            trainable_scale=False
+        )
+
+
 class DenseGaussian(torch.distributions.Distribution, nn.Module):
     """
     Dense Gaussian distribution. Extends torch.distributions.Distribution and torch.nn.Module.
     """
+
     def __init__(self,
                  loc: torch.Tensor,
                  cov: torch.Tensor,

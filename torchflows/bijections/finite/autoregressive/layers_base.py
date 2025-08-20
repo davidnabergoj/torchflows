@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from torchflows.bijections.finite.autoregressive.conditioning.transforms import ConditionerTransform, \
-    MADE, FeedForward
+    MADE, FeedForward, Linear
 from torchflows.bijections.finite.autoregressive.conditioning.coupling_masks import PartialCoupling, make_coupling
 from torchflows.bijections.finite.autoregressive.transformers.base import TensorTransformer, ScalarTransformer
 from torchflows.bijections.base import Bijection
@@ -17,7 +17,7 @@ class AutoregressiveBijection(Bijection):
                  transformer: Union[TensorTransformer, ScalarTransformer],
                  conditioner_transform: Optional[ConditionerTransform],
                  **kwargs):
-        super().__init__(event_shape=event_shape)
+        super().__init__(event_shape=event_shape, **kwargs)
         self.conditioner_transform = conditioner_transform
         self.transformer = transformer
 
@@ -92,7 +92,13 @@ class CouplingBijection(AutoregressiveBijection):
             **conditioner_kwargs
         )
 
-        super().__init__(event_shape, transformer, conditioner_transform, **kwargs)
+        super().__init__(
+            event_shape=event_shape,
+            transformer=transformer,
+            conditioner_transform=conditioner_transform,
+            context_shape=context_shape,
+            **kwargs
+        )
         self.coupling = coupling
 
     def get_constant_part(self, x: torch.Tensor) -> torch.Tensor:
@@ -217,31 +223,74 @@ class ElementwiseBijection(AutoregressiveBijection):
     def __init__(self,
                  event_shape: Union[Tuple[int, ...], torch.Size],
                  transformer_class: Type[ScalarTransformer],
+                 context_shape: Union[Tuple[int, ...], torch.Size] = None,
                  transformer_kwargs: dict = None,
-                 fill_value: float = None,
+                 fill_value: Union[float, torch.Tensor] = None,
+                 conditioner_transform_class: Type[ConditionerTransform] = Linear,
+                 conditioner_kwargs: dict = None,
                  **kwargs):
+        conditioner_kwargs = conditioner_kwargs or {}
         transformer_kwargs = transformer_kwargs or {}
         transformer = transformer_class(event_shape=event_shape, **transformer_kwargs)
-        super().__init__(
-            event_shape,
-            transformer,
-            None,
-            **kwargs
-        )
 
-        if fill_value is None:
-            self.value = nn.Parameter(torch.randn(*transformer.parameter_shape))
+        if context_shape is None:
+            # No conditioner needed, use global bijection via self.value
+            if fill_value is not None:
+                if isinstance(fill_value, torch.Tensor):
+                    if fill_value.shape != transformer.parameter_shape:
+                        raise ValueError("Shape of fill_value must match the transformer parameter shape")
+                    global_parameters = nn.Parameter(fill_value)
+                else:
+                    global_parameters = nn.Parameter(
+                        torch.full(size=transformer.parameter_shape, fill_value=fill_value))
+            else:
+                global_parameters = nn.Parameter(torch.randn(*transformer.parameter_shape))
+
+            super().__init__(
+                event_shape=event_shape,
+                context_shape=context_shape,  # set to None
+                transformer=transformer,
+                conditioner_transform=None,
+                **kwargs
+            )
+            self.register_parameter('value', global_parameters)
+            self.use_global_parameters = True
+
         else:
-            self.value = nn.Parameter(torch.full(size=transformer.parameter_shape, fill_value=fill_value))
+            # Conditioner needed
+            conditioner_transform = conditioner_transform_class(
+                input_event_shape=None,  # (coupling.source_event_size,),
+                context_shape=context_shape,
+                parameter_shape=transformer.parameter_shape,
+                **conditioner_kwargs
+            )
 
-    def prepare_h(self, batch_shape):
-        tmp = self.value[[None] * len(batch_shape)]
-        return tmp.repeat(*batch_shape, *([1] * len(self.transformer.parameter_shape)))
+            super().__init__(
+                event_shape=event_shape,
+                context_shape=context_shape,
+                transformer=transformer,
+                conditioner_transform=conditioner_transform,
+                **kwargs
+            )
+            self.register_buffer('value', torch.empty(size=()))
+            self.use_global_parameters = False
+
+    def prepare_h(self, context: torch.Tensor, batch_shape):
+        if self.use_global_parameters:
+            tmp = self.value[[None] * len(batch_shape)]
+            return tmp.repeat(*batch_shape, *([1] * len(self.transformer.parameter_shape)))
+        else:
+            if self.context_shape is None:
+                raise ValueError("context_shape must not be None when ")
+            else:
+                if context is None:
+                    raise RuntimeError("Context must be provided")
+                return self.conditioner_transform(x=None, context=context)
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.prepare_h(get_batch_shape(x, self.event_shape))
+        h = self.prepare_h(context, get_batch_shape(x, self.event_shape))
         return self.transformer.forward(x, h)
 
     def inverse(self, z: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = self.prepare_h(get_batch_shape(z, self.event_shape))
+        h = self.prepare_h(context, get_batch_shape(z, self.event_shape))
         return self.transformer.inverse(z, h)

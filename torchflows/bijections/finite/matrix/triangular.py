@@ -7,6 +7,35 @@ import torch.nn as nn
 from torchflows.bijections.finite.matrix.base import InvertibleMatrix
 
 
+class NonTrainableLowerTriangularInvertibleMatrix(InvertibleMatrix):
+    def __init__(self,
+                 matrix: torch.Tensor,
+                 **kwargs):
+        # only works for tensors with one event dimension
+        super().__init__(event_shape=(matrix.shape[0],), **kwargs)
+        self.register_buffer('matrix', matrix)
+
+    @property
+    def unitriangular(self):
+        return bool(torch.all(torch.diag(self.matrix) == 1))
+
+    def project_flat(self, x_flat: torch.Tensor, context_flat: torch.Tensor = None) -> torch.Tensor:
+        return torch.einsum('...ij,...j->...i', self.matrix, x_flat)
+
+    def solve_flat(self, b_flat: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        b_flat_batch = b_flat.view(-1, b_flat.shape[-1])
+        x_flat_batch = torch.linalg.solve_triangular(
+            self.matrix,
+            b_flat_batch.T.to(self.device_buffer.device),
+            upper=False,
+            unitriangular=self.unitriangular
+        ).T
+        return x_flat_batch.view_as(b_flat_batch)
+
+    def log_det_project(self) -> torch.Tensor:
+        return torch.diag(self.matrix).log().sum()
+
+
 class LowerTriangularInvertibleMatrix(InvertibleMatrix):
     """
     Lower triangular matrix with strictly positive diagonal values.
@@ -34,11 +63,17 @@ class LowerTriangularInvertibleMatrix(InvertibleMatrix):
         if not unitriangular:
             self.register_parameter('unc_diag_elements', nn.Parameter(torch.zeros(self.n_dim)))
 
+    def constrain_diagonal_elements(self, u):
+        return torch.exp(u) + self.min_eigval
+
+    def _unconstrain_diagonal_elements(self, c):
+        return torch.log(c - self.min_eigval)
+
     def compute_matrix(self):
         if self.unitriangular:
             mat = torch.eye(self.n_dim)
         else:
-            mat = torch.diag(torch.exp(self.unc_diag_elements) + self.min_eigval)
+            mat = torch.diag(self.constrain_diagonal_elements(self.unc_diag_elements))
         mat[self.off_diagonal_indices[0], self.off_diagonal_indices[1]] = self.off_diagonal_elements
         return mat.to(self.device_buffer.device)
 

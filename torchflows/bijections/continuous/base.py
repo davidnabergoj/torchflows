@@ -312,9 +312,9 @@ class ContinuousBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  f: ODEFunction,
+                 solver: str,
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
-                 solver: str = 'euler',  # Use euler (fastest solver)
                  atol: float = 1e-5,
                  rtol: float = 1e-5,
                  **kwargs):
@@ -340,6 +340,20 @@ class ContinuousBijection(Bijection):
 
     def make_integrations_times(self, z):
         return torch.tensor([0.0, self.sqrt_end_time * self.sqrt_end_time]).to(z)
+    
+    def odeint_wrapper(self, z_flat, log_det_initial, integration_times, **kwargs):
+        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
+        from torchdiffeq import odeint
+
+        return odeint(
+            self.f,
+            (z_flat, log_det_initial),
+            integration_times,
+            atol=self.atol,
+            rtol=self.rtol,
+            method=self.solver,
+            **kwargs
+        )
 
     def inverse(self,
                 z: torch.Tensor,
@@ -355,9 +369,6 @@ class ContinuousBijection(Bijection):
         :rtype: Tuple[torch.Tensor, torch.Tensor]
         """
 
-        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
-        from torchdiffeq import odeint
-
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
@@ -370,14 +381,7 @@ class ContinuousBijection(Bijection):
         self.f.before_odeint(**kwargs)
 
         log_det_initial = torch.zeros(size=(batch_size, 1)).to(z_flat)
-        state_t = odeint(
-            self.f,
-            (z_flat, log_det_initial),
-            integration_times,
-            atol=self.atol,
-            rtol=self.rtol,
-            method=self.solver
-        )
+        state_t = self.odeint_wrapper(z_flat, log_det_initial, integration_times)
 
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
@@ -446,9 +450,6 @@ class ApproximateContinuousBijection(ContinuousBijection):
         """
         super().__init__(event_shape, f, **kwargs)
 
-    def make_integrations_times(self, z):
-        return torch.tensor([0.0, self.sqrt_end_time * self.sqrt_end_time]).to(z)
-
     def inverse(self,
                 z: torch.Tensor,
                 integration_times: torch.Tensor = None,
@@ -461,9 +462,6 @@ class ApproximateContinuousBijection(ContinuousBijection):
         :param kwargs:
         :return:
         """
-        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
-        from torchdiffeq import odeint
-
         # Flatten everything to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
@@ -476,14 +474,7 @@ class ApproximateContinuousBijection(ContinuousBijection):
         self.f.before_odeint(noise=noise)
 
         log_det_initial = torch.zeros(size=(batch_size, *([1] * len(self.event_shape)))).to(z_flat)
-        state_t = odeint(
-            self.f,
-            (z_flat, log_det_initial),
-            integration_times,
-            atol=self.atol,
-            rtol=self.rtol,
-            method=self.solver
-        )
+        state_t = self.odeint_wrapper(z_flat, log_det_initial, integration_times)
 
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
@@ -496,19 +487,3 @@ class ApproximateContinuousBijection(ContinuousBijection):
 
         return x, log_det
 
-    def forward(self,
-                x: torch.Tensor,
-                integration_times: torch.Tensor = None,
-                noise: torch.Tensor = None,
-                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        if integration_times is None:
-            integration_times = self.make_integrations_times(x)
-        return self.inverse(
-            x,
-            integration_times=_flip(integration_times, 0),
-            noise=noise,
-            **kwargs
-        )
-
-    def regularization(self):
-        return self.f.regularization()
