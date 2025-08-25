@@ -2,46 +2,29 @@ import pytest
 import torch
 from torchflows import Flow
 from test.constants import __test_constants
-from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, MAF, CouplingRQNSF, \
-    MaskedAutoregressiveRQNSF
-from torchflows.bijections.finite.autoregressive.layers import ElementwiseScale, ElementwiseAffine, ElementwiseShift, \
-    ElementwiseRQSpline
-from torchflows.bijections.finite.matrix import LowerTriangularInvertibleMatrix, LUMatrix, QRMatrix
-
-
-@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
-@pytest.mark.parametrize('bijection_class', [
-    LowerTriangularInvertibleMatrix,
-    ElementwiseScale,
-    LUMatrix,
-    QRMatrix,
-    ElementwiseAffine,
-    ElementwiseShift,
-    ElementwiseRQSpline,
+from torchflows.bijections.finite.autoregressive.architectures import (
     NICE,
     RealNVP,
     MAF,
     CouplingRQNSF,
     MaskedAutoregressiveRQNSF
-])
-def test_standard_gaussian(bijection_class):
-    torch.manual_seed(0)
-
-    n_data = 10_000
-    n_dim = 3
-    x = torch.randn(size=(n_data, n_dim))
-    bijection = bijection_class(event_shape=(n_dim,))
-    flow = Flow(bijection)
-    flow.fit(x, n_epochs=15)
-    x_flow = flow.sample(100_000)
-    x_mean = torch.mean(x_flow, dim=0)
-    x_var = torch.var(x_flow, dim=0)
-
-    assert torch.allclose(x_mean, torch.zeros(size=(n_dim,)), atol=0.1)
-    assert torch.allclose(x_var, torch.ones(size=(n_dim,)), atol=0.1)
+)
+from torchflows.bijections.finite.autoregressive.layers import (
+    ElementwiseScale,
+    ElementwiseAffine,
+    ElementwiseShift,
+    ElementwiseRQSpline
+)
+from torchflows.bijections.finite.matrix import (
+    LowerTriangularInvertibleMatrix,
+    LUMatrix,
+    QRMatrix
+)
+from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.finite.residual.architectures import ResFlow
 
 
-@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
+@pytest.mark.local_only
 def test_diagonal_gaussian_elementwise_affine():
     torch.manual_seed(0)
 
@@ -51,7 +34,7 @@ def test_diagonal_gaussian_elementwise_affine():
     x = torch.randn(size=(n_data, n_dim)) * sigma
     bijection = ElementwiseAffine(event_shape=(n_dim,))
     flow = Flow(bijection)
-    flow.fit(x, n_epochs=15)
+    flow.fit(x, n_epochs=100)
     x_flow = flow.sample(100_000)
     x_std = torch.std(x_flow, dim=0)
     relative_error = max((x_std - sigma.ravel()).abs() / sigma.ravel())
@@ -59,7 +42,7 @@ def test_diagonal_gaussian_elementwise_affine():
     assert relative_error < 0.1
 
 
-@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
+@pytest.mark.local_only
 def test_diagonal_gaussian_elementwise_scale():
     torch.manual_seed(0)
 
@@ -80,37 +63,73 @@ def test_diagonal_gaussian_elementwise_scale():
     assert relative_error < 0.1
 
 
-@pytest.mark.skip(reason='Takes too long, fit quality is architecture-dependent')
+@pytest.mark.local_only
 @pytest.mark.parametrize('bijection_class',
                          [
                              LowerTriangularInvertibleMatrix,
                              LUMatrix,
                              QRMatrix,
                              MaskedAutoregressiveRQNSF,
-                             ElementwiseRQSpline,
+                             # ElementwiseRQSpline,
                              ElementwiseAffine,
                              RealNVP,
                              MAF,
-                             CouplingRQNSF
+                             CouplingRQNSF,
+                             ResFlow,
+                             # RNODE  # takes a very long time, but goes towards correct std
                          ])
-def test_diagonal_gaussian_1(bijection_class):
+@pytest.mark.parametrize('target',
+                         [
+                             'diagonal',
+                             'standard'
+                         ])
+def test_gaussian(bijection_class, target):
+    if target == 'diagonal':
+        sigma = torch.tensor([[0.1, 1.0, 10.0]])
+    else:
+        sigma = torch.tensor([[1.0, 1.0, 1.0]])
+
     torch.manual_seed(0)
 
     n_data = 10_000
     n_dim = 3
-    sigma = torch.tensor([[0.1, 1.0, 10.0]])
     x = torch.randn(size=(n_data, n_dim)) * sigma
-    bijection = bijection_class(event_shape=(n_dim,))
-    flow = Flow(bijection)
-    if isinstance(bijection, LowerTriangularInvertibleMatrix):
-        flow.fit(x, n_epochs=100)
+
+    n_epochs = 150
+    rtol = 0.1
+
+    # Create flow
+    if bijection_class in [LowerTriangularInvertibleMatrix]:
+        bijection = bijection_class(event_shape=(n_dim,))
+        n_epochs = 100
+    elif bijection_class in [ElementwiseRQSpline]:
+        bijection = bijection_class(
+            event_shape=(n_dim,), n_bins=3, boundary=250.0)
+        n_epochs = 1000
+        rtol = 0.25
+    elif bijection_class in [RNODE]:
+        bijection = bijection_class(
+            event_shape=(n_dim,),
+            nn_kwargs={
+                'hidden_size': 10 * n_dim,
+                'n_hidden_layers': 1
+            }
+        )
+        n_epochs = 5000
+        rtol = 0.25
     else:
-        flow.fit(x, n_epochs=25)
+        bijection = bijection_class(event_shape=(n_dim,))
+    flow = Flow(bijection)
+
+    # Fit flow
+    flow.fit(x, n_epochs=n_epochs)
+
+    # Estimate std
     x_flow = flow.sample(100_000)
     x_std = torch.std(x_flow, dim=0)
     relative_error = max((x_std - sigma.ravel()).abs() / sigma.ravel())
 
-    assert relative_error < 0.1
+    assert relative_error < rtol, f"Estimated std: {x_std}"
 
 
 @pytest.mark.parametrize("n_train", [1, 10, 2200])
