@@ -106,6 +106,9 @@ def create_nn_time_independent(event_shape: Union[Tuple[int, ...], torch.Size],
 def create_nn(event_shape: Union[Tuple[int, ...], torch.Size],
               hidden_size: int = None,
               n_hidden_layers: int = 2):
+    """
+    Note: non-linearities are applied within TimeDerivativeDNN.
+    """
     event_size = int(torch.prod(torch.as_tensor(event_shape)))
 
     if hidden_size is None:
