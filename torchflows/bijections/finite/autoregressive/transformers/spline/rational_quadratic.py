@@ -97,6 +97,7 @@ class RationalQuadratic(MonotonicSpline):
         term1 = deltas_kp1 + deltas_k - 2 * s_k
 
         xi = (inputs - bin_x_k) / bin_widths_k
+        xi = torch.clip(xi, 0.0, 1.0)
         xi_1m_xi = xi * (1 - xi)
 
         # Compute the outputs of the inverse pass
@@ -167,7 +168,10 @@ class RationalQuadratic(MonotonicSpline):
         b = term2 - term0 * term1
         c = -s_k * term0
 
-        xi = 2 * c / (-b - torch.sqrt(b ** 2 - 4 * a * c))
+        sqrt_disct = torch.clip(torch.sqrt(b ** 2 - 4 * a * c), min=0.0)
+
+        xi = 2 * c / (-b - sqrt_disct)
+        xi = torch.clip(xi, 0.0, 1.0)
         xi_1m_xi = xi * (1 - xi)
 
         # Compute the outputs of the inverse pass
