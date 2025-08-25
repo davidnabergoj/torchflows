@@ -1,5 +1,4 @@
 from typing import Union, Tuple
-
 import torch
 
 from torchflows.bijections.continuous.base import (
@@ -19,11 +18,8 @@ class RNODE(ApproximateContinuousBijection):
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], nn_kwargs: dict = None, **kwargs):
-        default_nn_kwargs = {'hidden_size': 100, 'n_hidden_layers': 1}
-        nn_kwargs = nn_kwargs or dict()
-        default_nn_kwargs.update(nn_kwargs)
         diff_eq = RegularizedApproximateODEFunction(
-            create_nn(event_shape, **default_nn_kwargs),
+            create_nn(event_shape, **(nn_kwargs or dict())),
             regularization="sq_jac_norm"
         )
         if 'solver' not in kwargs:
@@ -38,13 +34,10 @@ class ConvolutionalRNODE(ApproximateContinuousBijection):
     """
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], nn_kwargs: dict = None, **kwargs):
-        default_nn_kwargs = {'n_layers': 2}
-        nn_kwargs = nn_kwargs or dict()
-        default_nn_kwargs.update(nn_kwargs)
         if len(event_shape) != 3:
             raise ValueError("Event shape must be of length 3 (channels, height, width).")
         diff_eq = RegularizedApproximateODEFunction(
-            create_cnn(event_shape[0], **default_nn_kwargs),
+            create_cnn(event_shape[0], **(nn_kwargs or dict())),
             regularization="sq_jac_norm"
         )
         if 'solver' not in kwargs:
