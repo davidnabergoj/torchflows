@@ -1,6 +1,7 @@
 import time
 from copy import deepcopy
 from typing import Union, Tuple, List
+import warnings
 
 import numpy as np
 import torch
@@ -283,6 +284,8 @@ class BaseFlow(nn.Module):
         best_train_epoch = 0
         best_weights = deepcopy(self.state_dict())
 
+        terminate_fit: bool = False
+
         for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)):
             if time_limit_seconds is not None and time.time() - t0 >= time_limit_seconds:
                 print("Training time limit exceeded")
@@ -325,13 +328,22 @@ class BaseFlow(nn.Module):
                 self._optimizer.zero_grad()
                 train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
                 if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
+                    # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
+                    self.load_state_dict(best_weights)
+                    terminate_fit = True
+                    warnings.warn("Flow training diverged. Reverting to previous weights.")
                 _total_train_loss += float(train_loss)
                 _n_train_batches += 1
 
                 train_loss += self.regularization()
                 if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
+                    # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
+                    self.load_state_dict(best_weights)
+                    terminate_fit = True
+                    warnings.warn("Flow training diverged. Reverting to previous weights.")
+                if terminate_fit:
+                    break
+
                 train_loss.backward()
                 self._optimizer.step()
 
@@ -343,6 +355,9 @@ class BaseFlow(nn.Module):
                     else:
                         _postfix_str = _train_string
                     pbar.set_postfix_str(_postfix_str)
+
+            if terminate_fit:
+                break
 
             _average_train_loss = _total_train_loss / _n_train_batches
             if _average_train_loss < best_train_loss:
