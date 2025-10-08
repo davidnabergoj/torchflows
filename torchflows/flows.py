@@ -331,7 +331,9 @@ class BaseFlow(nn.Module):
                     # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
                     self.load_state_dict(best_weights)
                     terminate_fit = True
-                    warnings.warn("Flow training diverged. Reverting to previous weights.")
+                    warnings.warn("Flow training diverged (pre-reg). Reverting to previous weights.")
+                if terminate_fit:
+                    break
                 _total_train_loss += float(train_loss)
                 _n_train_batches += 1
 
@@ -340,7 +342,7 @@ class BaseFlow(nn.Module):
                     # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
                     self.load_state_dict(best_weights)
                     terminate_fit = True
-                    warnings.warn("Flow training diverged. Reverting to previous weights.")
+                    warnings.warn("Flow training diverged (post-reg). Reverting to previous weights.")
                 if terminate_fit:
                     break
 
