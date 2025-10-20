@@ -12,136 +12,158 @@ def concatenate_x_t(x, t):
     s[..., -1] = t
     return s
 
-
-class OTResNet(nn.Module):
+class OTNetwork(nn.Module):
     """
-    Two-layer ResNet as described in the original OTFlow paper.
+    
+    """
+    def __init__(self, event_size: int):
+        self.event_size = event_size
+        super().__init__()
+
+class OTResNet(OTNetwork):
+    """Two-layer ResNet as described in the original OTFlow paper.
     """
 
-    def __init__(self, event_size: int, hidden_size: int, step_size: float = 0.01):
-        """
+    def __init__(self, event_size: int, hidden_size: int, step_size: float = 1.0):
+        """OTResNet constructor.
+
         :param hidden_size: number of hidden dimensions "m".
         :param step_size: "h" in the original formulation.
         """
-        super().__init__()
+        super().__init__(event_size)
 
-        # Initialize K0, K1 close to identity
-        # Initialize b0, b1 close to zero
+        self.K0 = nn.Parameter(torch.randn(size=(hidden_size, self.event_size)))
+        self.K1 = nn.Parameter(torch.randn(size=(hidden_size, hidden_size)))
 
-        divisor = max(event_size ** 2, 10)
-
-        self.K0_delta = nn.Parameter(torch.randn(size=(hidden_size, event_size)) / divisor)
-        self.b0 = nn.Parameter(torch.randn(size=(hidden_size,)) / divisor)
-
-        self.K1_delta = nn.Parameter(torch.randn(size=(hidden_size, hidden_size)) / divisor)
-        self.b1 = nn.Parameter(torch.randn(size=(hidden_size,)) / divisor)
+        self.b0 = nn.Parameter(torch.randn(size=(hidden_size,)))
+        self.b1 = nn.Parameter(torch.randn(size=(hidden_size,)))
 
         self.step_size = step_size
 
-    @property
-    def K0(self):
-        return torch.eye(*self.K0_delta.shape).to(self.K0_delta) + self.K0_delta / 1000
-
-    @property
-    def K1(self):
-        return torch.eye(*self.K1_delta.shape).to(self.K1_delta) + self.K1_delta / 1000
-
     @staticmethod
     def sigma(x):
-        return torch.log(torch.exp(x) + torch.exp(-x))
+        return torch.logaddexp(x, -x)
 
     @staticmethod
     def sigma_prime(x):
         return torch.tanh(x)
 
     @staticmethod
-    def sigma_prime_prime(x):
-        # Square of the hyperbolic secant
-        return 4 / torch.square(torch.exp(x) + torch.exp(-x))
+    def sigma_prime2(x):
+        return 1 - torch.tanh(x) ** 2
 
     def compute_u0(self, s):
-        u0 = self.sigma(torch.nn.functional.linear(s, self.K0, self.b0))
-        return u0
+        """Compute u0 from Equation 11.
 
-    def forward(self, s):
+        :param torch.Tensor s: tensor with shape `(batch_size, event_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, hidden_size)`.
         """
-        x.shape = (batch_size, event_size)
-        """
-        u0 = self.compute_u0(s)
-        u1 = u0 + self.step_size * self.sigma(torch.nn.functional.linear(u0, self.K1, self.b1))
-        return u1
+        return self.sigma(torch.nn.functional.linear(s, self.K0, self.b0))
 
-    def compute_z1(self, s, w: torch.Tensor, u0: torch.Tensor = None):
-        if u0 is None:
-            u0 = self.compute_u0(s)
-        linear_in = self.sigma_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * w[None]
-        z1 = w[None] + self.step_size * torch.nn.functional.linear(linear_in, self.K1.T)
-        return z1
+    def compute_u1(self, u0):
+        """Compute u1 from Equation 11.
 
-    def jvp(self, s, w):
+        :param torch.Tensor u0: tensor with shape `(batch_size, hidden_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, hidden_size)`.
         """
-        Compute grad_ResNet_wrt_s * w. The first term is the jacobian matrix.
+        return u0 + self.step_size * self.sigma(torch.nn.functional.linear(u0, self.K1, self.b1))
+
+    def forward(self, s: torch.Tensor):
+        """Compute N(s; theta_N) from Equation 11.
+
+        :param torch.Tensor s: tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor w: tensor with shape `(batch_size, hidden_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, event_size)`.
         """
-        z1 = self.compute_z1(s, w)
-        linear_in_2 = self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1
-        z0 = torch.nn.functional.linear(linear_in_2, self.K0.T)
+        return self.compute_u1(self.compute_u0(s=s))
+
+    def compute_z1(self, w: torch.Tensor, u0: torch.Tensor):
+        """Compute z1 from Equation 13.
+
+        :param torch.Tensor w: tensor with shape `(batch_size, hidden_size)`.
+        :param torch.Tensor u0: tensor with shape `(batch_size, hidden_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, hidden_size)`.
+        """
+        lin = torch.nn.functional.linear(u0, self.K1, self.b1)
+        act = self.sigma_prime(lin * w)
+        lin2 = torch.nn.functional.linear(act, self.K1.T)
+        return w + self.step_size * lin2
+    
+    def compute_z0(self, s: torch.Tensor, z1: torch.Tensor):
+        """Compute z0 from Equation 13.
+
+        :param torch.Tensor s: tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor z1: tensor with shape `(batch_size, hidden_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, event_size)`.
+        """
+        lin = torch.nn.functional.linear(s, self.K0, self.b0)
+        act = self.sigma_prime(lin)
+        return torch.nn.functional.linear(act * z1, self.K0.T)
+    
+    def jvp(self, s: torch.Tensor, w: torch.Tensor):
+        """Compute grad_ResNet_wrt_s * w. The first term is the jacobian matrix.
+
+        :param torch.Tensor s: tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor w: tensor with shape `(batch_size, hidden_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, hidden_size)`.
+        """
+        u0 = self.compute_u0(s=s)
+        z1 = self.compute_z1(w=w, u0=u0)
+        z0 = self.compute_z0(s=s, z1=z1)
         return z0
 
     def hessian_trace(self,
                       s: torch.Tensor,
                       w: torch.Tensor,
-                      u0: torch.Tensor = None,
-                      z1: torch.Tensor = None):
-        if u0 is None:
-            u0 = self.compute_u0(s)
-        if z1 is None:
-            z1 = self.compute_z1(s, w, u0=u0)
+                      u0: torch.Tensor,
+                      z1: torch.Tensor):
+        """Compute OTResNet Hessian trace from Equation 15.
+        
+        :param torch.Tensor s: tensor with shape `(b, e)`.
+        :param torch.Tensor w: tensor with shape `(b, h)`.
+        :param torch.Tensor u0: tensor with shape `(b, h)`.
+        :param torch.Tensor z1: tensor with shape `(b, h)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(b,)`.
+        """
+        lin_t0 = torch.nn.functional.linear(s, self.K0, self.b0)  # (b, h)
+        t0_a = self.sigma_prime2(lin_t0) * z1  # (b, h)
+        K0_E = self.K0[:, :-1]  # (h, e - 1)
+        t0_b = (K0_E * K0_E).sum(dim=1)  # (h,)
 
-        # print(torch.linalg.norm(u0))
+        t0 = torch.sum(t0_a * t0_b[None], dim=1)  # (b,)
 
-        assert torch.all(torch.isfinite(s))
-        assert torch.all(~torch.isnan(s))
+        lin_t1_a = torch.nn.functional.linear(u0, self.K1, self.b1)  # (b, h)
+        t1_a = self.sigma_prime2(lin_t1_a) * w  # (b, h)
+        J = torch.multiply(
+            self.sigma_prime(
+                torch.nn.functional.linear(s, self.K0, self.b0)
+            )[:, :, None],  # (b, h, 1)
+            K0_E[None, :, :]  # (1, h, e - 1)
+        )  # (b, h, e - 1)
+        K1J = torch.swapdims(
+            torch.matmul(
+                self.K1,  # (h, h)
+                torch.swapdims(J, 0, 1)  # (h, b, e - 1)
+            ),  # (h, b, e - 1)
+            0, 
+            1
+        )  # (b, h, e - 1)
+        t1_b = (K1J * K1J).sum(dim=-1)  # (b, h)
 
-        assert torch.all(torch.isfinite(w))
-        assert torch.all(~torch.isnan(w))
-
-        assert torch.all(torch.isfinite(u0))
-        assert torch.all(~torch.isnan(u0))
-
-        assert torch.all(torch.isfinite(z1))
-        assert torch.all(~torch.isnan(z1))
-
-        # Compute the first term in Equation 14
-
-        ones = torch.ones(size=(self.K0.shape[1] - 1,)).to(s)
-
-        t0 = torch.sum(
-            torch.multiply(
-                self.sigma_prime_prime(torch.nn.functional.linear(s, self.K0, self.b0)) * z1,
-                torch.nn.functional.linear(ones, self.K0[:, :-1] ** 2)
-            ),
-            dim=1
-        )
-
-        # K1J = self.K1 @ self.K0.T @ self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))
-        K1J = torch.matmul(
-            self.K1,
-            self.sigma_prime(torch.nn.functional.linear(s, self.K0, self.b0))[..., None] * self.K0[:, :-1][None]
-        )
-
-        t1 = torch.sum(
-            torch.multiply(
-                self.sigma_prime_prime(torch.nn.functional.linear(u0, self.K1, self.b1)) * w,
-                (K1J ** 2) @ ones
-            ),
-            dim=1
-        )
+        t1 = torch.sum(t1_a * t1_b, dim=1)  # (b,)
 
         return t0 + self.step_size * t1
 
 
 class OTPotential(TimeDerivative):
-    def __init__(self, event_size: int, hidden_size: int = 50, resnet_kwargs: dict = None):
+    def __init__(self, event_size: int, hidden_size: int = None, resnet_kwargs: dict = None):
         super().__init__()
         resnet_kwargs = resnet_kwargs or {}
 
@@ -186,7 +208,10 @@ class OTPotential(TimeDerivative):
 
         # E.T @ A ... remove last row (assuming E has d of d+1 standard basis vectors)
         # A @ E ... remove last column (assuming E has d of d+1 standard basis vectors)
+        # tr_second_term = torch.trace((self.A.T @ self.A)[:-1, :-1])
+        batch_size = s.shape[0]
         tr_second_term = torch.trace((self.A.T @ self.A)[:-1, :-1])
+        tr_second_term = tr_second_term * torch.ones(batch_size, device=s.device)
 
         assert torch.all(torch.isfinite(tr_second_term))
         assert torch.all(~torch.isnan(tr_second_term))
@@ -212,7 +237,7 @@ class OTFlow(ExactContinuousBijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  ot_flow_kwargs: dict = None,
-                 solver='dopri8',
+                 solver='rk4',
                  **kwargs):
         ot_flow_kwargs = ot_flow_kwargs or {}
 
