@@ -28,12 +28,13 @@ class OTResNet(nn.Module):
         super().__init__()
 
         self.c_event_size = c_event_size
+        d = math.sqrt(hidden_size)
 
-        self.K0 = nn.Parameter(torch.randn(hidden_size, self.c_event_size))
-        self.K1 = nn.Parameter(torch.randn(hidden_size, hidden_size))
+        self.K0 = nn.Parameter(torch.randn(hidden_size, self.c_event_size) / d)
+        self.K1 = nn.Parameter(torch.randn(hidden_size, hidden_size) / d)
 
-        self.b0 = nn.Parameter(torch.randn(hidden_size,))
-        self.b1 = nn.Parameter(torch.randn(hidden_size,))
+        self.b0 = nn.Parameter(torch.randn(hidden_size,) / d)
+        self.b1 = nn.Parameter(torch.randn(hidden_size,) / d)
 
         self.step_size = step_size
 
@@ -159,7 +160,7 @@ class OTPotential(TimeDerivative):
     def __init__(self, 
                  event_size: int, 
                  hidden_size: int = None,
-                 step_size: float = 1.0):
+                 step_size: float = 0.01):
         """OT-Flow potential constructor.
 
         :param int event_size: size of the event tensor without the concatenated 
@@ -174,10 +175,11 @@ class OTPotential(TimeDerivative):
             hidden_size = max(3 * int(math.log(event_size)), 4)
 
         r = min(10, event_size)
+        div = math.sqrt(hidden_size)
 
-        self.w = nn.Parameter(torch.randn(hidden_size))
-        self.A = nn.Parameter(torch.randn(r, event_size + 1))
-        self.b = nn.Parameter(torch.randn(event_size + 1))
+        self.w = nn.Parameter(torch.randn(hidden_size) / div)
+        self.A = nn.Parameter(torch.randn(r, event_size + 1) / div)
+        self.b = nn.Parameter(torch.randn(event_size + 1) / div)
         self.resnet = OTResNet(
             c_event_size=event_size + 1, 
             hidden_size=hidden_size,
@@ -210,9 +212,10 @@ class OTPotential(TimeDerivative):
         # Equation 14
         tr_first_term = self.resnet.hessian_trace(s, self.w, u0, z1)
 
+        # Second term: tr(E^T (A^T A) E)
         # E.T @ A ... remove last row (assuming E has d of d+1 standard basis vectors)
         # A @ E ... remove last column (assuming E has d of d+1 standard basis vectors)
-        tr_second_term = torch.trace((self.A.T @ self.A)[:-1, :-1]).view(1, 1)
+        tr_second_term = torch.trace((self.A.T @ self.A)[:-1, :-1])
 
         return tr_first_term + tr_second_term
 
