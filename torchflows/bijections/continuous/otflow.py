@@ -266,8 +266,6 @@ class OTFlowODEFunction(ODEFunction):
         """
         self._n_evals += 1
         x, _, _, _ = states[:4]  # (s, ell, L, R).
-        t = torch.as_tensor(t, dtype=x.dtype)
-
         s = concatenate_x_t(x, t)
 
         # Gradient computation
@@ -300,7 +298,7 @@ class OTFlowODEFunction(ODEFunction):
         ).view(-1, 1)  # Need an empty dim at the end
 
 
-class OTFlow(ContinuousBijection):
+class OTFlowBijection(ContinuousBijection):
     """Optimal transport flow (OT-flow) architecture.
 
     Reference: Onken et al. "OT-Flow: Fast and Accurate Continuous Normalizing Flows via Optimal Transport" (2021); https://arxiv.org/abs/2006.00104.
@@ -310,9 +308,6 @@ class OTFlow(ContinuousBijection):
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  ode_kwargs: dict = None,
                  solver: str = 'rk4',
-                 alpha1: float = 1.0,
-                 alpha2: float = 1.0,
-                 alpha3: float = 1.0,
                  **kwargs):
         """OTFlow constructor.
 
@@ -334,6 +329,7 @@ class OTFlow(ContinuousBijection):
     def inverse(self,
                 z: torch.Tensor,
                 integration_times: torch.Tensor = None,
+                return_regularization_terms: bool = False,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Inverse pass of the OT-Flow bijection.
@@ -396,5 +392,8 @@ class OTFlow(ContinuousBijection):
         transport_cost = transport_cost_T.view(*batch_shape)
         hjb = hjb_T.view(*batch_shape)
 
-        return x, log_det, transport_cost, hjb
+        if return_regularization_terms:
+            return x, log_det, transport_cost, hjb
+        else:
+            return x, log_det
     
