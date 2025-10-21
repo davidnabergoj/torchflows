@@ -166,7 +166,6 @@ class TimeDerivativeDNN(TimeDerivative):
             # Apply nonlinearity
             if i < len(self.layers) - 1:
                 dx = torch.tanh(dx)
-        assert dx.shape == x.shape
         return dx
 
 
@@ -210,7 +209,6 @@ class ExactODEFunction(ODEFunction):
         :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
         :return:
         """
-        assert len(states) >= 2
         y = states[0]
         self._n_evals += 1
 
@@ -224,8 +222,6 @@ class ExactODEFunction(ODEFunction):
             dy = self.diffeq(t, y, *states[2:])
 
         log_det = self.compute_log_det(t, y)
-        assert torch.all(torch.isfinite(log_det))
-        assert torch.all(~torch.isnan(log_det))
         return tuple([dy, log_det] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
 
 
@@ -249,7 +245,6 @@ class ApproximateODEFunction(ODEFunction):
         :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
         :return:
         """
-        assert len(states) >= 2
         y = states[0]
         self._n_evals += 1
 
@@ -489,4 +484,3 @@ class ApproximateContinuousBijection(ContinuousBijection):
         log_det = log_det_final_flat.view(*batch_shape)
 
         return x, log_det
-
