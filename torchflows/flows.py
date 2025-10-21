@@ -70,6 +70,15 @@ class BaseFlow(nn.Module):
         """Compute the regularization term used in training.
         """
         return 0.0
+    
+    def _loss_kl_p_to_q(self, 
+                        data: torch.Tensor, 
+                        log_prob_target_data: torch.Tensor,
+                        use_regularization: bool = True):
+        loss = torch.mean(log_prob_target_data - self.log_prob(data))
+        if use_regularization:
+            loss += self.regularization()
+        return loss
 
     def fit_kl_p_to_q(self,
                       x_train: torch.Tensor,
@@ -84,9 +93,6 @@ class BaseFlow(nn.Module):
                       early_stopping_threshold: int = 50,
                       time_limit_seconds: Union[float, int] = None,
                       reset_optimizer: bool = True):
-        def loss_function(data, log_prob_target_data):
-            return torch.mean(log_prob_target_data - self.log_prob(data))
-
         train_dataset = TensorDataset(x_train, -potential(x_train).detach())
         train_loader = DataLoader(train_dataset, batch_size=batch_size)
 
@@ -115,12 +121,7 @@ class BaseFlow(nn.Module):
 
             for train_batch in train_loader:
                 self._optimizer.zero_grad()
-                train_loss = loss_function(*train_batch)
-                if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
-                train_loss += self.regularization()
-                if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
+                train_loss = self._loss_kl_p_to_q(*train_batch)
                 train_loss.backward()
                 self._optimizer.step()
 
@@ -139,7 +140,10 @@ class BaseFlow(nn.Module):
                 # Compute validation loss
                 val_loss = 0.0
                 for val_batch in val_loader:
-                    val_loss += loss_function(*val_batch).detach()
+                    val_loss += self._loss_kl_p_to_q(
+                        *val_batch, 
+                        use_regularization=False
+                    ).detach()
 
                 # Check if validation loss is the lowest so far
                 if val_loss < best_val_loss:
@@ -164,6 +168,22 @@ class BaseFlow(nn.Module):
             self.bijection.f.stored_reg = None
 
         self.eval()
+
+    def _base_batch_loss(self, 
+                         batch_: Tuple[torch.Tensor, torch.Tensor],
+                         reduction: callable = torch.mean,
+                         use_regularization: bool = True):
+        batch_x, batch_weights = batch_[:2]
+        batch_context = batch_[2] if len(batch_) == 3 else None
+
+        batch_log_prob = self.log_prob(batch_x.to(self.get_device()), context=batch_context)
+        batch_weights = batch_weights.to(self.get_device())
+        batch_loss = -reduction(batch_log_prob * batch_weights) / self.event_size
+
+        if use_regularization:
+            batch_loss += self.regularization()
+
+        return batch_loss
 
     def fit(self,
             x_train: torch.Tensor,
@@ -263,17 +283,6 @@ class BaseFlow(nn.Module):
                 event_shape=self.event_shape
             )
 
-        def compute_batch_loss(batch_, reduction: callable = torch.mean):
-            batch_x, batch_weights = batch_[:2]
-            batch_context = batch_[2] if len(batch_) == 3 else None
-
-            batch_log_prob = self.log_prob(batch_x.to(self.get_device()), context=batch_context)
-            batch_weights = batch_weights.to(self.get_device())
-            assert batch_log_prob.shape == batch_weights.shape, f"{batch_log_prob.shape = }, {batch_weights.shape = }"
-            batch_loss = -reduction(batch_log_prob * batch_weights) / self.event_size
-
-            return batch_loss
-
         if self._optimizer is None or reset_optimizer:
             self._optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         val_loss = None
@@ -326,26 +335,22 @@ class BaseFlow(nn.Module):
             _n_train_batches = 0
             for train_batch in train_loader:
                 self._optimizer.zero_grad()
-                train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
+                train_loss = self.compute_batch_loss(
+                    train_batch, 
+                    reduction=torch.mean,
+                    use_regularization=True
+                )
+
                 if not torch.isfinite(train_loss):
                     # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
                     self.load_state_dict(best_weights)
                     terminate_fit = True
-                    warnings.warn("Flow training diverged (pre-reg). Reverting to previous weights.")
+                    warnings.warn("Flow training diverged. Reverting to previous weights.")
                 if terminate_fit:
                     break
+
                 _total_train_loss += float(train_loss)
                 _n_train_batches += 1
-
-                train_loss += self.regularization()
-                if not torch.isfinite(train_loss):
-                    # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
-                    self.load_state_dict(best_weights)
-                    terminate_fit = True
-                    warnings.warn("Flow training diverged (post-reg). Reverting to previous weights.")
-                if terminate_fit:
-                    break
-
                 train_loss.backward()
                 self._optimizer.step()
 
@@ -372,7 +377,11 @@ class BaseFlow(nn.Module):
                 # Compute validation loss
                 val_loss = 0.0
                 for val_batch in val_loader:
-                    val_loss += compute_batch_loss(val_batch, reduction=torch.sum).detach()
+                    val_loss += self.compute_batch_loss(
+                        val_batch, 
+                        reduction=torch.sum,
+                        use_regularization=False
+                    ).detach()
                 val_loss /= len(x_val)
 
                 # Check if validation loss is the lowest so far
@@ -405,6 +414,32 @@ class BaseFlow(nn.Module):
             self.bijection.f.stored_reg = None
 
         self.eval()
+
+    def _variational_loss(self, 
+                          target_log_prob: callable, 
+                          n_samples: int,
+                          use_regularization: bool = True,
+                          check_for_divergences: bool = False):
+        flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
+        target_log_prob_value = target_log_prob(flow_x)
+        loss = -torch.mean(target_log_prob_value + flow_log_prob)
+        if use_regularization:
+            loss += self.regularization()
+
+        epoch_diverged = False
+        if check_for_divergences:
+            if not torch.isfinite(loss):
+                epoch_diverged = True
+            if torch.max(torch.abs(flow_x)) > 1e8:
+                epoch_diverged = True
+            elif torch.max(torch.abs(flow_log_prob)) > 1e6:
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_x)):
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_log_prob)):
+                epoch_diverged = True
+            
+        return loss, flow_log_prob, target_log_prob_value, epoch_diverged
 
     def variational_fit(self,
                         target_log_prob: callable,
@@ -464,22 +499,17 @@ class BaseFlow(nn.Module):
             self._optimizer.zero_grad()
 
             try:
-                flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
-                target_log_prob_value = target_log_prob(flow_x)
-                loss = -torch.mean(target_log_prob_value + flow_log_prob)
-                loss += self.regularization()
-
-                if check_for_divergences:
-                    if not torch.isfinite(loss):
-                        epoch_diverged = True
-                    if torch.max(torch.abs(flow_x)) > 1e8:
-                        epoch_diverged = True
-                    elif torch.max(torch.abs(flow_log_prob)) > 1e6:
-                        epoch_diverged = True
-                    elif torch.any(~torch.isfinite(flow_x)):
-                        epoch_diverged = True
-                    elif torch.any(~torch.isfinite(flow_log_prob)):
-                        epoch_diverged = True
+                (
+                    loss, 
+                    flow_log_prob, 
+                    target_log_prob_value, 
+                    epoch_diverged
+                ) = self._variational_loss(
+                    target_log_prob=target_log_prob,
+                    n_samples=n_samples,
+                    use_regularization=True,
+                    check_for_divergences=True
+                )
 
                 if not epoch_diverged:
                     loss.backward()
@@ -566,7 +596,7 @@ class Flow(BaseFlow):
             _batch_shape_2 = get_batch_shape(context, self.context_shape)
             assert _batch_shape_1 == _batch_shape_2
             context = context.to(self.get_device())
-        z, log_det = self.bijection.forward(x.to(self.get_device()), context=context)
+        z, log_det = self.bijection.forward(x.to(self.get_device()), context=context)[:2]
         log_base = self.base_log_prob(z)
         return z, log_base + log_det
 
@@ -617,11 +647,15 @@ class Flow(BaseFlow):
         if no_grad:
             z = z.detach()
             with torch.no_grad():
-                x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.event_shape),
-                                                    context=context)
+                x, log_det = self.bijection.inverse(
+                    z.view(*sample_shape, *self.bijection.event_shape),
+                    context=context
+                )[:2]
         else:
-            x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.event_shape),
-                                                context=context)
+            x, log_det = self.bijection.inverse(
+                z.view(*sample_shape, *self.bijection.event_shape),
+                context=context
+            )[:2]
         x = x.to(self.get_device())
 
         if return_log_prob:
@@ -635,6 +669,150 @@ class Flow(BaseFlow):
         else:
             return 0.0
 
+class ContinuousFlow(BaseFlow):
+    def __init__(self, bijection: Bijection, **kwargs):
+        super().__init__(
+            event_shape=bijection.event_shape, 
+            **kwargs
+        )
+        self.register_module('bijection', bijection)
+
+    @property
+    def context_shape(self):
+        return self.bijection.context_shape
+
+    def forward_with_auxiliary_outputs(self, 
+                                       x: torch.Tensor, 
+                                       context: torch.Tensor = None):
+        """Transform the input x to the space of the base distribution.
+
+        :param torch.Tensor x: input tensor.
+        :param torch.Tensor context: context tensor upon which the transformation is conditioned.
+        :return: transformed tensor and auxiliary output tensors.
+        :rtype: Tuple[torch.Tensor, ...].
+        """
+        if context is not None:
+            if self.context_shape is None:
+                raise ValueError('Context shape must be set.')
+            if self.event_shape is None:
+                raise ValueError('Event shape must be set.')
+            _batch_shape_1 = get_batch_shape(x, self.event_shape)
+            _batch_shape_2 = get_batch_shape(context, self.context_shape)
+            assert _batch_shape_1 == _batch_shape_2
+            context = context.to(self.get_device())
+        return self.bijection.forward(
+            x.to(self.get_device()), 
+            context=context
+        )
+
+    def forward_with_log_prob(self,
+                              x: torch.Tensor,
+                              context: torch.Tensor = None):
+        z, log_det = self.forward_with_auxiliary_outputs(
+            x=x,
+            context=context
+        )
+        log_base = self.base_log_prob(z)
+        return z, log_base + log_det
+
+    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
+        """Compute the logarithm of the probability density of input x according to the normalizing flow.
+
+        :param torch.Tensor x: input tensor.
+        :param torch.Tensor context: context tensor.
+        :return: tensor of log probabilities.
+        :rtype: torch.Tensor.
+        """
+        return self.forward_with_log_prob(x, context)[1]
+
+    def sample_with_auxiliary_outputs(self,
+                                      sample_shape: Union[int, torch.Size, Tuple[int, ...]],
+                                      context: torch.Tensor = None,
+                                      no_grad: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        if isinstance(sample_shape, int):
+            sample_shape = (sample_shape,)
+
+        if context is not None:
+            z = self.base_sample(sample_shape=sample_shape)
+            if get_batch_shape(context, self.context_shape) == sample_shape:
+                # Option A: a context tensor is given for each sampled element
+                pass
+            else:
+                # Option B: one context tensor is given for the entire to-be-sampled batch
+                sample_shape = (*sample_shape, len(context))
+                context = context[None].repeat(
+                    *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
+                assert z.shape[:2] == context.shape[:2]
+        else:
+            z = self.base_sample(sample_shape=sample_shape)
+
+        if no_grad:
+            z = z.detach()
+            with torch.no_grad():
+                x, *aux = self.bijection.inverse(
+                    z.view(*sample_shape, *self.bijection.event_shape),
+                    context=context
+                )
+        else:
+            x, *aux = self.bijection.inverse(
+                z.view(*sample_shape, *self.bijection.event_shape),
+                context=context
+            )
+        x = x.to(self.get_device())
+
+        return x, z, *aux
+
+    def sample(self,
+               sample_shape: Union[int, torch.Size, Tuple[int, ...]],
+               context: torch.Tensor = None,
+               no_grad: bool = False,
+               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """Sample from the normalizing flow.
+
+        If context given, sample n tensors for each context tensor.
+        Otherwise, sample n tensors.
+
+        :param sample_shape: shape of tensors to sample.
+        :param torch.Tensor context: context tensor with shape `c`.
+        :param bool no_grad: if True, do not track gradients in the inverse pass.
+        :param return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
+        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or `(*sample_shape, *c, *event_shape)` if context given.
+        :rtype: torch.Tensor
+        """
+        x, z, log_det = self.sample_with_auxiliary_outputs(
+            sample_shape=sample_shape,
+            context=context,
+            no_grad=no_grad
+        )[:3]
+
+        if return_log_prob:
+            log_prob = self.base_log_prob(z) + log_det
+            return x, log_prob
+        return x
+    
+    def regularization(self):
+        if hasattr(self.bijection, 'regularization'):
+            return self.bijection.regularization()
+        else:
+            return 0.0
+
+    def _base_batch_loss(self, 
+                         batch_: Tuple[torch.Tensor, torch.Tensor],
+                         reduction: callable = torch.mean,
+                         use_regularization: bool = True):
+        batch_x, batch_weights = batch_[:2]
+        batch_context = batch_[2] if len(batch_) == 3 else None
+
+        # TODO recover auxiliary outputs and compute regularization properly!
+        # TODO Each continuous bijection should have its own way of transforming auxiliary outputs into the regularization term.
+        batch_log_prob = self.log_prob(batch_x.to(self.get_device()), context=batch_context)
+        batch_weights = batch_weights.to(self.get_device())
+        batch_loss = -reduction(batch_log_prob * batch_weights) / self.event_size
+
+        if use_regularization:
+            batch_loss += self.regularization()
+
+        return batch_loss
 
 class FlowMixture(BaseFlow):
     """Base class for mixtures of normalizing flows. Inherits from BaseFlow.
