@@ -8,7 +8,7 @@ from torchflows.architectures import (
     LRSGlow,
     ShiftGlow,
     ConvolutionalRNODE,
-    ConvolutionalDeepDiffeomorphicBijection,
+    ConvolutionalDDNF,
     ConvolutionalFFJORD
 )
 import torch
@@ -41,7 +41,7 @@ def test_autoregressive(architecture_class, image_shape):
 @pytest.mark.skip('Unsupported/failing')
 @pytest.mark.parametrize('architecture_class', [
     ConvolutionalRNODE,
-    ConvolutionalDeepDiffeomorphicBijection,
+    ConvolutionalDDNF,
     ConvolutionalFFJORD
 ])
 @pytest.mark.parametrize('image_shape', [(1, 28, 28), (3, 28, 28)])

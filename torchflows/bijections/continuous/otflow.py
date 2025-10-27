@@ -3,8 +3,9 @@ from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
-from torchflows.bijections.continuous.base import TimeDerivative, ContinuousBijection, ODEFunction
-from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
+from torchflows.bijections.continuous.base import TimeDerivative, ContinuousBijection
+from torchflows.bijections.continuous.time_derivative import TimeDerivativeModule
+
 
 def concatenate_x_t(x, t):
     # Concatenate t to the end of x
@@ -92,7 +93,7 @@ class OTResNet(nn.Module):
         act = self.sigma_prime(lin * w)
         lin2 = torch.nn.functional.linear(act, self.K1.T)
         return w + self.step_size * lin2
-    
+
     def compute_z0(self, s: torch.Tensor, z1: torch.Tensor):
         """Compute z0 from Equation 13.
 
@@ -104,7 +105,7 @@ class OTResNet(nn.Module):
         lin = torch.nn.functional.linear(s, self.K0, self.b0)
         act = self.sigma_prime(lin)
         return torch.nn.functional.linear(act * z1, self.K0.T)
-    
+
     def jvp(self, s: torch.Tensor, w: torch.Tensor):
         """Compute grad_ResNet_wrt_s * w. The first term is the jacobian matrix.
 
@@ -124,7 +125,7 @@ class OTResNet(nn.Module):
                       u0: torch.Tensor,
                       z1: torch.Tensor):
         """Compute OTResNet Hessian trace from Equation 15.
-        
+
         :param torch.Tensor s: tensor with shape `(b, e)`.
         :param torch.Tensor w: tensor with shape `(b, h)`.
         :param torch.Tensor u0: tensor with shape `(b, h)`.
@@ -158,9 +159,9 @@ class OTResNet(nn.Module):
         return t0 + self.step_size * t1
 
 
-class OTPotential(TimeDerivative):
-    def __init__(self, 
-                 event_size: int, 
+class OTPotential(TimeDerivativeModule):
+    def __init__(self,
+                 event_size: int,
                  hidden_size: int = None,
                  step_size: float = 1.0):
         """OT-Flow potential constructor.
@@ -187,15 +188,15 @@ class OTPotential(TimeDerivative):
         self.b = nn.Parameter(torch.zeros(event_size + 1))
 
         self.resnet = OTResNet(
-            c_event_size=event_size + 1, 
+            c_event_size=event_size + 1,
             hidden_size=hidden_size,
             step_size=step_size
         )
 
-    def forward(self, t, x):
-        return self.gradient(
-            concatenate_x_t(x, t),
-        )
+    def forward(self,
+                t: torch.Tensor,
+                x: torch.Tensor):
+        return self.gradient(concatenate_x_t(x, t))
 
     def gradient(self, s: torch.Tensor):
         """
@@ -215,12 +216,12 @@ class OTPotential(TimeDerivative):
         time_derivative = grad[..., -1]
         return space_derivative, time_derivative
 
-    def hessian_trace(self, 
-                      s: torch.Tensor, 
-                      u0: torch.Tensor, 
-                      z1: torch.Tensor):
-        """Compute trace of the Hessian of the potential.
-        
+    def compute_divergence(self,
+                           s: torch.Tensor,
+                           u0: torch.Tensor,
+                           z1: torch.Tensor):
+        """Compute divergence.
+
         :param torch.Tensor s: tensor with shape `(batch_size, event_size + 1)`.
         :param torch.Tensor u0: tensor with shape `(batch_size, hidden_size)`.
         :param torch.Tensor z1: tensor with shape `(batch_size, hidden_size)`.
@@ -238,162 +239,136 @@ class OTPotential(TimeDerivative):
         return tr_first_term + tr_second_term
 
 
-class OTFlowODEFunction(ODEFunction):
-    """OT-Flow ODE, as described in Appendix D, Equation 26.
+class OTFlowTimeDerivative(TimeDerivative):
+    """OT-Flow time derivative, as described in Appendix D, Equation 26.
     """
-    def __init__(self, n_dim, **kwargs):
-        """OTFlowODEFunction constructor.
-        """
-        super().__init__(OTPotential(n_dim, **kwargs))
 
-    def forward(self, 
-                t: float, 
-                states: Tuple[torch.Tensor, ...]):
-        """Compute partial_t [z(x, t), ell(x, t), L(x, t), R(x, t)] where
+    def __init__(self,
+                 event_size: int,
+                 reg_transport: bool = True,
+                 reg_transport_coef: float = 0.01,
+                 reg_hjb: bool = True,
+                 reg_hjb_coef: float = 0.01,
+                 **kwargs):
+        """OTFlowTimeDerivative constructor.
+
+        :param int event_size: size of the space tensor.
+        :param bool reg_transport: if True, use transport cost regularization.
+        :param float reg_transport_cef: transport cost regularization coefficient.
+        :param bool reg_hjb: if True, use HJB regularization.
+        :param float reg_hjb_coef: HJB regularization coefficient.
+        :param kwargs: keyword arguments for OTPotential.
+        """
+        super().__init__()
+        self.time_deriv = OTPotential(event_size, **kwargs)
+        self.reg_transport = reg_transport
+        self.reg_transport_coef = reg_transport_coef
+        self.reg_hjb = reg_hjb
+        self.reg_hjb_coef = reg_hjb_coef
+
+    @torch.no_grad()
+    def prepare_initial_state(self, z0, div0):
+        use_hjb = False
+        use_transport = False
+
+        if self.training and self.reg_transport and self.reg_transport_coef > 0:
+            use_transport = True
+        if self.training and self.reg_hjb and self.reg_hjb_coef > 0:
+            use_hjb = True
+
+        if use_transport and use_hjb:
+            return (z0, div0, div0.clone(), div0.clone())
+        elif use_transport and not use_hjb:
+            return (z0, div0, div0.clone())
+        elif not use_transport and use_hjb:
+            return (z0, div0, div0.clone())
+        else:
+            return (z0, div0)
+
+    def step(self,
+             t: torch.Tensor,
+             x: torch.Tensor,
+             *aux: Tuple[torch.Tensor, ...]):
+        """Compute dx/dt, divergence, transport delta, and HJB delta.
+
+        This means computing partial_t [z(x, t), ell(x, t), L(x, t), R(x, t)] where
             z(x, t) = -grad phi (z(x, t), t; theta)
             ell(x, t) = -tr(hess phi (z(x, t), t; theta))
             L(x, t) = 1/2 || grad phi(z(x, t), t; theta) ||^2
             R(x, t) = | partial_t phi(z(x, t), t; theta) - 1/2 || grad phi (z(x, t), t; theta)||^2 |
         Refer to Section 3 for equations.
 
-        :param float t: time parameter t.
-        :param Tuple[torch.Tensor, ...] states: tuple of tensors 
-         (z(x, t), ell(x, t), L(x, t), R(x, t)).
-         z(x, t) has shape `(batch_size, n_dim + 1)`.
-        :rtype: Tuple[torch.Tensor, ....].
-        :return: tuple of tensors 
-            (d_z(x, t), d_ell(x, t), d_L(x, t), d_R(x, t)).
+        :param torch.Tensor t: time tensor with shape `()`.
+        :param torch.Tensor x: space tensor with shape `(batch_size, event_size)`.
+        :param Tuple[torch.Tensor, ...] aux: unused.
+        :rtype: Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]].
+        :return: dx/dt with the same shape as x and divergence tensor with shape 
+         `(batch_size, 1)`. If training, also return the delta transport cost and the delta HJB.
         """
+
         self._n_evals += 1
-        x, _, _, _ = states[:4]  # (s, ell, L, R).
         s = concatenate_x_t(x, t)
 
         # Gradient computation
-        grad_space, grad_time = self.diffeq.gradient(s=s)
+        grad_space, grad_time = self.time_deriv.gradient(s=s)
 
-        u0 = self.diffeq.resnet.compute_u0(s=s)
-        z1 = self.diffeq.resnet.compute_z1(w=self.diffeq.w, u0=u0)
-        tr_hess = self.diffeq.hessian_trace(s=s, u0=u0, z1=z1)
+        u0 = self.time_deriv.resnet.compute_u0(s=s)
+        z1 = self.time_deriv.resnet.compute_z1(w=self.time_deriv.w, u0=u0)
+        tr_hess = self.time_deriv.hessian_trace(s=s, u0=u0, z1=z1)
 
-        d_ell = 1/2 * torch.sum(grad_space ** 2, dim=-1)
-        return tuple([
-            -grad_space,
-            -tr_hess,
-            d_ell,
-            torch.abs(grad_time - d_ell)
-        ])
+        dxdt = -grad_space
+        div = -tr_hess
 
-    def compute_log_det(self, t, x):
-        s = concatenate_x_t(x, t)
-        self.diffeq: OTPotential
+        if self.training:
+            d_transport = None  # transport cost delta
+            d_hjb = None  # HJB delta
 
-        w = self.diffeq.w
-        u0 = self.diffeq.resnet.compute_u0(s=s)
-        z1 = self.diffeq.resnet.compute_z1(w=w, u0=u0)
+            if self.reg_transport and self.reg_transport_coef > 0:
+                d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
 
-        return -self.diffeq.hessian_trace(
-            s=s,
-            u0=u0,
-            z1=z1
-        ).view(-1, 1)  # Need an empty dim at the end
+            if self.reg_hjb and self.reg_hjb_coef > 0:
+                if not d_transport:
+                    # User does not want transport regularization, but wants HJB (which internally needs transport cost)
+                    # d_transport will not be set, so only HJB will be used
+                    _tmp_d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
+                d_hjb = torch.abs(grad_time - _tmp_d_transport)
+
+            if d_transport and d_hjb:
+                return (dxdt, div, d_transport, d_hjb)
+            elif d_transport and not d_hjb:
+                return (dxdt, div, d_transport)
+            elif not d_transport and d_hjb:
+                return (dxdt, div, d_hjb)
+            else:
+                return (dxdt, div)
+        else:
+            return (dxdt, div)
 
 
 class OTFlowBijection(ContinuousBijection):
-    """Optimal transport flow (OT-flow) architecture.
+    """OT-flow architecture for general tensors.
+    Parameterizes the time derivative with a non-convolutional ResNet.
 
-    Reference: Onken et al. "OT-Flow: Fast and Accurate Continuous Normalizing Flows via Optimal Transport" (2021); https://arxiv.org/abs/2006.00104.
+    Onken et al. "OT-Flow: Fast and Accurate Continuous Normalizing Flows via Optimal Transport" (2021).
+    URL: https://arxiv.org/abs/2006.00104.
     """
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 ode_kwargs: dict = None,
-                 solver: str = 'rk4',
+                 time_derivative_kwargs: dict = None,
                  **kwargs):
-        """OTFlow constructor.
+        """OTFlowBijection constructor.
 
-        :param event_shape: shape of the event tensor.
-        :param dict ode_kwargs: keyword arguments for OTFlowODEFunction.
-        :param str solver: ODE solver name. Default: 'rk4'.
-        :param float alpha1: loss coefficient for the terminal constraint.
-        :param float alpha2: loss coefficient for the kinetic energy (i.e., 
-         flow smoothness).
-        :param float alpha3: loss coefficient for regularization terms.
-        :param kwargs: keyword arguments for ExactContinuousBijection.
+        :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param dict nn_kwargs: keyword arguments for `create_nn`.
+        :param dict time_derivative_kwargs: keyword arguments for `ApproximateTimeDerivative`.
+        :param kwargs: keyword arguments for `ContinuousBijection`.
         """
-        ode_kwargs = ode_kwargs or {}
-
-        n_dim = int(torch.prod(torch.as_tensor(event_shape)))
-        diff_eq = OTFlowODEFunction(n_dim, **ode_kwargs)
-        super().__init__(event_shape, diff_eq, solver=solver, **kwargs)
-
-    def inverse(self,
-                z: torch.Tensor,
-                integration_times: torch.Tensor = None,
-                return_regularization_terms: bool = False,
-                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Inverse pass of the OT-Flow bijection.
-        Integrates Equation 26 from time integration_times[0] to time integration_times[1].
-
-        :param torch.Tensor z: tensor with shape `(*batch_shape, *event_shape)`.
-        :param torch.Tensor integration_times: float tensor with two elements
-         that determine the start and end integration time.
-        :param kwargs: keyword arguments passed to self.f.before_odeint in the torchdiffeq solver.
-        :rtype: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-        :return: tuple of four tensors - integrated state, log determinant, 
-         transport cost, and HJB regularizer.
-        """
-        from torchdiffeq import odeint
-        
-        # Flatten everything to facilitate computations
-        batch_shape = get_batch_shape(z, self.event_shape)
-        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
-        z_flat_0 = flatten_batch(
-            flatten_event(z, self.event_shape), 
-            batch_shape
-        )
-
-        if integration_times is None:
-            integration_times = self.make_integrations_times(z_flat_0)
-
-        # Refresh odefunc statistics
-        self.f.before_odeint(**kwargs)
-
-        log_det_0 = torch.zeros(
-            size=(batch_size, 1),
-            device=z_flat_0.device,
-            dtype=z_flat_0.dtype
-        )
-        transport_cost_0 = torch.zeros_like(log_det_0)
-        hjb_0 = torch.zeros_like(log_det_0)
-
-        ode_state_initial = (z_flat_0, log_det_0, transport_cost_0, hjb_0)
-        ode_state_t = odeint(
-            self.f,
-            ode_state_initial,
-            integration_times,
-            atol=self.atol,
-            rtol=self.rtol,
-            method=self.solver,
+        super().__init__(
+            event_shape=event_shape,
+            f=OTFlowTimeDerivative(
+                event_size=int(torch.prod(torch.as_tensor(event_shape))),
+                **(time_derivative_kwargs or {})
+            ),
             **kwargs
         )
-
-        if len(integration_times) == 2:
-            ode_state_t = tuple(s[1] for s in ode_state_t)
-
-        z_flat_T, log_det_T, transport_cost_T, hjb_T = ode_state_t
-
-        # Reshape back to original shape
-        x = unflatten_event(
-            unflatten_batch(z_flat_T, batch_shape), 
-            self.event_shape
-        )
-        log_det = log_det_T.view(*batch_shape)
-        transport_cost = transport_cost_T.view(*batch_shape)
-        hjb = hjb_T.view(*batch_shape)
-
-        if return_regularization_terms:
-            return x, log_det, transport_cost, hjb
-        else:
-            return x, log_det
-    

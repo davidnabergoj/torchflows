@@ -25,8 +25,8 @@ from torchflows.bijections.finite.autoregressive.layers import (
 )
 from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.continuous.ffjord import FFJORD
-from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
-from torchflows.bijections.continuous.otflow import OTFlow
+from torchflows.bijections.continuous.ddnf import DDNF
+from torchflows.bijections.continuous.otflow import OTFlowBijection
 from torchflows._version import __version__
 
 __all__ = [
@@ -39,8 +39,8 @@ __all__ = [
     'InverseAutoregressiveRQNSF',
     'MaskedAutoregressiveRQNSF',
     'FFJORD',
-    'DeepDiffeomorphicBijection',
-    'OTFlow',
+    'DDNF',
+    'OTFlowBijection',
     'RNODE',
     'InvertibleResNet',
     'ResFlow',

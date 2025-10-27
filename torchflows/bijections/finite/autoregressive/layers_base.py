@@ -1,4 +1,4 @@
-from typing import Tuple, Union, Type, Optional
+from typing import Tuple, Union, Type, Optional, Any
 
 import torch
 import torch.nn as nn
@@ -16,10 +16,14 @@ class AutoregressiveBijection(Bijection):
                  event_shape,
                  transformer: Union[TensorTransformer, ScalarTransformer],
                  conditioner_transform: Optional[ConditionerTransform],
+                 l2_regularization: bool = True,
+                 l2_coef: float = 0.01,
                  **kwargs):
         super().__init__(event_shape=event_shape, **kwargs)
         self.conditioner_transform = conditioner_transform
         self.transformer = transformer
+        self.l2_regularization = l2_regularization
+        self.l2_coef = l2_coef
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         h = self.conditioner(x, transform=self.conditioner_transform, context=context)
@@ -31,8 +35,17 @@ class AutoregressiveBijection(Bijection):
         x, log_det = self.transformer.inverse(z, h)
         return x, log_det
 
-    def regularization(self):
-        return self.conditioner_transform.regularization() if self.conditioner_transform is not None else 0.0
+    def regularization(self, *aux: Tuple[Any, ...]):
+        """Compute regularization.
+
+        :param Tuple[Any, ...] aux: unused.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`. 
+        """
+        if self.l2_regularization and self.l2_coef > 0:
+            return self.sq_norm_param() * self.l2_coef
+        else:
+            return torch.tensor(0.0)
 
 
 class CouplingBijection(AutoregressiveBijection):

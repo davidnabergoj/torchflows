@@ -2,44 +2,84 @@ from typing import Union, Tuple
 import torch
 
 from torchflows.bijections.continuous.base import (
-    ApproximateContinuousBijection,
-    create_nn,
-    RegularizedApproximateODEFunction,
-    create_cnn
+    ContinuousBijection,
+    HutchinsonTimeDerivative,
+    create_cnn,
+    create_dnn_forward_model
 )
 
+class RNODE(ContinuousBijection):
+    """RNODE architecture for general tensors.
+    Parameterizes the time derivative with a feed-forward neural network.
 
-# https://github.com/cfinlay/ffjord-rnode/blob/master/train.py
+    TODO add kinetic regularization!
 
-class RNODE(ApproximateContinuousBijection):
-    """Regularized neural ordinary differential equation (RNODE) architecture.
-
-    Reference: Finlay et al. "How to train your neural ODE: the world of Jacobian and kinetic regularization" (2020); https://arxiv.org/abs/2002.02798.
+    Finlay et al. "How to train your neural ODE: the world of Jacobian and kinetic regularization" (2020).
+    URL: https://arxiv.org/abs/2002.02798.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], nn_kwargs: dict = None, **kwargs):
-        diff_eq = RegularizedApproximateODEFunction(
-            create_nn(event_shape, **(nn_kwargs or dict())),
-            regularization="sq_jac_norm"
+    def __init__(self, 
+                 event_shape: Union[torch.Size, Tuple[int, ...]], 
+                 nn_kwargs: dict = None,
+                 time_derivative_kwargs: dict = None,
+                 **kwargs):
+        """RNODE constructor.
+
+        :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param dict nn_kwargs: keyword arguments for `create_nn`.
+        :param dict time_derivative_kwargs: keyword arguments for `ApproximateTimeDerivative`.
+        :param kwargs: keyword arguments for `ContinuousBijection`.
+        """
+        time_derivative_kwargs = time_derivative_kwargs or {}
+        time_derivative_kwargs.update(reg_jac=True)
+        super().__init__(
+            event_shape=event_shape,
+            f=HutchinsonTimeDerivative(
+                event_shape=event_shape,
+                forward_model=create_dnn_forward_model(
+                    event_shape,
+                    **(nn_kwargs or {})
+                ),
+                **time_derivative_kwargs
+            ),
+            **kwargs
         )
-        if 'solver' not in kwargs:
-            kwargs['solver'] = 'rk4'
-        super().__init__(event_shape, diff_eq, **kwargs)
 
 
-class ConvolutionalRNODE(ApproximateContinuousBijection):
-    """Convolutional variant of the RNODE architecture
+class ConvolutionalRNODE(ContinuousBijection):
+    """RNODE architecture for general tensors.
+    Parameterizes the time derivative with a feed-forward neural network.
 
-    Reference: Finlay et al. "How to train your neural ODE: the world of Jacobian and kinetic regularization" (2020); https://arxiv.org/abs/2002.02798.
+    TODO add kinetic regularization!
+
+    Finlay et al. "How to train your neural ODE: the world of Jacobian and kinetic regularization" (2020).
+    URL: https://arxiv.org/abs/2002.02798.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], nn_kwargs: dict = None, **kwargs):
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 nn_kwargs: dict = None,
+                 time_derivative_kwargs: dict = None,
+                 **kwargs):
+        """ConvolutionalRNODE constructor.
+
+        :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param dict nn_kwargs: keyword arguments for `create_cnn`.
+        :param dict time_derivative_kwargs: keyword arguments for `ApproximateTimeDerivative`.
+        :param kwargs: keyword arguments for `ContinuousBijection`.
+        """
         if len(event_shape) != 3:
-            raise ValueError("Event shape must be of length 3 (channels, height, width).")
-        diff_eq = RegularizedApproximateODEFunction(
-            create_cnn(event_shape[0], **(nn_kwargs or dict())),
-            regularization="sq_jac_norm"
+            raise ValueError(
+                "Event shape must be of length 3 (channels, height, width)."
+            )
+        
+        time_derivative_kwargs = time_derivative_kwargs or {}
+        time_derivative_kwargs.update(reg_jac=True)
+        super().__init__(
+            event_shape=event_shape,
+            f=HutchinsonTimeDerivative(
+                create_cnn(event_shape[0], **(nn_kwargs or {})),
+                **time_derivative_kwargs
+            ),
+            **kwargs
         )
-        if 'solver' not in kwargs:
-            kwargs['solver'] = 'rk4'
-        super().__init__(event_shape, diff_eq, **kwargs)

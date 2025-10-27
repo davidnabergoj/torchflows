@@ -117,9 +117,6 @@ class ConditionerTransform(nn.Module):
     def predict_theta_flat(self, x: torch.Tensor, context: torch.Tensor = None):
         raise NotImplementedError
 
-    def regularization(self):
-        return sum([torch.sum(torch.square(p)) for p in self.parameters()])
-
 
 class ElementwiseConditionerTransform(ConditionerTransform):
     """
@@ -315,30 +312,6 @@ class Linear(FeedForward):
         super().__init__(*args, **kwargs, n_layers=1)
 
 
-class LinearWithL2Context(Linear):
-    def __init__(self, *args, reg_coef: float = 0.01, **kwargs):
-        super().__init__(*args, **kwargs)
-        assert isinstance(self.context_combiner, Concatenation)
-        self.reg_coef = reg_coef
-
-    def regularization(self):
-        n_context_dims = int(torch.prod(torch.as_tensor(self.context_shape)))
-        regularized_weights = self.layers[0].weight[:, -n_context_dims:]
-        return torch.square(regularized_weights).mean() * self.reg_coef  # L1
-
-
-class LinearWithSparseContext(Linear):
-    def __init__(self, *args, reg_coef: float = 0.01, **kwargs):
-        super().__init__(*args, **kwargs)
-        assert isinstance(self.context_combiner, Concatenation)
-        self.reg_coef = reg_coef
-
-    def regularization(self):
-        n_context_dims = int(torch.prod(torch.as_tensor(self.context_shape)))
-        regularized_weights = self.layers[0].weight[:, -n_context_dims:]
-        return torch.abs(regularized_weights).mean() * self.reg_coef  # L1
-
-
 class ResidualFeedForward(TensorConditionerTransform):
     class ResidualBlock(nn.Module):
         def __init__(self, event_size: int, hidden_size: int, block_size: int, nonlinearity: Type[nn.Module]):
@@ -410,44 +383,3 @@ class CombinedConditioner(nn.Module):
         h1 = self.conditioner1(x[..., self.mask1], context)
         h2 = self.conditioner1(x[..., self.mask1], context)
         return h1 + h2
-
-    def regularization(self):
-        return self.conditioner1.regularization() + self.conditioner2.regularization()
-
-
-class RegularizedCombinedConditioner(CombinedConditioner):
-    def __init__(self,
-                 conditioner1: ConditionerTransform,
-                 conditioner2: ConditionerTransform,
-                 conditioner1_input_mask: torch.Tensor,
-                 conditioner2_input_mask: torch.Tensor,
-                 regularization_coefficient_1: float,
-                 regularization_coefficient_2: float):
-        super().__init__(
-            conditioner1,
-            conditioner2,
-            conditioner1_input_mask,
-            conditioner2_input_mask
-        )
-        self.c1 = regularization_coefficient_1
-        self.c2 = regularization_coefficient_2
-
-    def regularization(self):
-        return self.c1 * self.conditioner1.regularization() + self.c2 * self.conditioner2.regularization()
-
-
-class RegularizedGraphicalConditioner(RegularizedCombinedConditioner):
-    def __init__(self,
-                 interacting_dimensions_conditioner: ConditionerTransform,
-                 auxiliary_dimensions_conditioner: ConditionerTransform,
-                 interacting_dimensions_mask: torch.Tensor,
-                 auxiliary_dimensions_mask: torch.Tensor,
-                 coefficient: float = 0.1):
-        super().__init__(
-            interacting_dimensions_conditioner,
-            auxiliary_dimensions_conditioner,
-            interacting_dimensions_mask,
-            auxiliary_dimensions_mask,
-            regularization_coefficient_1=0.0,
-            regularization_coefficient_2=coefficient
-        )

@@ -1,4 +1,4 @@
-from torchflows.bijections.continuous.ddnf import DeepDiffeomorphicBijection
+from torchflows.bijections.continuous.ddnf import DDNF
 import pytest
 import torch
 
@@ -10,7 +10,7 @@ def test_n_steps(n_steps):
     event_shape = (10,)
 
     x = torch.randn(size=(batch_size, *event_shape))
-    b = DeepDiffeomorphicBijection(event_shape=event_shape, n_steps=n_steps)
+    b = DDNF(event_shape=event_shape, n_steps=n_steps)
     z, log_det_forward = b.forward(x)
     
     assert z.shape == x.shape

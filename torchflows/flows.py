@@ -66,15 +66,27 @@ class BaseFlow(nn.Module):
         z = unflatten_event(z_flat, self.event_shape)
         return z
 
-    def regularization(self):
-        """Compute the regularization term used in training.
+    def regularization(self, *aux):
+        """Compute regularization for training.
+
+        :param Tuple[Any, ...] aux: tuple of auxiliary inputs to compute regularization.
+        :rtype: Union[torch.Tensor, float].
+        :return: tensor with shape `()` or float.
         """
-        return 0.0
+        return self.bijection.regularization()
     
     def _loss_kl_p_to_q(self, 
                         data: torch.Tensor, 
                         log_prob_target_data: torch.Tensor,
                         use_regularization: bool = True):
+        """Compute loss used in fitting the NF by minimizing KL(p || q).
+
+        :param toch.Tensor data: data tensor with shape `(batch_size, *event_size)`.
+        :param torch.Tensor log_prob_target_data: tensor with shape `(batch_size,)`; the target log density of data.
+        :param bool use_regularization: if True, add regularization to loss.
+        :rtype: torch.Tensor.
+        :return: loss tensor with shape `()`.
+        """
         loss = torch.mean(log_prob_target_data - self.log_prob(data))
         if use_regularization:
             loss += self.regularization()
@@ -83,7 +95,7 @@ class BaseFlow(nn.Module):
     def fit_kl_p_to_q(self,
                       x_train: torch.Tensor,
                       x_val: torch.Tensor,
-                      potential: callable,
+                      neg_log_prob_target: callable,
                       n_epochs: int = 500,
                       lr: float = 0.05,
                       batch_size: int = 1024,
@@ -91,12 +103,30 @@ class BaseFlow(nn.Module):
                       keep_best_weights: bool = True,
                       early_stopping: bool = False,
                       early_stopping_threshold: int = 50,
-                      time_limit_seconds: Union[float, int] = None,
+                      time_limit_seconds: float = None,
                       reset_optimizer: bool = True):
-        train_dataset = TensorDataset(x_train, -potential(x_train).detach())
+        """Fit NF by minimizing KL(p || q).
+
+        :param torch.Tensor x_train: training data tensor with shape `(n_train, *event_shape)`.
+        :param torch.Tensor x_val: validation data tensor with shape `(n_val, *event_shape)`.
+        :param callable neg_log_prob_target: function that recieves a tensor with shape `(batch_size, *event_shape)` and
+         outputs a tensor with shape `(batch_size,)`, containing the target negative log probability densities.
+        :param int n_epochs: number of training epochs.
+        :param float lr: AdamW learning rate.
+        :param int batch_size: batch size for AdamW updates.
+        :param bool show_progress: if True, show a progress bar.
+        :param bool keep_best_weights: if True, keep the weights with the lowest validation loss after training.
+        :param bool early_stopping: if True, stop training early after validation loss stops decreasing for a certain 
+         number of epochs.
+        :param int early_stopping_threshold: number of epochs threshold for early stopping.
+        :param float time_limit_seconds: maximum training time in seconds.
+        :param bool reset_optimizer: if True, reset the internal optimizer state after starting training. This can be 
+         useful when re-training the NF several times without losing data.
+        """
+        train_dataset = TensorDataset(x_train, -neg_log_prob_target(x_train).detach())
         train_loader = DataLoader(train_dataset, batch_size=batch_size)
 
-        val_dataset = TensorDataset(x_val, -potential(x_val).detach())
+        val_dataset = TensorDataset(x_val, -neg_log_prob_target(x_val).detach())
         val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
         if len(list(self.parameters())) == 0:
@@ -164,21 +194,32 @@ class BaseFlow(nn.Module):
             self.load_state_dict(best_weights)
 
         # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
+        # TODO fix by reimplementing RNODE
         if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
             self.bijection.f.stored_reg = None
 
         self.eval()
 
     def _base_batch_loss(self, 
-                         batch_: Tuple[torch.Tensor, torch.Tensor],
+                         batch: Tuple[torch.Tensor, torch.Tensor],
                          reduction: callable = torch.mean,
                          use_regularization: bool = True):
-        batch_x, batch_weights = batch_[:2]
-        batch_context = batch_[2] if len(batch_) == 3 else None
+        """Compute loss on a training batch for regular NF training.
+        
+        :param Tuple[torch.Tensor, torch.Tensor] batch: tuple containing the training data batch with shape 
+         `(batch_size, *event_shape)` and the corresponding weights with shape `(batch_size,)`.
+        :param callable reduction: function that receives the weighted log probability tensor (under the NF) with shape
+         `(batch_size,)` and outputs a loss tensor with shape `()`.
+        :param bool use_regularization: if True, add regularization to the loss.
+        :rtype: torch.Tensor.
+        :return: loss tensor with shape `()`.
+        """
+        x, weights = batch[:2]
+        batch_context = batch[2] if len(batch) == 3 else None
 
-        batch_log_prob = self.log_prob(batch_x.to(self.get_device()), context=batch_context)
-        batch_weights = batch_weights.to(self.get_device())
-        batch_loss = -reduction(batch_log_prob * batch_weights) / self.event_size
+        batch_log_prob = self.log_prob(x.to(self.get_device()), context=batch_context)
+        weights = weights.to(self.get_device())
+        batch_loss = -reduction(batch_log_prob * weights) / self.event_size
 
         if use_regularization:
             batch_loss += self.regularization()
@@ -212,21 +253,26 @@ class BaseFlow(nn.Module):
         :param x_train: training data with shape `(n_training_data, *event_shape)`.
         :param n_epochs: perform fitting for this many steps.
         :param lr: learning rate. In general, lower learning rates are recommended for high-parametric bijections.
-        :param batch_size: in each epoch, split training data into batches of this size and perform a parameter update for each batch.
-        :param shuffle: shuffle training data. This helps avoid incorrect fitting if nearby training samples are similar.
+        :param batch_size: in each epoch, split training data into batches of this size and perform a parameter update 
+         for each batch.
+        :param shuffle: shuffle training data. This helps avoid incorrect fitting if nearby training samples are 
+         similar.
         :param show_progress: show a progress bar with the current batch loss.
         :param w_train: training data weights with shape `(n_training_data,)`.
         :param context_train: training data context tensor with shape `(n_training_data, *context_shape)`.
         :param x_val: validation data with shape `(n_validation_data, *event_shape)`.
         :param w_val: validation data weights with shape `(n_validation_data,)`.
         :param context_val: validation data context tensor with shape `(n_validation_data, *context_shape)`.
-        :param keep_best_weights: if True and validation data is provided, keep the bijection weights with the highest probability of validation data.
-        :param early_stopping: if True and validation data is provided, stop the training procedure early once validation loss stops improving for a specified number of consecutive epochs.
-        :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
+        :param keep_best_weights: if True and validation data is provided, keep the bijection weights with the lowest
+         validation loss.
+        :param early_stopping: if True and validation data is provided, stop the training procedure early once 
+         validation loss stops improving for a specified number of consecutive epochs.
+        :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation 
+         loss for this many epochs.
         :param int max_batch_size_mb: maximum batch size in megabytes.
         :param Union[float, int] time_limit_seconds: maximum allowed time for training.
-        :param reset_optimizer: if True, reset the optimizer state before fitting. 
-         This is useful when fitting multiple times in a row.
+        :param reset_optimizer: if True, reset the optimizer state before fitting. This is useful when fitting multiple 
+         times in a row.
         """
         t0 = time.time()
         self.train()
@@ -335,7 +381,7 @@ class BaseFlow(nn.Module):
             _n_train_batches = 0
             for train_batch in train_loader:
                 self._optimizer.zero_grad()
-                train_loss = self.compute_batch_loss(
+                train_loss = self._base_batch_loss(
                     train_batch, 
                     reduction=torch.mean,
                     use_regularization=True
@@ -377,7 +423,7 @@ class BaseFlow(nn.Module):
                 # Compute validation loss
                 val_loss = 0.0
                 for val_batch in val_loader:
-                    val_loss += self.compute_batch_loss(
+                    val_loss += self._base_batch_loss(
                         val_batch, 
                         reduction=torch.sum,
                         use_regularization=False
@@ -420,6 +466,18 @@ class BaseFlow(nn.Module):
                           n_samples: int,
                           use_regularization: bool = True,
                           check_for_divergences: bool = False):
+        """Compute loss for stochastic variational inference.
+
+        :param callable target_log_prob: function that receives as input a tensor with shape 
+         `(batch_size, *event_shape)` and returns the target log probability density tensor with shape `(batch_size,)`.
+        :param int n_samples: number of samples for loss computation.
+        :param bool use_regularization: if True, add regularization to the loss.
+        :param bool check_for_divergences: if True, check for divergences. A divergence flag is returned whether this is
+         True or False.
+        :rtype: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, bool].
+        :return: tuple with four elements: loss tensor with shape `()`, NF log probability tensor with shape `()`,
+         target log probability tensor with shape `()`, divergence flag.
+        """
         flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
         target_log_prob_value = target_log_prob(flow_x)
         loss = -torch.mean(target_log_prob_value + flow_log_prob)
@@ -614,7 +672,8 @@ class Flow(BaseFlow):
                sample_shape: Union[int, torch.Size, Tuple[int, ...]],
                context: torch.Tensor = None,
                no_grad: bool = False,
-               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+               return_log_prob: bool = False,
+               return_aux: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         """Sample from the normalizing flow.
 
         If context given, sample n tensors for each context tensor.
@@ -623,9 +682,13 @@ class Flow(BaseFlow):
         :param sample_shape: shape of tensors to sample.
         :param torch.Tensor context: context tensor with shape `c`.
         :param bool no_grad: if True, do not track gradients in the inverse pass.
-        :param return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
-        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or `(*sample_shape, *c, *event_shape)` if context given.
-        :rtype: torch.Tensor
+        :param bool return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
+        :param bool return_aux: if True, return auxiliary tensors from `bijection.inverse`.
+        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or 
+         `(*sample_shape, *c, *event_shape)` if context given. If `return_log_prob` is True, return the NF log 
+         probability density tensor with shape `sample_shape` as the second tuple item. If `return_aux` is True, return
+         auxiliary tensors to be used in `bijection.regularization`.
+        :rtype: Union[torch.Tensor, Tuple[torch.Tensor, ...]].
         """
         if isinstance(sample_shape, int):
             sample_shape = (sample_shape,)
@@ -662,157 +725,6 @@ class Flow(BaseFlow):
             log_prob = self.base_log_prob(z) + log_det
             return x, log_prob
         return x
-
-    def regularization(self):
-        if hasattr(self.bijection, 'regularization'):
-            return self.bijection.regularization()
-        else:
-            return 0.0
-
-class ContinuousFlow(BaseFlow):
-    def __init__(self, bijection: Bijection, **kwargs):
-        super().__init__(
-            event_shape=bijection.event_shape, 
-            **kwargs
-        )
-        self.register_module('bijection', bijection)
-
-    @property
-    def context_shape(self):
-        return self.bijection.context_shape
-
-    def forward_with_auxiliary_outputs(self, 
-                                       x: torch.Tensor, 
-                                       context: torch.Tensor = None):
-        """Transform the input x to the space of the base distribution.
-
-        :param torch.Tensor x: input tensor.
-        :param torch.Tensor context: context tensor upon which the transformation is conditioned.
-        :return: transformed tensor and auxiliary output tensors.
-        :rtype: Tuple[torch.Tensor, ...].
-        """
-        if context is not None:
-            if self.context_shape is None:
-                raise ValueError('Context shape must be set.')
-            if self.event_shape is None:
-                raise ValueError('Event shape must be set.')
-            _batch_shape_1 = get_batch_shape(x, self.event_shape)
-            _batch_shape_2 = get_batch_shape(context, self.context_shape)
-            assert _batch_shape_1 == _batch_shape_2
-            context = context.to(self.get_device())
-        return self.bijection.forward(
-            x.to(self.get_device()), 
-            context=context
-        )
-
-    def forward_with_log_prob(self,
-                              x: torch.Tensor,
-                              context: torch.Tensor = None):
-        z, log_det = self.forward_with_auxiliary_outputs(
-            x=x,
-            context=context
-        )
-        log_base = self.base_log_prob(z)
-        return z, log_base + log_det
-
-    def log_prob(self, x: torch.Tensor, context: torch.Tensor = None) -> torch.Tensor:
-        """Compute the logarithm of the probability density of input x according to the normalizing flow.
-
-        :param torch.Tensor x: input tensor.
-        :param torch.Tensor context: context tensor.
-        :return: tensor of log probabilities.
-        :rtype: torch.Tensor.
-        """
-        return self.forward_with_log_prob(x, context)[1]
-
-    def sample_with_auxiliary_outputs(self,
-                                      sample_shape: Union[int, torch.Size, Tuple[int, ...]],
-                                      context: torch.Tensor = None,
-                                      no_grad: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        if isinstance(sample_shape, int):
-            sample_shape = (sample_shape,)
-
-        if context is not None:
-            z = self.base_sample(sample_shape=sample_shape)
-            if get_batch_shape(context, self.context_shape) == sample_shape:
-                # Option A: a context tensor is given for each sampled element
-                pass
-            else:
-                # Option B: one context tensor is given for the entire to-be-sampled batch
-                sample_shape = (*sample_shape, len(context))
-                context = context[None].repeat(
-                    *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
-                assert z.shape[:2] == context.shape[:2]
-        else:
-            z = self.base_sample(sample_shape=sample_shape)
-
-        if no_grad:
-            z = z.detach()
-            with torch.no_grad():
-                x, *aux = self.bijection.inverse(
-                    z.view(*sample_shape, *self.bijection.event_shape),
-                    context=context
-                )
-        else:
-            x, *aux = self.bijection.inverse(
-                z.view(*sample_shape, *self.bijection.event_shape),
-                context=context
-            )
-        x = x.to(self.get_device())
-
-        return x, z, *aux
-
-    def sample(self,
-               sample_shape: Union[int, torch.Size, Tuple[int, ...]],
-               context: torch.Tensor = None,
-               no_grad: bool = False,
-               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Sample from the normalizing flow.
-
-        If context given, sample n tensors for each context tensor.
-        Otherwise, sample n tensors.
-
-        :param sample_shape: shape of tensors to sample.
-        :param torch.Tensor context: context tensor with shape `c`.
-        :param bool no_grad: if True, do not track gradients in the inverse pass.
-        :param return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
-        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or `(*sample_shape, *c, *event_shape)` if context given.
-        :rtype: torch.Tensor
-        """
-        x, z, log_det = self.sample_with_auxiliary_outputs(
-            sample_shape=sample_shape,
-            context=context,
-            no_grad=no_grad
-        )[:3]
-
-        if return_log_prob:
-            log_prob = self.base_log_prob(z) + log_det
-            return x, log_prob
-        return x
-    
-    def regularization(self):
-        if hasattr(self.bijection, 'regularization'):
-            return self.bijection.regularization()
-        else:
-            return 0.0
-
-    def _base_batch_loss(self, 
-                         batch_: Tuple[torch.Tensor, torch.Tensor],
-                         reduction: callable = torch.mean,
-                         use_regularization: bool = True):
-        batch_x, batch_weights = batch_[:2]
-        batch_context = batch_[2] if len(batch_) == 3 else None
-
-        # TODO recover auxiliary outputs and compute regularization properly!
-        # TODO Each continuous bijection should have its own way of transforming auxiliary outputs into the regularization term.
-        batch_log_prob = self.log_prob(batch_x.to(self.get_device()), context=batch_context)
-        batch_weights = batch_weights.to(self.get_device())
-        batch_loss = -reduction(batch_log_prob * batch_weights) / self.event_size
-
-        if use_regularization:
-            batch_loss += self.regularization()
-
-        return batch_loss
 
 class FlowMixture(BaseFlow):
     """Base class for mixtures of normalizing flows. Inherits from BaseFlow.

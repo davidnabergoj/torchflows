@@ -26,59 +26,121 @@
 # This file is an adaptation of code from the following repository https://github.com/rtqichen/ffjord
 
 import math
-from typing import Union, Tuple, List
+from typing import Any, Union, Tuple, List
 
 import torch
 import torch.nn as nn
 
 from torchflows.bijections.base import Bijection
-from torchflows.bijections.continuous.layers import DiffEqLayer, ConcatConv2d, IgnoreConv2d
-import torchflows.bijections.continuous.layers as diff_eq_layers
+from torchflows.bijections.continuous.time_derivative import TimeDerivative, ConcatConv2d, IgnoreConv2d, TimeDerivativeModule, TimeDerivativeModule, TimeDerivativeSequential
+import torchflows.bijections.continuous.time_derivative as tderiv
+from torchflows.bijections.continuous.util import approximate_divergence, delta_sq_norm_jac
 from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
-
-
-# TODO: have ODEFunction and RegularizedODEFunction return reg_states as the third output.
-#       This should be an expected output in tests.
-#       We should create a ContinuousFlow class which handles the third output and uses it in the fit method
-#       Alternatively: store reg_states as an attribute of the bijection. Make it so that the base bijection class
-#       contains a reg_states attribute, which is accessed during Flow.fit.
 
 
 def _flip(x, dim):
     indices = [slice(None)] * x.dim()
-    indices[dim] = torch.arange(x.size(dim) - 1, -1, -1, dtype=torch.long, device=x.device)
+    indices[dim] = torch.arange(
+        x.size(dim) - 1, -1, -1, dtype=torch.long, device=x.device)
     return x[tuple(indices)]
 
 
-def divergence_approx_basic(f, y, e: torch.Tensor = None):
-    e_dzdx = torch.autograd.grad(f, y, e, create_graph=True)[0]
-    e_dzdx_e = e_dzdx * e
-    approx_tr_dzdx = e_dzdx_e.view(y.shape[0], -1).sum(dim=1)
-    return approx_tr_dzdx
-
-
-def divergence_approx_extended(f, y, e: Union[torch.Tensor, Tuple[torch.Tensor]] = None):
+class HutchinsonTimeDerivative(TimeDerivative):
+    """Time derivative that approximes the divergence with the Hutchinson trace estimator.
     """
 
-    :param e: tuple of noise samples for hutchinson trace estimation.
-              One noise tensor may be enough for unbiased estimates.
-    :return: divergence and frobenius norms of jacobians.
-    """
-    if isinstance(e, torch.Tensor):
-        e = (e,)  # Convert to tuple
+    def __init__(self,
+                 forward_model: TimeDerivativeModule,
+                 n_noise_samples: int = 1,
+                 reg_jac: bool = False,
+                 reg_jac_coef: float = 0.01,
+                 **kwargs):
+        """HutchinsonTimeDerivative constructor.
 
-    samples = []
-    sqnorms = []
-    for e_ in e:
-        e_dzdx = torch.autograd.grad(f, y, e_, create_graph=True)[0]
-        n = e_dzdx.view(y.size(0), -1).pow(2).mean(dim=1, keepdim=True)
-        sqnorms.append(n)
-        e_dzdx_e = e_dzdx * e_
-        samples.append(e_dzdx_e.view(y.shape[0], -1).sum(dim=1, keepdim=True))
-    S = torch.cat(samples, dim=1)
-    approx_tr_dzdx = S.mean(dim=1)
-    N = torch.cat(sqnorms, dim=1).mean(dim=1)
-    return approx_tr_dzdx, N
+        Note: the attribute _last_used_noise hold the last used noise samples for trace estimation.
+        This can be useful when we want forward and inverse CNF maps to stay identical, e.g., in reconstruction accuracy 
+            testing or exact target-latent transformations.
+
+        :param TimeDerivativeModule forward_model: module that receives as input a time tensor with shape `()` and space tensor 
+            with shape `(batch_size, event_size)`, and outputs a time derivative of the space tensor with shape 
+            `(batch_size, event_size)`.
+        :param int n_noise_samples: number of noise samples for trace estimation.
+        :param bool reg_jac: if True, use Jacobian regularization.
+        :param float reg_jac_coef: jacobian regularization coefficient.
+        :param kwargs: keyword arguments for TimeDerivative.
+        """
+        super().__init__(**kwargs)
+        self.forward_model = forward_model
+        self.n_noise_samples = n_noise_samples
+        self._last_used_noise: torch.Tensor = None
+
+        # Regularization
+        self.reg_jac = reg_jac
+        self.reg_jac_coef = reg_jac_coef
+
+    @property
+    def reg_jac_active(self) -> bool:
+        """Return True if we are currently using Jacobian regularization.
+        """
+        return self.training and self.reg_jac and self.reg_jac_coef > 0
+
+    def prepare_initial_state(self,
+                              z0: torch.Tensor,
+                              div0: torch.Tensor,
+                              noise: torch.Tensor = None):
+        """Prepare the initial state.
+
+        :param torch.Tensor z0: event tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor z0: divergence tensor with shape `(batch_size, 1)`.
+        :param torch.Tensor noise: noise tensor with shape `(n_noise_samples, batch_size, event_size)`.
+        """
+        if not noise:
+            noise = torch.rand_like(z0)
+        self._last_used_noise = noise.clone()
+        if self.reg_jac_active:
+            return (z0, div0, noise.clone(), div0.clone())
+        else:
+            return (z0, div0, noise.clone())
+
+    def step(self,
+             t: torch.Tensor,
+             x: torch.Tensor,
+             noise: torch.Tensor,
+             sq_norm_jac: torch.Tensor = None) -> Tuple[torch.Tensor, ...]:
+        """Compute dx/dt and the corresponding divergence.
+
+        FIXME: right now the same noise is used for every step. Use different noise values.
+
+        :param torch.Tensor t: time tensor with shape `()`.
+        :param torch.Tensor x: spatial tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor noise: hutchinson noise samples with shape `(n_noise_samples, batch_size, event_size)` for 
+            divergence estimation.
+        :param Optional[torch.Tensor] sq_norm_jac: delta tensor for the squared norm of the Jacobian with shape 
+            (`batch_size`,).
+        :rtype: Tuple[torch.Tensor, ...].
+        :return: dx/dt tensor with shape `(batch_size, event_size)`, divergence tensor with shape `(batch_size,)`, and 
+            possible Jacobian delta tensor with shape `(batch_size,)`
+        """
+        dxdt = self.forward_model(t, x)
+
+        if self.reg_jac_active:
+            if sq_norm_jac is None:
+                raise ValueError("Missing integrated squared norm of the Jacobian.")
+            app_div, e_dzdx = approximate_divergence(
+                dz=dxdt,
+                x=x,
+                e=noise,
+                return_e_dzdx=True
+            )
+            delta_jac = delta_sq_norm_jac(e_dzdx=e_dzdx).view_as(sq_norm_jac)
+            return dxdt, app_div, noise, sq_norm_jac + delta_jac
+        else:
+            app_div = approximate_divergence(
+                dz=dxdt,
+                x=x,
+                e=noise
+            )
+            return dxdt, app_div, noise
 
 
 def create_nn_time_independent(event_shape: Union[Tuple[int, ...], torch.Size],
@@ -92,212 +154,72 @@ def create_nn_time_independent(event_shape: Union[Tuple[int, ...], torch.Size],
 
     assert n_hidden_layers >= 0
     if n_hidden_layers == 0:
-        layers = [diff_eq_layers.IgnoreLinear(event_shape, event_shape)]
+        layers = [tderiv.IgnoreLinear(event_shape, event_shape)]
     else:
         layers = [
-            diff_eq_layers.IgnoreLinear(event_shape, hidden_shape),
-            *[diff_eq_layers.IgnoreLinear(hidden_shape, hidden_shape) for _ in range(n_hidden_layers)],
-            diff_eq_layers.IgnoreLinear(hidden_shape, event_shape)
+            tderiv.IgnoreLinear(event_shape, hidden_shape),
+            *[tderiv.IgnoreLinear(hidden_shape, hidden_shape)
+              for _ in range(n_hidden_layers)],
+            tderiv.IgnoreLinear(hidden_shape, event_shape)
         ]
 
-    return TimeDerivativeDNN(layers)
+    return TimeDerivativeSequential(layers)
 
 
-def create_nn(event_shape: Union[Tuple[int, ...], torch.Size],
-              hidden_size: int = None,
-              n_hidden_layers: int = 2):
+class TimeTanh(nn.Tanh):
+    """Tanh subclass that ignores the time component."""
+
+    def forward(self, t, x):
+        """Apply tanh to x.
+
+        :param torch.Tensor t: unused.
+        :param torch.Tensor x: tensor with shape `(batch_size, event_size)`.
+        :rtype: torch.Tensor.
+        :return: tensor with shape `(batch_size, event_size)`.
+        """
+        return super().forward(x)
+
+
+def create_dnn_forward_model(event_shape: Union[Tuple[int, ...], torch.Size],
+                             hidden_size: int = None,
+                             n_hidden_layers: int = 2) -> TimeDerivativeSequential:
+    """Create time derivative neural network with linear layers.
+    The time and space components are concatenated.
     """
-    Note: non-linearities are applied within TimeDerivativeDNN.
-    """
+    if n_hidden_layers < 0:
+        raise ValueError("Number of hidden layers must be non-negative.")
+
     event_size = int(torch.prod(torch.as_tensor(event_shape)))
 
     if hidden_size is None:
         hidden_size = max(4, int(3 * math.log(event_size)))
     hidden_shape = (hidden_size,)
 
-    assert n_hidden_layers >= 0
     if n_hidden_layers == 0:
-        layers = [diff_eq_layers.ConcatLinear(event_shape, event_shape)]
+        layers = [tderiv.ConcatLinear(event_shape, event_shape)]
     else:
         layers = [
-            diff_eq_layers.ConcatLinear(event_shape, hidden_shape),
-            *[diff_eq_layers.ConcatLinear(hidden_shape, hidden_shape) for _ in range(n_hidden_layers)],
-            diff_eq_layers.ConcatLinear(hidden_shape, event_shape)
+            tderiv.ConcatLinear(event_shape, hidden_shape),
+            TimeTanh()
         ]
+        for _ in range(n_hidden_layers):
+            layers.extend([
+                tderiv.ConcatLinear(hidden_shape, hidden_shape),
+                TimeTanh()
+            ])
+        layers.append(tderiv.ConcatLinear(hidden_shape, event_shape))
 
-    return TimeDerivativeDNN(layers)
+    return TimeDerivativeSequential(layers)
 
 
 def create_cnn(c: int, n_layers: int = 2):
     # c: number of image channels
-    return TimeDerivativeDNN([ConcatConv2d(c, c) for _ in range(n_layers)])
+    return TimeDerivativeSequential([ConcatConv2d(c, c) for _ in range(n_layers)])
 
 
 def create_cnn_time_independent(c: int, n_layers: int = 2):
     # c: number of image channels
-    return TimeDerivativeDNN([IgnoreConv2d(c, c) for _ in range(n_layers)])
-
-
-class TimeDerivative(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, t, x):
-        # return dx/ dt
-        raise NotImplementedError
-
-
-class TimeDerivativeDNN(TimeDerivative):
-    """
-    Neural network that takes as input a scalar t and a tuple of state tensors (y0, y1, ... yn).
-    It outputs a predicted tuple of derivatives (dy0/dt, dy1/dt, ... dyn/dt).
-    These derivatives determine the ODE system in FFJORD.
-    To use time information, t is concatenated to each layer input in this neural network.
-    """
-
-    def __init__(self, layers: List[DiffEqLayer]):
-        super().__init__()
-        self.layers = nn.ModuleList(layers)
-
-    def forward(self, t, x):
-        dx = x
-        for i, layer in enumerate(self.layers):
-            dx = layer(t, dx)
-            # Apply nonlinearity
-            if i < len(self.layers) - 1:
-                dx = torch.tanh(dx)
-        return dx
-
-
-class ODEFunction(nn.Module):
-    def __init__(self, diffeq: callable):
-        super().__init__()
-        self.diffeq = diffeq
-        self.register_buffer('_n_evals', torch.tensor(0.0))  # Counts the number of function evaluations
-
-    def regularization(self):
-        return torch.tensor(0.0)
-
-    def before_odeint(self, **kwargs):
-        self._n_evals.fill_(0)
-
-    def forward(self, t, states):
-        """
-
-        :param t: shape ()
-        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
-        :return:
-        """
-        raise NotImplementedError
-
-
-class ExactODEFunction(ODEFunction):
-    """
-    Function that computes dx/dt with an exact log determinant of the Jacobian.
-    """
-
-    def __init__(self, diffeq: TimeDerivative):
-        super().__init__(diffeq)
-
-    def compute_log_det(self, t, x):
-        raise NotImplementedError
-
-    def forward(self, t, states):
-        """
-
-        :param t: shape ()
-        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
-        :return:
-        """
-        y = states[0]
-        self._n_evals += 1
-
-        t = torch.as_tensor(t).type_as(y)
-
-        with torch.enable_grad():
-            y.requires_grad_(True)
-            t.requires_grad_(True)
-            for s_ in states[2:]:
-                s_.requires_grad_(True)
-            dy = self.diffeq(t, y, *states[2:])
-
-        log_det = self.compute_log_det(t, y)
-        return tuple([dy, log_det] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
-
-
-class ApproximateODEFunction(ODEFunction):
-    """
-    Function that computes dx/dt with an approximation for the log determinant of the Jacobian.
-    """
-
-    def __init__(self, network: TimeDerivativeDNN):
-        super().__init__(diffeq=network)
-        self.hutch_noise = None  # Noise tensor for Hutchinson trace estimation of the Jacobian
-
-    def before_odeint(self, noise: torch.Tensor = None):
-        super().before_odeint()
-        self.hutch_noise = noise
-
-    def forward(self, t, states):
-        """
-
-        :param t: shape ()
-        :param states: (y0, y1, ..., yn) where yi.shape == (batch_size, event_size).
-        :return:
-        """
-        y = states[0]
-        self._n_evals += 1
-
-        t = torch.as_tensor(t).type_as(y)
-
-        if self.hutch_noise is None:
-            self.hutch_noise = torch.randn_like(y)
-
-        with torch.enable_grad():
-            y.requires_grad_(True)
-            t.requires_grad_(True)
-            for s_ in states[2:]:
-                s_.requires_grad_(True)
-            dy = self.diffeq(t, y, *states[2:])
-            divergence = self.divergence_step(dy, y)
-        return tuple([dy, divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
-
-
-class RegularizedApproximateODEFunction(ApproximateODEFunction):
-    def __init__(self,
-                 network: TimeDerivativeDNN,
-                 regularization: Union[str, Tuple[str, ...]] = ()):
-        super().__init__(network)
-
-        if isinstance(regularization, str):
-            regularization = (regularization,)
-
-        self.supported_reg_types = ['sq_jac_norm']
-        for rt in regularization:
-            if rt not in self.supported_reg_types:
-                raise ValueError
-        self.used_reg_types = regularization
-
-        self.reg_jac_coef = 1.0
-        self.stored_reg = None
-
-    def divergence_step(self, dy, y) -> torch.Tensor:
-        batch_size = y.shape[0]
-
-        if "sq_jac_norm" in self.used_reg_types and self.training:
-            divergence, sq_jac_norm = divergence_approx_extended(dy, y, e=self.hutch_noise)
-            # Store regularization data
-            self.stored_reg = self.reg_jac_coef * sq_jac_norm.mean()
-        else:
-            divergence = divergence_approx_basic(dy, y, e=self.hutch_noise)
-        divergence = divergence.view(batch_size, 1)
-
-        # TODO add other regularization terms
-
-        return divergence
-
-    def regularization(self):
-        return (self.stored_reg or 0) + super().regularization()
+    return TimeDerivativeSequential([IgnoreConv2d(c, c) for _ in range(n_layers)])
 
 
 class ContinuousBijection(Bijection):
@@ -309,8 +231,8 @@ class ContinuousBijection(Bijection):
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
-                 f: ODEFunction,
-                 solver: str,
+                 f: TimeDerivative,
+                 solver: str = 'rk4',
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  end_time: float = 1.0,
                  atol: float = 1e-5,
@@ -320,7 +242,7 @@ class ContinuousBijection(Bijection):
         ContinuousBijection constructor.
 
         :param event_shape: shape of the event tensor.
-        :param f: function to be integrated.
+        :param f: time derivative function to be integrated.
         :param context_shape: shape of the context tensor.
         :param end_time: integrate f from time 0 to this time. Default: 1.
         :param solver: which solver to use.
@@ -330,7 +252,10 @@ class ContinuousBijection(Bijection):
         """
         super().__init__(event_shape, context_shape)
         self.f = f
-        self.register_buffer("sqrt_end_time", torch.sqrt(torch.tensor(end_time)))
+        self.register_buffer(
+            "sqrt_end_time",
+            torch.sqrt(torch.tensor(end_time))
+        )
         self.end_time = end_time
         self.solver = solver
         self.atol = atol
@@ -338,71 +263,86 @@ class ContinuousBijection(Bijection):
 
     def make_integrations_times(self, z):
         return torch.tensor([0.0, self.sqrt_end_time * self.sqrt_end_time]).to(z)
-    
-    def odeint_wrapper(self, z_flat, log_det_initial, integration_times, **kwargs):
-        # Import from torchdiffeq locally, so the package does not break if torchdiffeq not installed
-        from torchdiffeq import odeint
 
-        return odeint(
-            self.f,
-            (z_flat, log_det_initial),
-            integration_times,
+    def inverse(self,
+                z: torch.Tensor,
+                integration_times: torch.Tensor = None,
+                before_odeint_kwargs: dict = None,
+                return_aux: bool = False,
+                context: torch.Tensor = None,
+                **kwargs) -> Tuple[torch.Tensor, ...]:
+        """
+        Inverse pass of the continuous bijection.
+
+        :param z: tensor with shape `(*batch_shape, *event_shape)`.
+        :param torch.Tensor integration_times: tensor of integration times. This is torch.tensor([0, 1]) by default.
+        :param before_odeint_kwargs: keyword arguments passed to self.f.before_odeint in the torchdiffeq solver.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
+        :return: transformed tensor, log determinant of the transformation, and possible auxiliary tensors.
+        """
+        before_odeint_kwargs = before_odeint_kwargs or {}
+
+        # Import from torchdiffeq locally, so the rest of the package does not break if torchdiffeq not installed
+        try:
+            from torchdiffeq import odeint
+        except ImportError as e:
+            raise e
+
+        # Flatten everything to facilitate computations
+        batch_shape = get_batch_shape(z, self.event_shape)
+        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
+        z0 = flatten_batch(flatten_event(z, self.event_shape), batch_shape)
+
+        if integration_times is None:
+            integration_times = self.make_integrations_times(z0)
+
+        # Refresh odefunc statistics
+        self.f.before_odeint(**kwargs)
+
+        state_0 = self.f.prepare_initial_state(
+            z0=z0,
+            div0=torch.zeros(
+                size=(batch_size, 1),
+                device=z0.device,
+                dtype=z0.dtype
+            )
+        )
+        state_t = odeint(
+            func=self.f,
+            y0=state_0,
+            t=integration_times,
             atol=self.atol,
             rtol=self.rtol,
             method=self.solver,
             **kwargs
         )
 
-    def inverse(self,
-                z: torch.Tensor,
-                integration_times: torch.Tensor = None,
-                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Inverse pass of the continuous bijection.
-
-        :param z: tensor with shape `(*batch_shape, *event_shape)`.
-        :param integration_times:
-        :param kwargs: keyword arguments passed to self.f.before_odeint in the torchdiffeq solver.
-        :return: transformed tensor and log determinant of the transformation.
-        :rtype: Tuple[torch.Tensor, torch.Tensor]
-        """
-
-        # Flatten everything to facilitate computations
-        batch_shape = get_batch_shape(z, self.event_shape)
-        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
-        z_flat = flatten_batch(flatten_event(z, self.event_shape), batch_shape)
-
-        if integration_times is None:
-            integration_times = self.make_integrations_times(z_flat)
-
-        # Refresh odefunc statistics
-        self.f.before_odeint(**kwargs)
-
-        log_det_initial = torch.zeros(size=(batch_size, 1)).to(z_flat)
-        state_t = self.odeint_wrapper(z_flat, log_det_initial, integration_times)
-
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
 
-        z_final_flat, log_det_final_flat = state_t[:2]
+        zT, divT, *aux = state_t
 
         # Reshape back to original shape
-        x = unflatten_event(unflatten_batch(z_final_flat, batch_shape), self.event_shape)
-        log_det = log_det_final_flat.view(*batch_shape)
+        x = unflatten_event(
+            unflatten_batch(zT, batch_shape),
+            self.event_shape
+        )
+        log_det = divT.view(*batch_shape)
 
-        return x, log_det
+        if return_aux:
+            return x, log_det, *aux
+        else:
+            return x, log_det
 
     def forward(self,
                 x: torch.Tensor,
                 integration_times: torch.Tensor = None,
-                noise: torch.Tensor = None,
                 **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for the continuous bijection.
 
         :param torch.Tensor x: tensor with shape `(*batch_shape, *event_shape)`.
         :param torch.Tensor integration_times:
-        :param torch.Tensor noise:
         :param kwargs: keyword arguments to be passed to `self.inverse`.
         :returns: transformed tensor and log determinant of the transformation.
         :rtype: Tuple[torch.Tensor, torch.Tensor]
@@ -410,77 +350,19 @@ class ContinuousBijection(Bijection):
         if integration_times is None:
             integration_times = self.make_integrations_times(x)
         return self.inverse(
-            x,
+            z=x,
             integration_times=_flip(integration_times, 0),
-            noise=noise,
             **kwargs
         )
 
-    def regularization(self):
-        return self.f.regularization()
+    def regularization(self,
+                       *aux: Tuple[torch.Tensor, ...]):
+        """Compute regularization.
 
-
-class ExactContinuousBijection(ContinuousBijection):
-    """
-    Continuous NF bijection with an exact log Jacobian determinant.
-    """
-
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], f: ExactODEFunction, **kwargs):
-        super().__init__(event_shape, f, **kwargs)
-
-
-class ApproximateContinuousBijection(ContinuousBijection):
-    """
-    Continuous NF bijection with an approximate log Jacobian determinant.
-    """
-
-    def __init__(self,
-                 event_shape: Union[torch.Size, Tuple[int, ...]],
-                 f: ApproximateODEFunction,
-                 **kwargs):
+        :param Tuple[torch.Tensor, ...] aux: regularization terms, each with shape `()`.
+        :rtype: Union[torch.Tensor].
+        :return: tensor with shape `()`.
         """
-
-        :param event_shape:
-        :param f: function to be integrated.
-        :param end_time: integrate f from t=0 to t=time_upper_bound. Default: 1.
-        :param solver: which solver to use.
-        :param kwargs:
-        """
-        super().__init__(event_shape, f, **kwargs)
-
-    def inverse(self,
-                z: torch.Tensor,
-                integration_times: torch.Tensor = None,
-                noise: torch.Tensor = None,
-                **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-
-        :param z: tensor with shape (*batch_shape, *event_shape).
-        :param integration_times:
-        :param kwargs:
-        :return:
-        """
-        # Flatten everything to facilitate computations
-        batch_shape = get_batch_shape(z, self.event_shape)
-        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
-        z_flat = flatten_batch(z, batch_shape)
-
-        if integration_times is None:
-            integration_times = self.make_integrations_times(z_flat)
-
-        # Refresh odefunc statistics
-        self.f.before_odeint(noise=noise)
-
-        log_det_initial = torch.zeros(size=(batch_size, *([1] * len(self.event_shape)))).to(z_flat)
-        state_t = self.odeint_wrapper(z_flat, log_det_initial, integration_times)
-
-        if len(integration_times) == 2:
-            state_t = tuple(s[1] for s in state_t)
-
-        z_final_flat, log_det_final_flat = state_t[:2]
-
-        # Reshape back to original shape
-        x = unflatten_batch(z_final_flat, batch_shape)
-        log_det = log_det_final_flat.view(*batch_shape)
-
-        return x, log_det
+        if len(aux) == 0:
+            return torch.tensor(0.0)
+        return sum(aux)
