@@ -16,7 +16,7 @@ class AutoregressiveBijection(Bijection):
                  event_shape,
                  transformer: Union[TensorTransformer, ScalarTransformer],
                  conditioner_transform: Optional[ConditionerTransform],
-                 l2_regularization: bool = True,
+                 l2_regularization: bool = False,
                  l2_coef: float = 0.01,
                  **kwargs):
         super().__init__(event_shape=event_shape, **kwargs)
@@ -72,6 +72,7 @@ class CouplingBijection(AutoregressiveBijection):
                  coupling_kwargs: dict = None,
                  conditioner_kwargs: dict = None,
                  transformer_kwargs: dict = None,
+                 l2_regularization: bool = True,
                  **kwargs):
         """
         CouplingBijection constructor.
@@ -110,6 +111,7 @@ class CouplingBijection(AutoregressiveBijection):
             transformer=transformer,
             conditioner_transform=conditioner_transform,
             context_shape=context_shape,
+            l2_regularization=l2_regularization,
             **kwargs
         )
         self.coupling = coupling
@@ -177,6 +179,7 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
                  context_shape: Union[Tuple[int, ...], torch.Size] = None,
                  transformer_kwargs: dict = None,
                  conditioner_kwargs: dict = None,
+                 l2_regularization: bool = True,
                  **kwargs):
         conditioner_kwargs = conditioner_kwargs or {}
         transformer_kwargs = transformer_kwargs or {}
@@ -188,7 +191,13 @@ class MaskedAutoregressiveBijection(AutoregressiveBijection):
             context_shape=context_shape,
             **conditioner_kwargs
         )
-        super().__init__(transformer.event_shape, transformer, conditioner_transform, **kwargs)
+        super().__init__(
+            transformer.event_shape,
+            transformer,
+            conditioner_transform,
+            l2_regularization=l2_regularization,
+            **kwargs
+        )
 
     def apply_conditioner_transformer(self, inputs, context, forward: bool = True):
         h = self.conditioner_transform(inputs, context)
