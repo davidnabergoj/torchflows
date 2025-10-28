@@ -236,7 +236,7 @@ class OTPotential(TimeDerivativeModule):
         # A @ E ... remove last column (assuming E has d of d+1 standard basis vectors)
         tr_second_term = torch.trace((self.A.T @ self.A)[:-1, :-1])
 
-        return tr_first_term + tr_second_term
+        return -(tr_first_term + tr_second_term)
 
 
 class OTFlowTimeDerivative(TimeDerivative):
@@ -314,10 +314,9 @@ class OTFlowTimeDerivative(TimeDerivative):
 
         u0 = self.time_deriv.resnet.compute_u0(s=s)
         z1 = self.time_deriv.resnet.compute_z1(w=self.time_deriv.w, u0=u0)
-        tr_hess = self.time_deriv.hessian_trace(s=s, u0=u0, z1=z1)
+        div = self.time_deriv.compute_divergence(s=s, u0=u0, z1=z1)
 
         dxdt = -grad_space
-        div = -tr_hess
 
         if self.training:
             d_transport = None  # transport cost delta
@@ -327,17 +326,19 @@ class OTFlowTimeDerivative(TimeDerivative):
                 d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
 
             if self.reg_hjb and self.reg_hjb_coef > 0:
-                if not d_transport:
+                if d_transport is None:
                     # User does not want transport regularization, but wants HJB (which internally needs transport cost)
                     # d_transport will not be set, so only HJB will be used
                     _tmp_d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
-                d_hjb = torch.abs(grad_time - _tmp_d_transport)
+                    d_hjb = torch.abs(grad_time - _tmp_d_transport)
+                else:
+                    d_hjb = torch.abs(grad_time - d_transport)
 
-            if d_transport and d_hjb:
+            if (d_transport is not None) and (d_hjb is not None):
                 return (dxdt, div, d_transport, d_hjb)
-            elif d_transport and not d_hjb:
+            elif (d_transport is not None) and (d_hjb is None):
                 return (dxdt, div, d_transport)
-            elif not d_transport and d_hjb:
+            elif (d_transport is None) and (d_hjb is not None):
                 return (dxdt, div, d_hjb)
             else:
                 return (dxdt, div)

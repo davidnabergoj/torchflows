@@ -3,10 +3,10 @@ from typing import Tuple
 import pytest
 import torch
 
-from torchflows.bijections.continuous.base import ContinuousBijection, ExactODEFunction
+from torchflows.bijections.continuous.base import ContinuousBijection
 from torchflows.bijections.base import Bijection
 from torchflows.bijections.continuous.ffjord import FFJORD
-from torchflows.bijections.continuous.otflow import OTFlow
+from torchflows.bijections.continuous.otflow import OTFlowBijection
 from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, CouplingRQNSF, MAF, IAF, \
     InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF
@@ -29,7 +29,7 @@ def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     x = torch.randn(*batch_shape, *event_shape)
     context = torch.randn(size=(*batch_shape, *context_shape)) if context_shape is not None else None
     bijection = bijection_class(event_shape, context_shape=context_shape)
-    if isinstance(bijection, (FFJORD, RNODE, OTFlow)):
+    if isinstance(bijection, (FFJORD, RNODE, OTFlowBijection)):
         # "Fix" bijection object
         # use dopri5 for accurate reconstructions
         bijection = bijection_class(event_shape, context_shape=context_shape, solver='dopri5')
