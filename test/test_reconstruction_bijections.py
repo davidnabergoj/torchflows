@@ -195,7 +195,7 @@ def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: T
 @pytest.mark.parametrize('bijection_class', [
     FFJORD,
     RNODE,
-    OTFlow,
+    OTFlowBijection,
     # DeepDiffeomorphicBijection,  # Skip, reason: reconstruction fails due to the Euler integrator as proposed in the
     #                                      original method. Replacing the Euler integrator with RK4 fixes the issue.
 ])
@@ -216,5 +216,5 @@ def test_ot_flow_instability():
     batch_shape = (5,)
     event_shape = (2,)
     context_shape = (2,)
-    bijection, x, context = setup_data(OTFlow, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(OTFlowBijection, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction_continuous(bijection, x, context)
