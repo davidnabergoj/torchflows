@@ -54,6 +54,7 @@ class HutchinsonTimeDerivative(TimeDerivative):
                  n_noise_samples: int = 1,
                  reg_jac: bool = False,
                  reg_jac_coef: float = 0.01,
+                 reuse_noise: bool = False,
                  **kwargs):
         """HutchinsonTimeDerivative constructor.
 
@@ -67,16 +68,22 @@ class HutchinsonTimeDerivative(TimeDerivative):
         :param int n_noise_samples: number of noise samples for trace estimation.
         :param bool reg_jac: if True, use Jacobian regularization.
         :param float reg_jac_coef: jacobian regularization coefficient.
+        :param bool reuse_noise: if True, reuse the same Hutchinson noise vectors in every iteration.
         :param kwargs: keyword arguments for TimeDerivative.
         """
         super().__init__(**kwargs)
         self.forward_model = forward_model
         self.n_noise_samples = n_noise_samples
-        self._last_used_noise: torch.Tensor = None
 
         # Regularization
         self.reg_jac = reg_jac
         self.reg_jac_coef = reg_jac_coef
+
+        # For deterministic forward and inverse passes
+        self.reuse_noise = reuse_noise
+        self._reusable_noise: torch.Tensor = None  # Hutchinson noise samples with shape 
+        # `(n_noise_samples, batch_size, event_size)` for divergence estimation.
+
 
     @property
     def reg_jac_active(self) -> bool:
@@ -86,35 +93,25 @@ class HutchinsonTimeDerivative(TimeDerivative):
 
     def prepare_initial_state(self,
                               z0: torch.Tensor,
-                              div0: torch.Tensor,
-                              noise: torch.Tensor = None):
+                              div0: torch.Tensor):
         """Prepare the initial state.
 
         :param torch.Tensor z0: event tensor with shape `(batch_size, event_size)`.
         :param torch.Tensor z0: divergence tensor with shape `(batch_size, 1)`.
-        :param torch.Tensor noise: noise tensor with shape `(n_noise_samples, batch_size, event_size)`.
         """
-        if not noise:
-            noise = torch.rand_like(z0)
-        self._last_used_noise = noise.clone()
         if self.reg_jac_active:
-            return (z0, div0, noise.clone(), div0.clone())
+            return (z0, div0, div0.clone())
         else:
-            return (z0, div0, noise.clone())
+            return (z0, div0)
 
     def step(self,
              t: torch.Tensor,
              x: torch.Tensor,
-             noise: torch.Tensor,
              sq_norm_jac: torch.Tensor = None) -> Tuple[torch.Tensor, ...]:
         """Compute dx/dt and the corresponding divergence.
 
-        FIXME: right now the same noise is used for every step. Use different noise values.
-
         :param torch.Tensor t: time tensor with shape `()`.
         :param torch.Tensor x: spatial tensor with shape `(batch_size, event_size)`.
-        :param torch.Tensor noise: hutchinson noise samples with shape `(n_noise_samples, batch_size, event_size)` for 
-            divergence estimation.
         :param Optional[torch.Tensor] sq_norm_jac: delta tensor for the squared norm of the Jacobian with shape 
             (`batch_size`,).
         :rtype: Tuple[torch.Tensor, ...].
@@ -123,24 +120,33 @@ class HutchinsonTimeDerivative(TimeDerivative):
         """
         dxdt = self.forward_model(t, x)
 
+        if self.reuse_noise:
+            if not self._reusable_noise or self._reusable_noise.shape[1:] != x.shape:
+                self._reusable_noise = torch.randn(size=(self.n_noise_samples, *x.shape))
+            noise = self._reusable_noise
+        else:
+            noise = torch.randn(size=(self.n_noise_samples, *x.shape))
+
+        noise_tuple = tuple([e for e in noise])
+
         if self.reg_jac_active:
             if sq_norm_jac is None:
                 raise ValueError("Missing integrated squared norm of the Jacobian.")
             app_div, e_dzdx = approximate_divergence(
                 dz=dxdt,
                 x=x,
-                e=noise,
+                noise=noise_tuple,
                 return_e_dzdx=True
             )
             delta_jac = delta_sq_norm_jac(e_dzdx=e_dzdx).view_as(sq_norm_jac)
-            return dxdt, app_div, noise, sq_norm_jac + delta_jac
+            return dxdt, app_div, sq_norm_jac + delta_jac
         else:
             app_div = approximate_divergence(
                 dz=dxdt,
                 x=x,
-                e=noise
+                noise=noise_tuple
             )
-            return dxdt, app_div, noise
+            return dxdt, app_div
 
 
 def create_nn_time_independent(event_shape: Union[Tuple[int, ...], torch.Size],

@@ -20,7 +20,7 @@ def delta_sq_norm_jac(e_dzdx: torch.Tensor):
 
 def approximate_divergence(dz: torch.Tensor,
                            x: torch.Tensor,
-                           e: Union[torch.Tensor, Tuple[torch.Tensor]] = None,
+                           noise: Union[torch.Tensor, Tuple[torch.Tensor]] = None,
                            return_e_dzdx: bool = False):
     """Compute divergence term for ODE integration (integrates to log determinant).
     Approximation divergence as the Hessian trace.
@@ -29,22 +29,22 @@ def approximate_divergence(dz: torch.Tensor,
 
     :param torch.Tensor dz: time derivative tensor (dx/dt) with shape `(batch_size, event_size)`.
     :param torch.Tensor dx: delta of the state, tensor with shape `(batch_size, event_size)`.
-    :param torch.Tensor e: tuple of one or more Hutchinson noise samples, each sample has shape `(batch_size, event_size)`.
+    :param torch.Tensor noise: tuple of one or more Hutchinson noise samples, each sample has shape `(batch_size, event_size)`.
     :param bool return_e_dzdx: if True, return intermediate e_dzdx terms, useful for e.g., the delta of the squared 
      Jacobian norm computation.
     :rtype: Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor].
     :return: divergence term tensor. If return_e_dzdx is True, also return a stacked list of those terms.
     """
-    if isinstance(e, torch.Tensor):
-        e = (e,)  # Handle e being a single sample
-    elif not isinstance(e, tuple):
+    if isinstance(noise, torch.Tensor):
+        noise = (noise,)  # Handle e being a single sample
+    elif not isinstance(noise, tuple):
         raise ValueError(
             "Hutchinson noise must be passed in as a tuple or torch.Tensor."
         )
 
     samples = []
     e_dzdx_vals = []
-    for e_ in e:
+    for e_ in noise:
         e_dzdx = torch.autograd.grad(dz, x, e_, create_graph=True)[0]
         if return_e_dzdx:
             e_dzdx_vals.append(e_dzdx)
