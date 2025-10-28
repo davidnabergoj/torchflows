@@ -13,6 +13,10 @@ from torchflows.bijections.finite.matrix import HouseholderProductMatrix, LowerT
     UpperTriangularInvertibleMatrix, IdentityMatrix, RandomPermutationMatrix, ReversePermutationMatrix, QRMatrix, \
     LUMatrix
 from torchflows.bijections.finite.residual.architectures import InvertibleResNet, ResFlow, ProximalResFlow
+from torchflows.bijections.continuous.ddnf import DDNF
+from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.continuous.ffjord import FFJORD
+from torchflows.bijections.continuous.otflow import OTFlowBijection
 from torchflows.utils import get_batch_shape
 from test.constants import __test_constants
 
@@ -21,7 +25,16 @@ def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     torch.manual_seed(0)
     x = torch.randn(*batch_shape, *event_shape)
     context = torch.randn(size=(*batch_shape, *context_shape)) if context_shape is not None else None
-    bijection = bijection_class(event_shape, context_shape=context_shape)
+    if bijection_class in [DDNF, RNODE, FFJORD]:
+        bijection = bijection_class(
+            event_shape, 
+            context_shape=context_shape,
+            time_derivative_kwargs=dict(
+                reuse_noise=True
+            )
+        )
+    else:
+        bijection = bijection_class(event_shape, context_shape=context_shape)
     return bijection, x, context
 
 
@@ -112,5 +125,21 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
+    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    assert_valid_log_probability_gradient(bijection, x, context)
+
+@pytest.mark.parametrize('bijection_class', [
+    DDNF,
+    RNODE,
+    FFJORD,
+    OTFlowBijection,
+])
+@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
+@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
+def test_continuous(bijection_class: Bijection, 
+                    batch_shape: Tuple, 
+                    event_shape: Tuple, 
+                    context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_log_probability_gradient(bijection, x, context)

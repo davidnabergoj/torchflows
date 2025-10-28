@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torchflows.bijections.continuous.base import TimeDerivative, ContinuousBijection
 from torchflows.bijections.continuous.time_derivative import TimeDerivativeModule
-
+from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
 def concatenate_x_t(x, t):
     # Concatenate t to the end of x
@@ -159,7 +159,8 @@ class OTResNet(nn.Module):
         return t0 + self.step_size * t1
 
 
-class OTPotential(TimeDerivativeModule):
+class OTPotential(TimeDerivativeModule):    
+    """OT-Flow potential for general tensors."""
     def __init__(self,
                  event_size: int,
                  hidden_size: int = None,
@@ -244,7 +245,7 @@ class OTFlowTimeDerivative(TimeDerivative):
     """
 
     def __init__(self,
-                 event_size: int,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
                  reg_transport: bool = True,
                  reg_transport_coef: float = 0.01,
                  reg_hjb: bool = True,
@@ -252,7 +253,7 @@ class OTFlowTimeDerivative(TimeDerivative):
                  **kwargs):
         """OTFlowTimeDerivative constructor.
 
-        :param int event_size: size of the space tensor.
+        :param event_shape: shape of the event (space) tensor.
         :param bool reg_transport: if True, use transport cost regularization.
         :param float reg_transport_cef: transport cost regularization coefficient.
         :param bool reg_hjb: if True, use HJB regularization.
@@ -260,7 +261,9 @@ class OTFlowTimeDerivative(TimeDerivative):
         :param kwargs: keyword arguments for OTPotential.
         """
         super().__init__()
-        self.time_deriv = OTPotential(event_size, **kwargs)
+        event_size = int(torch.prod(torch.as_tensor(event_shape)))
+
+        self.time_deriv = OTPotential(event_size=event_size, **kwargs)
         self.reg_transport = reg_transport
         self.reg_transport_coef = reg_transport_coef
         self.reg_hjb = reg_hjb
@@ -299,15 +302,19 @@ class OTFlowTimeDerivative(TimeDerivative):
         Refer to Section 3 for equations.
 
         :param torch.Tensor t: time tensor with shape `()`.
-        :param torch.Tensor x: space tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor x: space tensor with shape `(batch_size, *event_shape)`.
         :param Tuple[torch.Tensor, ...] aux: unused.
         :rtype: Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]].
         :return: dx/dt with the same shape as x and divergence tensor with shape 
          `(batch_size, 1)`. If training, also return the delta transport cost and the delta HJB.
         """
 
+        x_flat = flatten_event(x, event_shape=x.shape[1:])
+
+        # Work in flattened space
+
         self._n_evals += 1
-        s = concatenate_x_t(x, t)
+        s = concatenate_x_t(x_flat, t)
 
         # Gradient computation
         grad_space, grad_time = self.time_deriv.gradient(s=s)
@@ -316,7 +323,7 @@ class OTFlowTimeDerivative(TimeDerivative):
         z1 = self.time_deriv.resnet.compute_z1(w=self.time_deriv.w, u0=u0)
         div = self.time_deriv.compute_divergence(s=s, u0=u0, z1=z1)
 
-        dxdt = -grad_space
+        dxdt = (-grad_space).view_as(x)  # Reshape into original space
 
         if self.training:
             d_transport = None  # transport cost delta
@@ -368,7 +375,7 @@ class OTFlowBijection(ContinuousBijection):
         super().__init__(
             event_shape=event_shape,
             f=OTFlowTimeDerivative(
-                event_size=int(torch.prod(torch.as_tensor(event_shape))),
+                event_shape=event_shape,
                 **(time_derivative_kwargs or {})
             ),
             **kwargs

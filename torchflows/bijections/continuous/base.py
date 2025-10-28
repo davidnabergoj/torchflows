@@ -111,17 +111,20 @@ class HutchinsonTimeDerivative(TimeDerivative):
         """Compute dx/dt and the corresponding divergence.
 
         :param torch.Tensor t: time tensor with shape `()`.
-        :param torch.Tensor x: spatial tensor with shape `(batch_size, event_size)`.
+        :param torch.Tensor x: spatial tensor with shape `(batch_size, *event_shape)`.
         :param Optional[torch.Tensor] sq_norm_jac: delta tensor for the squared norm of the Jacobian with shape 
             (`batch_size`,).
         :rtype: Tuple[torch.Tensor, ...].
-        :return: dx/dt tensor with shape `(batch_size, event_size)`, divergence tensor with shape `(batch_size,)`, and 
+        :return: dx/dt tensor with shape `(batch_size, *event_shape)`, divergence tensor with shape `(batch_size,)`, and 
             possible Jacobian delta tensor with shape `(batch_size,)`
         """
         dxdt = self.forward_model(t, x)
 
+        if dxdt.shape != x.shape:
+            raise ValueError(f"Expected dxdt and x to have equal shapes, but got {dxdt.shape = }, {x.shape = }")
+
         if self.reuse_noise:
-            if not self._reusable_noise or self._reusable_noise.shape[1:] != x.shape:
+            if self._reusable_noise is None or self._reusable_noise.shape[1:] != x.shape:
                 self._reusable_noise = torch.randn(size=(self.n_noise_samples, *x.shape))
             noise = self._reusable_noise
         else:
@@ -294,10 +297,10 @@ class ContinuousBijection(Bijection):
         except ImportError as e:
             raise e
 
-        # Flatten everything to facilitate computations
+        # Flatten batch to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
         batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
-        z0 = flatten_batch(flatten_event(z, self.event_shape), batch_shape)
+        z0 = flatten_batch(z, batch_shape)
 
         if integration_times is None:
             integration_times = self.make_integrations_times(z0)
@@ -329,10 +332,7 @@ class ContinuousBijection(Bijection):
         zT, divT, *aux = state_t
 
         # Reshape back to original shape
-        x = unflatten_event(
-            unflatten_batch(zT, batch_shape),
-            self.event_shape
-        )
+        x = unflatten_batch(zT, batch_shape)
         log_det = divT.view(*batch_shape)
 
         if return_aux:
