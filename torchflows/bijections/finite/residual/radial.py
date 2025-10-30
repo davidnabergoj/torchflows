@@ -13,11 +13,11 @@ class Radial(ClassicResidualBijection):
 
     def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
         super().__init__(event_shape, **kwargs)
-        self.beta = nn.Parameter(torch.randn(size=()))
-        self.unconstrained_alpha = nn.Parameter(torch.randn(size=()))
-        self.z0 = nn.Parameter(torch.randn(size=(self.n_dim,)))
+        self.beta = nn.Parameter(torch.randn(size=()) / self.n_dim)
+        self.unconstrained_alpha = nn.Parameter(torch.randn(size=()) / self.n_dim)
+        self.z0 = nn.Parameter(torch.randn(size=(self.n_dim,)) / self.n_dim)
 
-        self.eps = 1e-6
+        self.eps = 1e-8
 
     @property
     def alpha(self):
@@ -33,7 +33,7 @@ class Radial(ClassicResidualBijection):
 
         # Compute auxiliary variables
         z0 = self.z0.view(*([1] * len(batch_shape)), *self.z0.shape)
-        r = torch.sqrt(torch.square(z - z0))
+        r = torch.abs(z - z0)
         h = 1 / (self.alpha + r + self.eps)
 
         # Compute transformed point
@@ -41,8 +41,8 @@ class Radial(ClassicResidualBijection):
 
         # Compute determinant of the Jacobian
         log_det = torch.add(
-            torch.log1p(self.alpha * self.beta / h ** 2),
-            torch.log1p(self.beta / h) * (self.n_dim - 1)
+            torch.log1p((self.beta * self.alpha / ((self.alpha + r) ** 2 + self.eps))),
+            torch.log1p(self.beta * h) * (self.n_dim - 1)
         ).sum(dim=-1)
 
         # Unflatten event
