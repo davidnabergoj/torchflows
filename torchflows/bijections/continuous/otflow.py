@@ -5,10 +5,20 @@ import torch
 import torch.nn as nn
 from torchflows.bijections.continuous.base import TimeDerivative, ContinuousBijection
 from torchflows.bijections.continuous.time_derivative import TimeDerivativeModule
-from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
+from torchflows.utils import flatten_event
 
-def concatenate_x_t(x, t):
-    # Concatenate t to the end of x
+def concatenate_x_t(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    """Concatenate `t` to the end of `x`.
+    
+    :param torch.Tensor x: event (space) tensor with shape `(batch_size, event_size)`.
+    :param torch.Tensor t: time tensor with shape `()`.
+    :rtype: torch.Tensor.
+    :return: tensor with shape `(batch_size, event_size + 1)` where `t` is concatenated to the end of dimension 1.
+    """
+    if len(x.shape) != 2:
+        raise ValueError(f"Shape of x must be (batch_size, event_size), but got {x.shape = }")
+    if t.shape != ():
+        raise ValueError(f"Shape of t must be (), but got {t.shape = }")
     s = torch.nn.functional.pad(torch.clone(x), pad=(0, 1), value=1.0)
     s[..., -1] = t
     return s
@@ -112,7 +122,7 @@ class OTResNet(nn.Module):
         :param torch.Tensor s: tensor with shape `(batch_size, c_event_size)`.
         :param torch.Tensor w: tensor with shape `(batch_size, hidden_size)`.
         :rtype: torch.Tensor.
-        :return: tensor with shape `(batch_size, hidden_size)`.
+        :return: tensor with shape `(batch_size, c_event_size)`.
         """
         u0 = self.compute_u0(s=s)
         z1 = self.compute_z1(w=w, u0=u0)
@@ -196,7 +206,15 @@ class OTPotential(TimeDerivativeModule):
 
     def forward(self,
                 t: torch.Tensor,
-                x: torch.Tensor):
+                x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute the potential value.
+        
+        :param torch.Tensor t: time tensor with shape `()`.
+        :param torch.Tensor x: event (space) tensor with shape `(batch_size, event_size)`.
+        :rtype: Tuple[torch.Tensor, torch.Tensor].
+        :return: space derivative of the potential with shape `(batch_size, event_size)` and
+            time derivative of the potential with shape `(batch_size, 1)`.
+        """
         return self.gradient(concatenate_x_t(x, t))
 
     def gradient(self, s: torch.Tensor):
@@ -205,16 +223,16 @@ class OTPotential(TimeDerivativeModule):
 
         :param torch.Tensor s: tensor with shape `(batch_size, event_size + 1)`.
         :rtype: Tuple[torch.Tensor, torch.Tensor].
-        :return: tuple of tensors. 
-         The first element is the space derivative with shape 
-          `(batch_size, event_size)`. 
-         The second element is the time derivative with shape `(batch_size,)`.
+        :return: space derivative with shape `(batch_size, event_size)` and time derivative with shape 
+            `(batch_size, 1)`.
         """
+        batch_size = s.shape[0]
+
         # Equation 12
         lin = torch.nn.functional.linear(s, self.A.T @ self.A, self.b)
         grad = self.resnet.jvp(s, self.w) + lin
-        space_derivative = grad[..., :-1]
-        time_derivative = grad[..., -1]
+        space_derivative = grad[..., :-1].view(batch_size, -1)
+        time_derivative = grad[..., -1].view(batch_size, 1)
         return space_derivative, time_derivative
 
     def compute_divergence(self,
@@ -269,21 +287,27 @@ class OTFlowTimeDerivative(TimeDerivative):
         self.reg_hjb = reg_hjb
         self.reg_hjb_coef = reg_hjb_coef
 
+    @property
+    def reg_transport_active(self):
+        return self.training and self.reg_transport and self.reg_transport_coef > 0
+    
+    @property
+    def reg_hjb_active(self):
+        self.training and self.reg_hjb and self.reg_hjb_coef > 0
+
     @torch.no_grad()
-    def prepare_initial_state(self, z0, div0):
-        use_hjb = False
-        use_transport = False
+    def prepare_initial_state(self, z0: torch.Tensor):
+        div0 = torch.zeros(
+            size=(z0.shape[0],),
+            dtype=z0.dtype, 
+            device=z0.device
+        )
 
-        if self.training and self.reg_transport and self.reg_transport_coef > 0:
-            use_transport = True
-        if self.training and self.reg_hjb and self.reg_hjb_coef > 0:
-            use_hjb = True
-
-        if use_transport and use_hjb:
+        if self.reg_transport_active and self.reg_hjb_active:
             return (z0, div0, div0.clone(), div0.clone())
-        elif use_transport and not use_hjb:
+        elif self.reg_transport_active and not self.reg_hjb_active:
             return (z0, div0, div0.clone())
-        elif not use_transport and use_hjb:
+        elif not self.reg_transport_active and self.reg_hjb_active:
             return (z0, div0, div0.clone())
         else:
             return (z0, div0)
@@ -325,32 +349,21 @@ class OTFlowTimeDerivative(TimeDerivative):
 
         dxdt = (-grad_space).view_as(x)  # Reshape into original space
 
-        if self.training:
-            d_transport = None  # transport cost delta
-            d_hjb = None  # HJB delta
-
-            if self.reg_transport and self.reg_transport_coef > 0:
-                d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
-
-            if self.reg_hjb and self.reg_hjb_coef > 0:
-                if d_transport is None:
-                    # User does not want transport regularization, but wants HJB (which internally needs transport cost)
-                    # d_transport will not be set, so only HJB will be used
-                    _tmp_d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
-                    d_hjb = torch.abs(grad_time - _tmp_d_transport)
-                else:
-                    d_hjb = torch.abs(grad_time - d_transport)
-
-            if (d_transport is not None) and (d_hjb is not None):
-                return (dxdt, div, d_transport, d_hjb)
-            elif (d_transport is not None) and (d_hjb is None):
-                return (dxdt, div, d_transport)
-            elif (d_transport is None) and (d_hjb is not None):
-                return (dxdt, div, d_hjb)
-            else:
-                return (dxdt, div)
-        else:
+        if self.reg_transport_active and not self.reg_hjb_active:
+            d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
+            return (dxdt, div, d_transport)
+        elif self.reg_transport_active and self.reg_hjb_active:
+            d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
+            d_hjb = torch.abs(grad_time - d_transport)
+            return (dxdt, div, d_transport, d_hjb)
+        elif not self.reg_transport_active and self.reg_hjb_active:
+            d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
+            d_hjb = torch.abs(grad_time - d_transport)
+            return (dxdt, div, d_hjb)
+        elif not self.reg_transport_active and not self.reg_hjb_active:
             return (dxdt, div)
+        else:
+            raise RuntimeError
 
 
 class OTFlowBijection(ContinuousBijection):

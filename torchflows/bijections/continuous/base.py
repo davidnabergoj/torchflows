@@ -26,7 +26,7 @@
 # This file is an adaptation of code from the following repository https://github.com/rtqichen/ffjord
 
 import math
-from typing import Any, Union, Tuple, List
+from typing import Union, Tuple
 
 import torch
 import torch.nn as nn
@@ -35,7 +35,7 @@ from torchflows.bijections.base import Bijection
 from torchflows.bijections.continuous.time_derivative import TimeDerivative, ConcatConv2d, IgnoreConv2d, TimeDerivativeModule, TimeDerivativeModule, TimeDerivativeSequential
 import torchflows.bijections.continuous.time_derivative as tderiv
 from torchflows.bijections.continuous.util import approximate_divergence, delta_sq_norm_jac
-from torchflows.utils import flatten_event, flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
+from torchflows.utils import flatten_batch, get_batch_shape, unflatten_batch, unflatten_event
 
 
 def _flip(x, dim):
@@ -87,18 +87,21 @@ class HutchinsonTimeDerivative(TimeDerivative):
 
     @property
     def reg_jac_active(self) -> bool:
-        """Return True if we are currently using Jacobian regularization.
-        """
+        """Return True if we are currently using Jacobian regularization."""
         return self.training and self.reg_jac and self.reg_jac_coef > 0
 
     def prepare_initial_state(self,
-                              z0: torch.Tensor,
-                              div0: torch.Tensor):
+                              z0: torch.Tensor):
         """Prepare the initial state.
 
         :param torch.Tensor z0: event tensor with shape `(batch_size, event_size)`.
-        :param torch.Tensor z0: divergence tensor with shape `(batch_size, 1)`.
+        :rtype Tuple[torch.Tensor, ...].
         """
+        div0 = torch.zeros(
+            size=(z0.shape[0],), 
+            dtype=z0.dtype, 
+            device=z0.device
+        )
         if self.reg_jac_active:
             return (z0, div0, div0.clone())
         else:
@@ -299,7 +302,6 @@ class ContinuousBijection(Bijection):
 
         # Flatten batch to facilitate computations
         batch_shape = get_batch_shape(z, self.event_shape)
-        batch_size = int(torch.prod(torch.as_tensor(batch_shape)))
         z0 = flatten_batch(z, batch_shape)
 
         if integration_times is None:
@@ -308,14 +310,7 @@ class ContinuousBijection(Bijection):
         # Refresh odefunc statistics
         self.f.before_odeint(**kwargs)
 
-        state_0 = self.f.prepare_initial_state(
-            z0=z0,
-            div0=torch.zeros(
-                size=(batch_size, 1),
-                device=z0.device,
-                dtype=z0.dtype
-            )
-        )
+        state_0 = self.f.prepare_initial_state(z0=z0)
         state_t = odeint(
             func=self.f,
             y0=state_0,
@@ -371,4 +366,49 @@ class ContinuousBijection(Bijection):
         """
         if len(aux) == 0:
             return torch.tensor(0.0)
-        return sum(aux)
+        return sum([torch.sum(a) for a in aux])
+
+
+    def sample(self,
+               sample_shape: Union[int, torch.Size, Tuple[int, ...]],
+               context: torch.Tensor = None,
+               no_grad: bool = False,
+               return_log_prob: bool = False,
+               return_aux: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+        if isinstance(sample_shape, int):
+            sample_shape = (sample_shape,)
+
+        if context is not None:
+            z = self.base_sample(sample_shape=sample_shape)
+            if get_batch_shape(context, self.context_shape) == sample_shape:
+                # Option A: a context tensor is given for each sampled element
+                pass
+            else:
+                # Option B: one context tensor is given for the entire to-be-sampled batch
+                sample_shape = (*sample_shape, len(context))
+                context = context[None].repeat(
+                    *[*sample_shape, *([1] * len(context.shape))])  # Make context shape match z shape
+                assert z.shape[:2] == context.shape[:2]
+        else:
+            z = self.base_sample(sample_shape=sample_shape)
+
+        if no_grad:
+            z = z.detach()
+            with torch.no_grad():
+                x, log_det, *aux = self.bijection.inverse(
+                    z.view(*sample_shape, *self.bijection.event_shape),
+                    context=context,
+                    return_aux=return_aux
+                )
+        else:
+            x, log_det, *aux = self.bijection.inverse(
+                z.view(*sample_shape, *self.bijection.event_shape),
+                context=context,
+                return_aux=return_aux
+            )
+        x = x.to(self.get_device())
+
+        if return_log_prob:
+            log_prob = self.base_log_prob(z) + log_det
+            return x, log_prob, *aux
+        return x, *aux

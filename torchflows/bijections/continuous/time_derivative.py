@@ -51,15 +51,13 @@ class TimeDerivative(nn.Module):
 
     @torch.no_grad()
     def prepare_initial_state(self,
-                              z0: torch.Tensor,
-                              div0: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+                              z0: torch.Tensor) -> Tuple[torch.Tensor, ...]:
         """Prepare the initial state tuple, containing all relevant tensors.
         For example, the state delta and the divergence (integrated into state and log_det).
         Result may contain additional tensors to be integrated.
 
         :param torch.Tensor z0: initial state delta with shape `(batch_size, event_size)`.
-        :param torch.Tensor div0: initial divergence with shape `(batch_size, 1)`.
-        :rtype: Tuple[torch.Tensor, torch.Tensor, ...].
+        :rtype: Tuple[torch.Tensor, ...].
         :return: initial state tuple. All tensors have initial dimension equal to `batch_size`.
         """
         raise NotImplementedError
@@ -72,6 +70,7 @@ class TimeDerivative(nn.Module):
         :param torch.Tensor t: delta time tensor with shape `()`.
         :param Tuple[torch.Tensor, ...] state: state tuple with tensors: the event (space) tensor, the divergence 
             tensor, and possible auxiliary tensors. Each tensor has the first dimension equal to `(batch_size,)`.
+        :param bool forward_direction: if True, we are integrating from a smaller time to a larger time.
         :rtype: Tuple[torch.Tensor, ...].
         :return: new state with the same structure as `state`.
         """
