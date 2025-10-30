@@ -393,3 +393,24 @@ class OTFlowBijection(ContinuousBijection):
             ),
             **kwargs
         )
+
+    def regularization(self, *aux: torch.Tensor) -> torch.Tensor:
+        """Compute OT-Flow regularization.
+        
+        :param Tuple[torch.Tensor, ...] aux: possible transport and HJB cost tensors. If provided, both tensors have 
+            shape `(batch_size,)`.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`.
+        """
+        if self.f.reg_transport and self.f.reg_hjb:
+            transport_cost, hjb_cost = aux
+        elif self.f.reg_transport and not self.f.reg_hjb:
+            transport_cost = aux[0]
+            hjb_cost = torch.tensor(0.0)
+        elif not self.f.reg_transport and self.f.reg_hjb:
+            transport_cost = torch.tensor(0.0)
+            hjb_cost = aux[0]
+        else:
+            return torch.tensor(0.0)
+        
+        return self.f.reg_transport_coef * transport_cost.mean() + self.f.reg_hjb_coef * hjb_cost.mean()

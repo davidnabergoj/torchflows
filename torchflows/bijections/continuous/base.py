@@ -84,7 +84,6 @@ class HutchinsonTimeDerivative(TimeDerivative):
         self._reusable_noise: torch.Tensor = None  # Hutchinson noise samples with shape 
         # `(n_noise_samples, batch_size, event_size)` for divergence estimation.
 
-
     @property
     def reg_jac_active(self) -> bool:
         """Return True if we are currently using Jacobian regularization."""
@@ -366,7 +365,8 @@ class ContinuousBijection(Bijection):
         """
         if len(aux) == 0:
             return torch.tensor(0.0)
-        return sum([torch.sum(a) for a in aux])
+        else:
+            raise NotImplementedError
 
 
     def sample(self,

@@ -8,6 +8,7 @@ from torchflows.bijections.continuous.base import (
     create_dnn_forward_model
 )
 
+
 class RNODE(ContinuousBijection):
     """RNODE architecture for general tensors.
     Parameterizes the time derivative with a feed-forward neural network.
@@ -18,8 +19,8 @@ class RNODE(ContinuousBijection):
     URL: https://arxiv.org/abs/2002.02798.
     """
 
-    def __init__(self, 
-                 event_shape: Union[torch.Size, Tuple[int, ...]], 
+    def __init__(self,
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
                  nn_kwargs: dict = None,
                  time_derivative_kwargs: dict = None,
                  **kwargs):
@@ -44,6 +45,17 @@ class RNODE(ContinuousBijection):
             ),
             **kwargs
         )
+
+    def regularization(self, sq_jac_norm: torch.Tensor = None):
+        """Compute Jacobian norm regularization.
+        
+        :param torch.Tensor sq_jac_norm: possible squared norm of the Jacobian. If provided, has shape `(batch_size,)`.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`.
+        """
+        if sq_jac_norm is not None:
+            return self.f.reg_jac_coef * sq_jac_norm.mean()
+        return torch.tensor(0.0)
 
 
 class ConvolutionalRNODE(ContinuousBijection):
@@ -72,7 +84,7 @@ class ConvolutionalRNODE(ContinuousBijection):
             raise ValueError(
                 "Event shape must be of length 3 (channels, height, width)."
             )
-        
+
         time_derivative_kwargs = time_derivative_kwargs or {}
         time_derivative_kwargs.update(reg_jac=True)
         super().__init__(
@@ -83,3 +95,15 @@ class ConvolutionalRNODE(ContinuousBijection):
             ),
             **kwargs
         )
+
+
+    def regularization(self, sq_jac_norm: torch.Tensor = None):
+        """Compute Jacobian norm regularization.
+        
+        :param torch.Tensor sq_jac_norm: possible squared norm of the Jacobian. If provided, has shape `(batch_size,)`.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`.
+        """
+        if sq_jac_norm is not None:
+            return self.f.reg_jac_coef * sq_jac_norm.mean()
+        return torch.tensor(0.0)

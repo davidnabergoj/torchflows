@@ -41,6 +41,13 @@ class FFJORD(ContinuousBijection):
             **kwargs
         )
 
+    def regularization(self, sq_jac_norm: torch.Tensor = None):
+        if sq_jac_norm is not None:
+            if sq_jac_norm.shape != ():
+                raise ValueError(
+                    f"Expected sq_jac_norm to have shape (), but got {sq_jac_norm.shape = }")
+            return self.f.reg_jac_coef * sq_jac_norm
+        return torch.tensor(0.0)
 
 class ConvolutionalFFJORD(ContinuousBijection):
     """FFJORD architecture for images. 
@@ -77,3 +84,11 @@ class ConvolutionalFFJORD(ContinuousBijection):
             ),
             **kwargs
         )
+
+    def regularization(self, sq_jac_norm: torch.Tensor = None):
+        if sq_jac_norm is not None:
+            if sq_jac_norm.shape != ():
+                raise ValueError(
+                    f"Expected sq_jac_norm to have shape (), but got {sq_jac_norm.shape = }")
+            return self.f.reg_jac_coef * sq_jac_norm
+        return torch.tensor(0.0)

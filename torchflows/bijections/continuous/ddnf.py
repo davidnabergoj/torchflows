@@ -42,6 +42,11 @@ class DDNF(ContinuousBijection):
         elif kwargs['solver'] != 'euler':
             raise ValueError("Only Euler solver permitted")
         
+        # TODO: unify regularization in a single method instead of having all these separate architectures
+        if 'reg_jac' in time_derivative_kwargs and time_derivative_kwargs['reg_jac']:
+            raise ValueError("DDNF does not utilize Jacobian regularization")
+        time_derivative_kwargs['reg_jac'] = False
+        
         self.n_steps = n_steps
         time_derivative_kwargs = time_derivative_kwargs or {}
         # time_derivative_kwargs.update(reg_geo=True)  # TODO implement
@@ -101,7 +106,11 @@ class ConvolutionalDDNF(ContinuousBijection):
             kwargs['solver'] = 'euler'
         elif kwargs['solver'] != 'euler':
             raise ValueError("Only Euler solver permitted")
-        
+        # TODO: unify regularization in a single method instead of having all these separate architectures
+        if 'reg_jac' in time_derivative_kwargs and time_derivative_kwargs['reg_jac']:
+            raise ValueError("DDNF does not utilize Jacobian regularization")
+        time_derivative_kwargs['reg_jac'] = False
+
         self.n_steps = n_steps
         time_derivative_kwargs = time_derivative_kwargs or {}
         # time_derivative_kwargs.update(reg_geo=True)  # TODO implement
