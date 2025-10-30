@@ -96,7 +96,6 @@ class ConvolutionalRNODE(ContinuousBijection):
             **kwargs
         )
 
-
     def regularization(self, sq_jac_norm: torch.Tensor = None):
         """Compute Jacobian norm regularization.
         

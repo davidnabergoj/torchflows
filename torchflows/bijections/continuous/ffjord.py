@@ -42,11 +42,14 @@ class FFJORD(ContinuousBijection):
         )
 
     def regularization(self, sq_jac_norm: torch.Tensor = None):
+        """Compute Jacobian norm regularization.
+        
+        :param torch.Tensor sq_jac_norm: possible squared norm of the Jacobian. If provided, has shape `(batch_size,)`.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`.
+        """
         if sq_jac_norm is not None:
-            if sq_jac_norm.shape != ():
-                raise ValueError(
-                    f"Expected sq_jac_norm to have shape (), but got {sq_jac_norm.shape = }")
-            return self.f.reg_jac_coef * sq_jac_norm
+            return self.f.reg_jac_coef * sq_jac_norm.mean()
         return torch.tensor(0.0)
 
 class ConvolutionalFFJORD(ContinuousBijection):
@@ -86,9 +89,12 @@ class ConvolutionalFFJORD(ContinuousBijection):
         )
 
     def regularization(self, sq_jac_norm: torch.Tensor = None):
+        """Compute Jacobian norm regularization.
+        
+        :param torch.Tensor sq_jac_norm: possible squared norm of the Jacobian. If provided, has shape `(batch_size,)`.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`.
+        """
         if sq_jac_norm is not None:
-            if sq_jac_norm.shape != ():
-                raise ValueError(
-                    f"Expected sq_jac_norm to have shape (), but got {sq_jac_norm.shape = }")
-            return self.f.reg_jac_coef * sq_jac_norm
+            return self.f.reg_jac_coef * sq_jac_norm.mean()
         return torch.tensor(0.0)
