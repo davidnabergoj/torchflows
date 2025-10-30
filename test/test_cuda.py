@@ -1,6 +1,6 @@
 import pytest
 import torch
-from torchflows import Flow
+from torchflows.flows import Flow
 from torchflows.bijections.finite.autoregressive.architectures import RealNVP
 
 

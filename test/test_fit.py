@@ -1,9 +1,8 @@
 import pytest
 import torch
-from torchflows import Flow
+from torchflows.flows import Flow
 from test.constants import __test_constants
 from torchflows.bijections.finite.autoregressive.architectures import (
-    NICE,
     RealNVP,
     MAF,
     CouplingRQNSF,
@@ -78,11 +77,7 @@ def test_diagonal_gaussian_elementwise_scale():
                              ResFlow,
                              # RNODE  # takes a very long time, but goes towards correct std
                          ])
-@pytest.mark.parametrize('target',
-                         [
-                             'diagonal',
-                             'standard'
-                         ])
+@pytest.mark.parametrize('target', ['diagonal', 'standard'])
 def test_gaussian(bijection_class, target):
     if target == 'diagonal':
         sigma = torch.tensor([[0.1, 1.0, 10.0]])

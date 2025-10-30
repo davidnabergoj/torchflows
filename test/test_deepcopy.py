@@ -3,7 +3,10 @@ from copy import deepcopy
 import pytest
 import torch
 
-from torchflows import RNODE, Flow, Sylvester, RealNVP
+from torchflows.bijections.finite.autoregressive.architectures import RealNVP
+from torchflows.bijections.finite.residual.sylvester import Sylvester
+from torchflows.flows import Flow
+from torchflows.bijections.continuous import RNODE
 from torchflows.bijections.base import invert
 
 

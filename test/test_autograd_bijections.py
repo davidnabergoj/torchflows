@@ -3,7 +3,7 @@ from typing import Tuple
 import pytest
 import torch
 
-from torchflows import Flow
+from torchflows.flows import Flow
 from torchflows.bijections.base import Bijection
 from torchflows.bijections.finite.autoregressive.architectures import NICE, RealNVP, CouplingRQNSF, MAF, IAF, \
     InverseAutoregressiveRQNSF, MaskedAutoregressiveRQNSF

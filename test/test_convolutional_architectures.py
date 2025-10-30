@@ -1,4 +1,4 @@
-from torchflows.architectures import (
+from torchflows.bijections.finite.multiscale import (
     MultiscaleNICE,
     MultiscaleRQNSF,
     MultiscaleLRSNSF,
@@ -7,10 +7,13 @@ from torchflows.architectures import (
     RQSGlow,
     LRSGlow,
     ShiftGlow,
+)
+from torchflows.bijections.continuous import (
     ConvolutionalRNODE,
     ConvolutionalDDNF,
-    ConvolutionalFFJORD
+    ConvolutionalFFJORD,
 )
+
 import torch
 import pytest
 from test.constants import __test_constants

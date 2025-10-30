@@ -110,7 +110,7 @@ class ProximalResFlow(ResidualArchitecture):
         )
 
 
-class PlanarFlow(ResidualArchitecture):
+class PlanarBijection(ResidualArchitecture):
     """Planar flow architecture.
 
     Note: this model currently supports only one-way transformations.
@@ -130,7 +130,7 @@ class PlanarFlow(ResidualArchitecture):
         )
 
 
-class RadialFlow(ResidualArchitecture):
+class RadialBijection(ResidualArchitecture):
     """Radial flow architecture.
 
     Note: this model currently supports only one-way transformations.
@@ -150,7 +150,7 @@ class RadialFlow(ResidualArchitecture):
         )
 
 
-class SylvesterFlow(ResidualArchitecture):
+class SylvesterBijection(ResidualArchitecture):
     """Sylvester flow architecture.
 
     Note: this model currently supports only one-way transformations.
