@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.continuous.base import ContinuousBijection
 from torchflows.bijections.base import Bijection
 from torchflows.utils import flatten_event, unflatten_event, create_data_loader, get_batch_shape
 from torchflows.base_distributions.gaussian import DiagonalGaussian
@@ -66,14 +66,15 @@ class BaseFlow(nn.Module):
         z = unflatten_event(z_flat, self.event_shape)
         return z
 
-    def regularization(self, *aux):
+    def regularization(self, *args, **kwargs):
         """Compute regularization for training.
 
-        :param Tuple[Any, ...] aux: tuple of auxiliary inputs to compute regularization.
+        :param args: positional arguments to `self.bijection.regularization`.
+        :param kwargs: keyword arguments to `self.bijection.regularization`.
         :rtype: Union[torch.Tensor, float].
         :return: tensor with shape `()` or float.
         """
-        return self.bijection.regularization()
+        return self.bijection.regularization(*args, **kwargs)
     
     def _loss_kl_p_to_q(self, 
                         data: torch.Tensor, 
@@ -193,11 +194,6 @@ class BaseFlow(nn.Module):
         if val_loader is not None and keep_best_weights:
             self.load_state_dict(best_weights)
 
-        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        # TODO fix by reimplementing RNODE
-        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
-            self.bijection.f.stored_reg = None
-
         self.eval()
 
     def _base_batch_loss(self, 
@@ -210,6 +206,7 @@ class BaseFlow(nn.Module):
          `(batch_size, *event_shape)` and the corresponding weights with shape `(batch_size,)`.
         :param callable reduction: function that receives the weighted log probability tensor (under the NF) with shape
          `(batch_size,)` and outputs a loss tensor with shape `()`.
+        :param Tuple[torch.Tensor, ...] reg_inputs: optional inputs to `self.regularization`.
         :param bool use_regularization: if True, add regularization to the loss.
         :rtype: torch.Tensor.
         :return: loss tensor with shape `()`.
@@ -455,10 +452,6 @@ class BaseFlow(nn.Module):
         if keep_best_weights:
             self.load_state_dict(best_weights)
 
-        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
-            self.bijection.f.stored_reg = None
-
         self.eval()
 
     def _variational_loss(self, 
@@ -607,10 +600,6 @@ class BaseFlow(nn.Module):
         elif keep_best_weights:
             self.load_state_dict(best_weights)
 
-        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if isinstance(self.bijection, RNODE):
-            self.bijection.f.stored_reg = None
-
         self.eval()
 
 
@@ -672,8 +661,7 @@ class Flow(BaseFlow):
                sample_shape: Union[int, torch.Size, Tuple[int, ...]],
                context: torch.Tensor = None,
                no_grad: bool = False,
-               return_log_prob: bool = False,
-               return_aux: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         """Sample from the normalizing flow.
 
         If context given, sample n tensors for each context tensor.
@@ -683,11 +671,9 @@ class Flow(BaseFlow):
         :param torch.Tensor context: context tensor with shape `c`.
         :param bool no_grad: if True, do not track gradients in the inverse pass.
         :param bool return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
-        :param bool return_aux: if True, return auxiliary tensors from `bijection.inverse`.
         :return: samples with shape `(*sample_shape, *event_shape)` if no context given or 
          `(*sample_shape, *c, *event_shape)` if context given. If `return_log_prob` is True, return the NF log 
-         probability density tensor with shape `sample_shape` as the second tuple item. If `return_aux` is True, return
-         auxiliary tensors to be used in `bijection.regularization`.
+         probability density tensor with shape `sample_shape` as the second tuple item.
         :rtype: Union[torch.Tensor, Tuple[torch.Tensor, ...]].
         """
         if isinstance(sample_shape, int):
@@ -841,3 +827,102 @@ class FlowMixture(BaseFlow):
 
     def regularization(self):
         return sum([flow.regularization() for flow in self.flows])
+
+
+class ContinuousFlow(Flow):
+    def __init__(self, bijection: ContinuousBijection, **kwargs):
+        if not isinstance(bijection, ContinuousBijection):
+            raise ValueError("Can only use continuous bijections in a continuous flow object.")
+        super().__init__(bijection, **kwargs)
+
+    def forward_with_log_prob(self, 
+                              x: torch.Tensor, 
+                              context: torch.Tensor = None,
+                              return_aux: bool = False):
+        if context is not None:
+            if self.context_shape is None:
+                raise ValueError('Context shape must be set.')
+            if self.event_shape is None:
+                raise ValueError('Event shape must be set.')
+            _batch_shape_1 = get_batch_shape(x, self.event_shape)
+            _batch_shape_2 = get_batch_shape(context, self.context_shape)
+            assert _batch_shape_1 == _batch_shape_2
+            context = context.to(self.get_device())
+        z, log_det, *aux = self.bijection.forward(
+            x.to(self.get_device()), 
+            context=context,
+            return_aux=return_aux
+        )
+        log_base = self.base_log_prob(z)
+        if return_aux:
+            return z, log_base + log_det, *aux
+        else:
+            return z, log_base + log_det
+
+    def log_prob(self, x, context = None, **kwargs):
+        return self.forward_with_log_prob(x, context, **kwargs)[1:]
+
+    def _base_batch_loss(self, 
+                         batch, 
+                         reduction = torch.mean, 
+                         use_regularization = True):
+        x, weights = batch[:2]
+        batch_context = batch[2] if len(batch) == 3 else None
+
+        batch_log_prob, *aux = self.log_prob(
+            x.to(self.get_device()), 
+            context=batch_context,
+            return_aux=use_regularization
+        )
+        weights = weights.to(self.get_device())
+        batch_loss = -reduction(batch_log_prob * weights) / self.event_size
+
+        if use_regularization:
+            batch_loss += self.regularization(*aux)
+
+        return batch_loss
+    
+    def _loss_kl_p_to_q(self, 
+                        data, 
+                        log_prob_target_data, 
+                        use_regularization = True):
+        batch_log_prob, *aux = self.log_prob(
+            data.to(self.get_device()), 
+            return_aux=use_regularization
+        )
+
+        loss = torch.mean(log_prob_target_data.to(self.get_device()) - batch_log_prob)
+        if use_regularization:
+            loss += self.regularization(*aux)
+        
+        return loss
+    
+    def _variational_loss(self, 
+                          target_log_prob: callable, 
+                          n_samples: int,
+                          use_regularization: bool = True,
+                          check_for_divergences: bool = False):
+        flow_x, flow_log_prob, *aux = self.sample(
+            n_samples, 
+            return_log_prob=True, 
+            return_aux=use_regularization
+        )
+        target_log_prob_value = target_log_prob(flow_x)
+        loss = -torch.mean(target_log_prob_value + flow_log_prob)
+        if use_regularization:
+            loss += self.regularization(*aux)
+
+        epoch_diverged = False
+        if check_for_divergences:
+            if not torch.isfinite(loss):
+                epoch_diverged = True
+            if torch.max(torch.abs(flow_x)) > 1e8:
+                epoch_diverged = True
+            elif torch.max(torch.abs(flow_log_prob)) > 1e6:
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_x)):
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_log_prob)):
+                epoch_diverged = True
+            
+        return loss, flow_log_prob, target_log_prob_value, epoch_diverged

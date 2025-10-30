@@ -5,6 +5,7 @@ import torch
 
 from torchflows.bijections.continuous.base import ContinuousBijection
 from torchflows.bijections.base import Bijection
+from torchflows.bijections.continuous.ddnf import DDNF
 from torchflows.bijections.continuous.ffjord import FFJORD
 from torchflows.bijections.continuous.otflow import OTFlowBijection
 from torchflows.bijections.continuous.rnode import RNODE
@@ -27,12 +28,30 @@ from test.constants import __test_constants
 def setup_data(bijection_class, batch_shape, event_shape, context_shape):
     torch.manual_seed(0)
     x = torch.randn(*batch_shape, *event_shape)
-    context = torch.randn(size=(*batch_shape, *context_shape)) if context_shape is not None else None
-    bijection = bijection_class(event_shape, context_shape=context_shape)
-    if isinstance(bijection, (FFJORD, RNODE, OTFlowBijection)):
-        # "Fix" bijection object
-        # use dopri5 for accurate reconstructions
-        bijection = bijection_class(event_shape, context_shape=context_shape, solver='dopri5')
+    context = torch.randn(size=(*batch_shape, *context_shape)
+                          ) if context_shape is not None else None
+
+    if bijection_class in [DDNF, FFJORD, RNODE, OTFlowBijection]:
+        if bijection_class != OTFlowBijection:
+            # dopri5?
+            bijection = bijection_class(
+                event_shape,
+                context_shape=context_shape,
+                reuse_noise=True,
+                solver='dopri5',
+                atol=1e-8,
+                rtol=1e-8,
+            )
+        else:
+            bijection = bijection_class(
+                event_shape,
+                context_shape=context_shape,
+                atol=1e-8,
+                rtol=1e-8,
+                solver='dopri5'
+            )
+    else:
+        bijection = bijection_class(event_shape, context_shape=context_shape)
     return bijection, x, context
 
 
@@ -76,23 +95,17 @@ def assert_valid_reconstruction(bijection: Bijection,
 def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
                                            x: torch.Tensor,
                                            context: torch.Tensor,
-                                           reconstruction_eps=1e-3,
-                                           log_det_eps=1e-3):
+                                           reconstruction_eps: float = 1e-3,
+                                           log_det_eps: float = 1e-3):
     torch.manual_seed(0)
 
     if context is None:
         # We need this check for transformers, as they do not receive context as an input.
         z, log_det_forward = bijection.forward(x)
-        if isinstance(bijection.f, ExactODEFunction):
-            xr, log_det_inverse = bijection.inverse(z)
-        else:
-            xr, log_det_inverse = bijection.inverse(z, noise=bijection.f.hutch_noise)
+        xr, log_det_inverse = bijection.inverse(z)
     else:
         z, log_det_forward = bijection.forward(x, context=context)
-        if isinstance(bijection.f, ExactODEFunction):
-            xr, log_det_inverse = bijection.inverse(z, context=context)
-        else:
-            xr, log_det_inverse = bijection.inverse(z, context=context, noise=bijection.f.hutch_noise)
+        xr, log_det_inverse = bijection.inverse(z, context=context)
 
     batch_shape = get_batch_shape(x, bijection.event_shape)
 
@@ -135,7 +148,8 @@ def assert_valid_reconstruction_continuous(bijection: ContinuousBijection,
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
-    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(
+        bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
 
@@ -153,7 +167,8 @@ def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tup
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_coupling(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
-    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(
+        bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
 
@@ -168,7 +183,8 @@ def test_coupling(bijection_class: Bijection, batch_shape: Tuple, event_shape: T
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple,
                                context_shape: Tuple):
-    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(
+        bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
 
@@ -188,7 +204,8 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
 @pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
 def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
-    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(
+        bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction(bijection, x, context)
 
 
@@ -196,8 +213,8 @@ def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: T
     FFJORD,
     RNODE,
     OTFlowBijection,
-    # DeepDiffeomorphicBijection,  # Skip, reason: reconstruction fails due to the Euler integrator as proposed in the
-    #                                      original method. Replacing the Euler integrator with RK4 fixes the issue.
+    # DDNF # Skip, reason: reconstruction fails due to the Euler integrator as proposed in the
+    #                                     original method. Replacing the Euler integrator with RK4 fixes the issue.
 ])
 @pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
@@ -208,7 +225,8 @@ def test_continuous(
         event_shape: Tuple,
         context_shape: Tuple
 ):
-    bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(
+        bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction_continuous(bijection, x, context)
 
 
@@ -216,5 +234,6 @@ def test_ot_flow_instability():
     batch_shape = (5,)
     event_shape = (2,)
     context_shape = (2,)
-    bijection, x, context = setup_data(OTFlowBijection, batch_shape, event_shape, context_shape)
+    bijection, x, context = setup_data(
+        OTFlowBijection, batch_shape, event_shape, context_shape)
     assert_valid_reconstruction_continuous(bijection, x, context)
