@@ -45,7 +45,9 @@ def approximate_divergence(dz: torch.Tensor,
     e_dzdx_vals = []
     for e_ in noise:
         # Flatten
-        e_dzdx = torch.autograd.grad(dz, x, e_, create_graph=True)[0]
+        with torch.no_grad():
+            e_dzdx = torch.autograd.grad(dz, x, e_, create_graph=False, retain_graph=True)[0]
+        # e_dzdx = torch.autograd.grad(dz, x, e_, create_graph=True)[0]
         if return_e_dzdx:
             e_dzdx_vals.append(e_dzdx)
         e_dzdx_e = e_dzdx * e_
