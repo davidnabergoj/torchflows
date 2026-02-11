@@ -41,6 +41,7 @@ class DDNF(ContinuousBijection):
             kwargs['solver'] = 'euler'
         elif kwargs['solver'] != 'euler':
             raise ValueError("Only Euler solver permitted")
+        time_derivative_kwargs = time_derivative_kwargs or {}
         
         # TODO: unify regularization in a single method instead of having all these separate architectures
         if 'reg_jac' in time_derivative_kwargs and time_derivative_kwargs['reg_jac']:
