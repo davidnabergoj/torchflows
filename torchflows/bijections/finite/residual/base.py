@@ -11,19 +11,40 @@ class ClassicResidualBijection(Bijection):
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  inverse: bool = False,
+                 l2_regularization: bool = False,
+                 l2_coef: float = 0.01,
                  **kwargs):
         super().__init__(event_shape, **kwargs)
+        self.l2_regularization = l2_regularization
+        self.l2_coef = l2_coef
         if inverse:
             self.invert()
 
+    def regularization(self, *aux):
+        """Compute regularization.
+
+        :param Tuple[Any, ...] aux: unused.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`. 
+        """
+        if self.l2_regularization and self.l2_coef > 0:
+            return self.sq_norm_param() * self.l2_coef
+        else:
+            return torch.tensor(0.0)
 
 class IterativeResidualBijection(Bijection):
     """
     g maps from (*batch_shape, *event_shape) to (*batch_shape, *event_shape)
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+    def __init__(self, 
+                 event_shape: Union[torch.Size, Tuple[int, ...]], 
+                 l2_regularization: bool = False,
+                 l2_coef: float = 0.01,
+                 **kwargs):
         super().__init__(event_shape)
+        self.l2_regularization = l2_regularization
+        self.l2_coef = l2_coef
         self.g: callable = None
 
     def log_det(self, x, **kwargs):
@@ -71,7 +92,18 @@ class IterativeResidualBijection(Bijection):
             log_det = unflatten_batch(self.log_det(x_flat, training=self.training), batch_shape)
 
         return x, log_det
+    
+    def regularization(self, *aux):
+        """Compute regularization.
 
+        :param Tuple[Any, ...] aux: unused.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`. 
+        """
+        if self.l2_regularization and self.l2_coef > 0:
+            return self.sq_norm_param() * self.l2_coef
+        else:
+            return torch.tensor(0.0)
 
 class ResidualArchitecture(BijectiveComposition):
     def __init__(self,

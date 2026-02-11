@@ -16,7 +16,9 @@ class TensorTransformer(Bijection):
     individually.
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+    def __init__(self, 
+                 event_shape: Union[torch.Size, Tuple[int, ...]], 
+                 **kwargs):
         super().__init__(event_shape=event_shape)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

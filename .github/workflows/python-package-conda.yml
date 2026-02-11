@@ -39,4 +39,4 @@ jobs:
     - name: Test with pytest
       run: |
         conda install pytest
-        pytest
+        pytest -m "not local_only"

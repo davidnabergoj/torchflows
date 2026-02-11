@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from torchflows import Flow
+from torchflows.flows import Flow
 from torchflows.bijections.base import BijectiveComposition
 from torchflows.bijections.finite.autoregressive.layers import AffineCoupling, ElementwiseAffine
 from torchflows.bijections.finite.autoregressive.transformers.linear.affine import Affine

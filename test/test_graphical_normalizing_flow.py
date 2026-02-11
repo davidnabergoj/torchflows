@@ -1,6 +1,6 @@
 import pytest
 import torch
-from torchflows.architectures import RealNVP, NICE, CouplingRQNSF
+from torchflows.bijections.finite.autoregressive import RealNVP, NICE, CouplingRQNSF
 from test.constants import __test_constants
 
 

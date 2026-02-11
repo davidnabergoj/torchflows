@@ -1,4 +1,4 @@
-from torchflows.architectures import (
+from torchflows.bijections.finite.multiscale import (
     MultiscaleNICE,
     MultiscaleRQNSF,
     MultiscaleLRSNSF,
@@ -7,10 +7,13 @@ from torchflows.architectures import (
     RQSGlow,
     LRSGlow,
     ShiftGlow,
-    ConvolutionalRNODE,
-    ConvolutionalDeepDiffeomorphicBijection,
-    ConvolutionalFFJORD
 )
+from torchflows.bijections.continuous import (
+    ConvolutionalRNODE,
+    ConvolutionalDDNF,
+    ConvolutionalFFJORD,
+)
+
 import torch
 import pytest
 from test.constants import __test_constants
@@ -41,7 +44,7 @@ def test_autoregressive(architecture_class, image_shape):
 @pytest.mark.skip('Unsupported/failing')
 @pytest.mark.parametrize('architecture_class', [
     ConvolutionalRNODE,
-    ConvolutionalDeepDiffeomorphicBijection,
+    ConvolutionalDDNF,
     ConvolutionalFFJORD
 ])
 @pytest.mark.parametrize('image_shape', [(1, 28, 28), (3, 28, 28)])

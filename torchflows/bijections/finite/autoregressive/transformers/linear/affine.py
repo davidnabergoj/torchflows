@@ -13,10 +13,10 @@ class Affine(ScalarTransformer):
 
     Computes z = alpha * x + beta, where alpha > 0 and -inf < beta < inf.
     Alpha and beta have the same shape as x, i.e. the computation is performed elementwise.
-    We use a minimum permitted scale m, 0 < m <= alpha, for numerical stability
+    We use a minimum permitted scale m, 0 < m < 1, for numerical stability
     """
 
-    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-3):
+    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-10):
         super().__init__(event_shape=event_shape)
         self.m = min_scale
         self.identity_unconstrained_alpha = math.log(1 - self.m)
@@ -87,7 +87,7 @@ class Affine2(ScalarTransformer):
     Alpha and beta have the same shape as x, i.e. the computation is performed elementwise.
 
     In this implementation, we compute alpha and beta such that the initial map is near identity.
-    We also use a minimum permitted scale m, 0 < m <= alpha, for numerical stability
+    We also use a minimum permitted scale m, 0 < m < 1, for numerical stability
     This means setting alpha = 1 + d(u_alpha) where -1 + m < d(u_alpha) < inf.
 
     We can verify that the following construction for function d is suitable:
@@ -99,7 +99,7 @@ class Affine2(ScalarTransformer):
     overarching bijections that use this transformer.
     """
 
-    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-3, **kwargs):
+    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-10, **kwargs):
         super().__init__(event_shape=event_shape)
         assert 0 < min_scale < 1
         self.m = min_scale
@@ -164,10 +164,10 @@ class Scale(ScalarTransformer):
     Scaling transformer.
 
     Computes z = alpha * x, where alpha > 0.
-    We use a minimum permitted scale m, 0 < m <= alpha, for numerical stability
+    We use a minimum permitted scale m, 0 < m < 1, for numerical stability
     """
 
-    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-3):
+    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-10):
         super().__init__(event_shape=event_shape)
         self.m = min_scale
         self.const = 2.0

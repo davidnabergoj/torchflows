@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from torchflows import Flow
+from torchflows.flows import Flow
 from torchflows.bijections.finite.autoregressive.architectures import CouplingDeepSF
 from torchflows.bijections.finite.autoregressive.layers import DeepSigmoidalCoupling
 from torchflows.bijections.finite.autoregressive.transformers.combination.sigmoid import Sigmoid, DeepSigmoid

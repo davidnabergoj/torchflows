@@ -1,13 +1,14 @@
 import torch
 
-from torchflows import Radial
+from torchflows.bijections.finite.residual import RadialBijection
 
 
 def test_exhaustive():
     torch.manual_seed(0)
     event_shape = (1000,)
-    bijection = Radial(event_shape=event_shape)
-    z = torch.randn(size=(5000, *event_shape)) ** 2
+    bijection = RadialBijection(event_shape=event_shape)
+    z = torch.rand(size=(5000, *event_shape)) * 20 - 10  # U(-10, 10)
     x, log_det_inverse = bijection.inverse(z)
-    assert torch.isfinite(x).all()
-    assert torch.isfinite(log_det_inverse).all()
+
+    assert x.isfinite().all()
+    assert log_det_inverse.isfinite().all()

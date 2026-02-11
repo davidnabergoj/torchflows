@@ -3,72 +3,131 @@ from typing import Union, Tuple
 import torch
 
 from torchflows.bijections.continuous.base import (
-    ApproximateContinuousBijection,
-    RegularizedApproximateODEFunction,
-    create_nn_time_independent,
-    create_cnn_time_independent
+    ContinuousBijection,
+    HutchinsonTimeDerivative,
+    create_cnn,
+    create_dnn_forward_model,
 )
 
 
-class DeepDiffeomorphicBijection(ApproximateContinuousBijection):
-    """Deep diffeomorphic normalizing flow (DDNF) architecture.
+class DDNF(ContinuousBijection):
+    """DDNF architecture for general tensors.
+    Parameterizes the time derivative with a feed-forward neural network.
 
-    Notes:
-        - this model is implemented without Geodesic regularization. This is because torchdiffeq ODE solvers do not output the predicted velocity, only the point.
-        - while the paper presents DDNF as a continuous normalizing flow, it implemented as a residual normalizing flow in this library. There is no functional difference.
-        - IMPORTANT: the Euler solver produces very inaccurate results. Switching to the DOPRI5 solver massively improves reconstruction quality. However, we leave the Euler solver as it is presented in the original method.
+    TODO: implement Geodesic regularization!
 
-    Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
+    Note: The Euler solver produces very inaccurate results. Switching to the DOPRI5 solver massively improves 
+        reconstruction quality. We leave the Euler solver as it is presented in the original method.
+
+    Salman et al. "Deep diffeomorphic normalizing flows" (2018).
+    URL: https://arxiv.org/abs/1810.03256.
     """
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_steps: int = 150,
                  nn_kwargs: dict = None,
+                 time_derivative_kwargs: dict = None,
                  **kwargs):
-        """
-        Constructor.
+        """DeepDiffeomorphicBijection constructor.
 
-        :param event_shape: shape of the event tensor.
-        :param n_steps: parameter T in the paper, i.e. the number of ResNet cells.
+        :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param n_steps: number of ResNet cells (Euler integration steps). Parameter T in the paper.
+        :param dict nn_kwargs: keyword arguments for `create_nn`.
+        :param dict time_derivative_kwargs: keyword arguments for `ApproximateTimeDerivative`.
+        :param kwargs: keyword arguments for `ContinuousBijection`.
         """
-        nn_kwargs = nn_kwargs or {}
-        diff_eq = RegularizedApproximateODEFunction(
-            create_nn_time_independent(event_shape, **nn_kwargs))
-        self.n_steps = n_steps
         if 'solver' not in kwargs:
             kwargs['solver'] = 'euler'
-        super().__init__(event_shape, diff_eq, **kwargs)
-
-    def odeint_wrapper(self, z_flat, log_det_initial, integration_times):
-        return super().odeint_wrapper(
-            z_flat,
-            log_det_initial,
-            integration_times,
-            options={
-                'step_size': 1 / self.n_steps
-            }
+        elif kwargs['solver'] != 'euler':
+            raise ValueError("Only Euler solver permitted")
+        time_derivative_kwargs = time_derivative_kwargs or {}
+        
+        # TODO: unify regularization in a single method instead of having all these separate architectures
+        if 'reg_jac' in time_derivative_kwargs and time_derivative_kwargs['reg_jac']:
+            raise ValueError("DDNF does not utilize Jacobian regularization")
+        time_derivative_kwargs['reg_jac'] = False
+        
+        self.n_steps = n_steps
+        time_derivative_kwargs = time_derivative_kwargs or {}
+        # time_derivative_kwargs.update(reg_geo=True)  # TODO implement
+        super().__init__(
+            event_shape=event_shape,
+            f=HutchinsonTimeDerivative(
+                forward_model=create_dnn_forward_model(
+                    event_shape, 
+                    **(nn_kwargs or {})
+                ),
+                **time_derivative_kwargs
+            ),
+            **kwargs
         )
 
+    def inverse(self, *args, **kwargs):
+        # Set number of Euler integration steps for odeint call
+        if 'options' not in kwargs:
+            kwargs['options'] = {
+                'step_size': 1 / self.n_steps
+            }
+        return super().inverse(*args, **kwargs)
 
-class ConvolutionalDeepDiffeomorphicBijection(ApproximateContinuousBijection):
-    """Convolutional variant of the DDNF architecture.
+class ConvolutionalDDNF(ContinuousBijection):
+    """DDNF architecture for images.
+    Parameterizes the time derivative with a convolutional neural network.
 
-    Reference: Salman et al. "Deep diffeomorphic normalizing flows" (2018); https://arxiv.org/abs/1810.03256.
+    TODO: implement Geodesic regularization!
+
+    Note: The Euler solver can produce very inaccurate results. Switching to the DOPRI5 solver massively improves 
+        reconstruction quality. We leave the Euler solver as it is presented in the original method.
+
+    Salman et al. "Deep diffeomorphic normalizing flows" (2018).
+    URL: https://arxiv.org/abs/1810.03256.
     """
 
     def __init__(self,
                  event_shape: Union[torch.Size, Tuple[int, ...]],
                  n_steps: int = 150,
                  nn_kwargs: dict = None,
+                 time_derivative_kwargs: dict = None,
                  **kwargs):
-        nn_kwargs = nn_kwargs or {}
+        """DeepDiffeomorphicBijection constructor.
+
+        :param Union[Tuple[int, ...], torch.Size] event_shape: shape of the event tensor.
+        :param n_steps: number of ResNet cells (Euler integration steps). Parameter T in the paper.
+        :param dict nn_kwargs: keyword arguments for `create_nn`.
+        :param dict time_derivative_kwargs: keyword arguments for `ApproximateTimeDerivative`.
+        :param kwargs: keyword arguments for `ContinuousBijection`.
+        """
         if len(event_shape) != 3:
             raise ValueError(
-                "Event shape must be of length 3 (channels, height, width).")
-        diff_eq = RegularizedApproximateODEFunction(
-            create_cnn_time_independent(event_shape[0], **nn_kwargs))
-        self.n_steps = n_steps
+                "Event shape must be of length 3 (channels, height, width)."
+            )
+
         if 'solver' not in kwargs:
             kwargs['solver'] = 'euler'
-        super().__init__(event_shape, diff_eq, **kwargs)
+        elif kwargs['solver'] != 'euler':
+            raise ValueError("Only Euler solver permitted")
+        # TODO: unify regularization in a single method instead of having all these separate architectures
+        if 'reg_jac' in time_derivative_kwargs and time_derivative_kwargs['reg_jac']:
+            raise ValueError("DDNF does not utilize Jacobian regularization")
+        time_derivative_kwargs['reg_jac'] = False
+
+        self.n_steps = n_steps
+        time_derivative_kwargs = time_derivative_kwargs or {}
+        # time_derivative_kwargs.update(reg_geo=True)  # TODO implement
+        super().__init__(
+            event_shape=event_shape,
+            f=HutchinsonTimeDerivative(
+                create_cnn(event_shape[0], **(nn_kwargs or {})),
+                **time_derivative_kwargs
+            ),
+            **kwargs
+        )
+
+    def inverse(self, *args, **kwargs):
+        # Set number of Euler integration steps for odeint call
+        if 'options' not in kwargs:
+            kwargs['options'] = {
+                'step_size': 1 / self.n_steps
+            }
+        return super().inverse(*args, **kwargs)

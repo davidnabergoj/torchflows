@@ -11,8 +11,12 @@ class InvertibleMatrix(Bijection):
     Invertible matrix bijection (currently ignores context).
     """
 
-    def __init__(self, event_shape: Union[torch.Size, Tuple[int, ...]], **kwargs):
+    def __init__(self, 
+                 event_shape: Union[torch.Size, Tuple[int, ...]],
+                 l2_regularization: bool = False,
+                 **kwargs):
         super().__init__(event_shape, **kwargs)
+        self.l2_regularization = l2_regularization
         self.register_buffer('device_buffer', torch.zeros(1))
 
     def forward(self, x: torch.Tensor, context: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -52,3 +56,19 @@ class InvertibleMatrix(Bijection):
         :return: log abs det jac of f where f(x) = Ax and A is this matrix.
         """
         raise NotImplementedError
+
+    def regularization(self, *aux):
+        """Compute regularization.
+
+        :param Tuple[Any, ...] aux: unused.
+        :rtype: torch.Tensor.
+        :return: regularization tensor with shape `()`. 
+        """
+        if self.l2_regularization:
+            return sum([
+                torch.sum(torch.square(p)) 
+                for p in self.parameters()
+                if p.requires_grad
+            ])
+        else:
+            return torch.tensor(0.0)

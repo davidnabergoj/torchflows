@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from torchflows import Flow
-from torchflows.architectures import ConvolutionalResFlow, ConvolutionalInvertibleResNet
+from torchflows.flows import Flow
+from torchflows.bijections.finite.residual import ConvolutionalResFlow, ConvolutionalInvertibleResNet
 
 
 @pytest.mark.parametrize('arch_cls', [ConvolutionalResFlow, ConvolutionalInvertibleResNet])

@@ -2,15 +2,15 @@ import pytest
 import torch
 
 from torchflows.flows import Flow
-from torchflows.bijections.finite.residual.architectures import RadialFlow, SylvesterFlow, PlanarFlow
+from torchflows.bijections.finite.residual.architectures import RadialBijection, SylvesterBijection, PlanarBijection
 
 
 @pytest.mark.parametrize(
     'architecture_class',
     [
-        RadialFlow,
-        SylvesterFlow,
-        PlanarFlow
+        RadialBijection,
+        SylvesterBijection,
+        PlanarBijection
     ]
 )
 def test_basic(architecture_class):

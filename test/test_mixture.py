@@ -1,5 +1,5 @@
 from torchflows.flows import FlowMixture, Flow
-from torchflows.architectures import RealNVP, NICE, CouplingRQNSF
+from torchflows.bijections.finite.autoregressive import RealNVP, NICE, CouplingRQNSF
 import torch
 
 

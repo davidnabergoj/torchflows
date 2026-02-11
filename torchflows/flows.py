@@ -1,6 +1,7 @@
 import time
 from copy import deepcopy
 from typing import Union, Tuple, List
+import warnings
 
 import numpy as np
 import torch
@@ -8,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from torchflows.bijections.continuous.rnode import RNODE
+from torchflows.bijections.continuous.base import ContinuousBijection
 from torchflows.bijections.base import Bijection
 from torchflows.utils import flatten_event, unflatten_event, create_data_loader, get_batch_shape
 from torchflows.base_distributions.gaussian import DiagonalGaussian
@@ -65,15 +66,37 @@ class BaseFlow(nn.Module):
         z = unflatten_event(z_flat, self.event_shape)
         return z
 
-    def regularization(self):
-        """Compute the regularization term used in training.
+    def regularization(self, *args, **kwargs):
+        """Compute regularization for training.
+
+        :param args: positional arguments to `self.bijection.regularization`.
+        :param kwargs: keyword arguments to `self.bijection.regularization`.
+        :rtype: Union[torch.Tensor, float].
+        :return: tensor with shape `()` or float.
         """
-        return 0.0
+        return self.bijection.regularization(*args, **kwargs)
+    
+    def _loss_kl_p_to_q(self, 
+                        data: torch.Tensor, 
+                        log_prob_target_data: torch.Tensor,
+                        use_regularization: bool = True):
+        """Compute loss used in fitting the NF by minimizing KL(p || q).
+
+        :param toch.Tensor data: data tensor with shape `(batch_size, *event_size)`.
+        :param torch.Tensor log_prob_target_data: tensor with shape `(batch_size,)`; the target log density of data.
+        :param bool use_regularization: if True, add regularization to loss.
+        :rtype: torch.Tensor.
+        :return: loss tensor with shape `()`.
+        """
+        loss = torch.mean(log_prob_target_data - self.log_prob(data))
+        if use_regularization:
+            loss += self.regularization()
+        return loss
 
     def fit_kl_p_to_q(self,
                       x_train: torch.Tensor,
                       x_val: torch.Tensor,
-                      potential: callable,
+                      neg_log_prob_target: callable,
                       n_epochs: int = 500,
                       lr: float = 0.05,
                       batch_size: int = 1024,
@@ -81,15 +104,30 @@ class BaseFlow(nn.Module):
                       keep_best_weights: bool = True,
                       early_stopping: bool = False,
                       early_stopping_threshold: int = 50,
-                      time_limit_seconds: Union[float, int] = None,
+                      time_limit_seconds: float = None,
                       reset_optimizer: bool = True):
-        def loss_function(data, log_prob_target_data):
-            return torch.mean(log_prob_target_data - self.log_prob(data))
+        """Fit NF by minimizing KL(p || q).
 
-        train_dataset = TensorDataset(x_train, -potential(x_train).detach())
+        :param torch.Tensor x_train: training data tensor with shape `(n_train, *event_shape)`.
+        :param torch.Tensor x_val: validation data tensor with shape `(n_val, *event_shape)`.
+        :param callable neg_log_prob_target: function that recieves a tensor with shape `(batch_size, *event_shape)` and
+         outputs a tensor with shape `(batch_size,)`, containing the target negative log probability densities.
+        :param int n_epochs: number of training epochs.
+        :param float lr: AdamW learning rate.
+        :param int batch_size: batch size for AdamW updates.
+        :param bool show_progress: if True, show a progress bar.
+        :param bool keep_best_weights: if True, keep the weights with the lowest validation loss after training.
+        :param bool early_stopping: if True, stop training early after validation loss stops decreasing for a certain 
+         number of epochs.
+        :param int early_stopping_threshold: number of epochs threshold for early stopping.
+        :param float time_limit_seconds: maximum training time in seconds.
+        :param bool reset_optimizer: if True, reset the internal optimizer state after starting training. This can be 
+         useful when re-training the NF several times without losing data.
+        """
+        train_dataset = TensorDataset(x_train, -neg_log_prob_target(x_train).detach())
         train_loader = DataLoader(train_dataset, batch_size=batch_size)
 
-        val_dataset = TensorDataset(x_val, -potential(x_val).detach())
+        val_dataset = TensorDataset(x_val, -neg_log_prob_target(x_val).detach())
         val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
         if len(list(self.parameters())) == 0:
@@ -114,12 +152,7 @@ class BaseFlow(nn.Module):
 
             for train_batch in train_loader:
                 self._optimizer.zero_grad()
-                train_loss = loss_function(*train_batch)
-                if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
-                train_loss += self.regularization()
-                if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
+                train_loss = self._loss_kl_p_to_q(*train_batch)
                 train_loss.backward()
                 self._optimizer.step()
 
@@ -138,7 +171,10 @@ class BaseFlow(nn.Module):
                 # Compute validation loss
                 val_loss = 0.0
                 for val_batch in val_loader:
-                    val_loss += loss_function(*val_batch).detach()
+                    val_loss += self._loss_kl_p_to_q(
+                        *val_batch, 
+                        use_regularization=False
+                    ).detach()
 
                 # Check if validation loss is the lowest so far
                 if val_loss < best_val_loss:
@@ -158,11 +194,34 @@ class BaseFlow(nn.Module):
         if val_loader is not None and keep_best_weights:
             self.load_state_dict(best_weights)
 
-        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
-            self.bijection.f.stored_reg = None
-
         self.eval()
+
+    def _base_batch_loss(self, 
+                         batch: Tuple[torch.Tensor, torch.Tensor],
+                         reduction: callable = torch.mean,
+                         use_regularization: bool = True):
+        """Compute loss on a training batch for regular NF training.
+        
+        :param Tuple[torch.Tensor, torch.Tensor] batch: tuple containing the training data batch with shape 
+         `(batch_size, *event_shape)` and the corresponding weights with shape `(batch_size,)`.
+        :param callable reduction: function that receives the weighted log probability tensor (under the NF) with shape
+         `(batch_size,)` and outputs a loss tensor with shape `()`.
+        :param Tuple[torch.Tensor, ...] reg_inputs: optional inputs to `self.regularization`.
+        :param bool use_regularization: if True, add regularization to the loss.
+        :rtype: torch.Tensor.
+        :return: loss tensor with shape `()`.
+        """
+        x, weights = batch[:2]
+        batch_context = batch[2] if len(batch) == 3 else None
+
+        batch_log_prob = self.log_prob(x.to(self.get_device()), context=batch_context)
+        weights = weights.to(self.get_device())
+        batch_loss = -reduction(batch_log_prob * weights) / self.event_size
+
+        if use_regularization:
+            batch_loss += self.regularization()
+
+        return batch_loss
 
     def fit(self,
             x_train: torch.Tensor,
@@ -191,21 +250,26 @@ class BaseFlow(nn.Module):
         :param x_train: training data with shape `(n_training_data, *event_shape)`.
         :param n_epochs: perform fitting for this many steps.
         :param lr: learning rate. In general, lower learning rates are recommended for high-parametric bijections.
-        :param batch_size: in each epoch, split training data into batches of this size and perform a parameter update for each batch.
-        :param shuffle: shuffle training data. This helps avoid incorrect fitting if nearby training samples are similar.
+        :param batch_size: in each epoch, split training data into batches of this size and perform a parameter update 
+         for each batch.
+        :param shuffle: shuffle training data. This helps avoid incorrect fitting if nearby training samples are 
+         similar.
         :param show_progress: show a progress bar with the current batch loss.
         :param w_train: training data weights with shape `(n_training_data,)`.
         :param context_train: training data context tensor with shape `(n_training_data, *context_shape)`.
         :param x_val: validation data with shape `(n_validation_data, *event_shape)`.
         :param w_val: validation data weights with shape `(n_validation_data,)`.
         :param context_val: validation data context tensor with shape `(n_validation_data, *context_shape)`.
-        :param keep_best_weights: if True and validation data is provided, keep the bijection weights with the highest probability of validation data.
-        :param early_stopping: if True and validation data is provided, stop the training procedure early once validation loss stops improving for a specified number of consecutive epochs.
-        :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation loss for this many epochs.
+        :param keep_best_weights: if True and validation data is provided, keep the bijection weights with the lowest
+         validation loss.
+        :param early_stopping: if True and validation data is provided, stop the training procedure early once 
+         validation loss stops improving for a specified number of consecutive epochs.
+        :param early_stopping_threshold: if early_stopping is True, fitting stops after no improvement in validation 
+         loss for this many epochs.
         :param int max_batch_size_mb: maximum batch size in megabytes.
         :param Union[float, int] time_limit_seconds: maximum allowed time for training.
-        :param reset_optimizer: if True, reset the optimizer state before fitting. 
-         This is useful when fitting multiple times in a row.
+        :param reset_optimizer: if True, reset the optimizer state before fitting. This is useful when fitting multiple 
+         times in a row.
         """
         t0 = time.time()
         self.train()
@@ -262,17 +326,6 @@ class BaseFlow(nn.Module):
                 event_shape=self.event_shape
             )
 
-        def compute_batch_loss(batch_, reduction: callable = torch.mean):
-            batch_x, batch_weights = batch_[:2]
-            batch_context = batch_[2] if len(batch_) == 3 else None
-
-            batch_log_prob = self.log_prob(batch_x.to(self.get_device()), context=batch_context)
-            batch_weights = batch_weights.to(self.get_device())
-            assert batch_log_prob.shape == batch_weights.shape, f"{batch_log_prob.shape = }, {batch_weights.shape = }"
-            batch_loss = -reduction(batch_log_prob * batch_weights) / self.event_size
-
-            return batch_loss
-
         if self._optimizer is None or reset_optimizer:
             self._optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         val_loss = None
@@ -282,6 +335,8 @@ class BaseFlow(nn.Module):
         best_val_epoch = 0
         best_train_epoch = 0
         best_weights = deepcopy(self.state_dict())
+
+        terminate_fit: bool = False
 
         for epoch in (pbar := tqdm(range(n_epochs), desc='Fitting NF', disable=not show_progress)):
             if time_limit_seconds is not None and time.time() - t0 >= time_limit_seconds:
@@ -323,15 +378,22 @@ class BaseFlow(nn.Module):
             _n_train_batches = 0
             for train_batch in train_loader:
                 self._optimizer.zero_grad()
-                train_loss = compute_batch_loss(train_batch, reduction=torch.mean)
+                train_loss = self._base_batch_loss(
+                    train_batch, 
+                    reduction=torch.mean,
+                    use_regularization=True
+                )
+
                 if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
+                    # Roll back to previous weights. If keep_best_weights is False, these are initial weights.
+                    self.load_state_dict(best_weights)
+                    terminate_fit = True
+                    warnings.warn("Flow training diverged. Reverting to previous weights.")
+                if terminate_fit:
+                    break
+
                 _total_train_loss += float(train_loss)
                 _n_train_batches += 1
-
-                train_loss += self.regularization()
-                if not torch.isfinite(train_loss):
-                    raise ValueError("Flow training diverged")
                 train_loss.backward()
                 self._optimizer.step()
 
@@ -344,6 +406,9 @@ class BaseFlow(nn.Module):
                         _postfix_str = _train_string
                     pbar.set_postfix_str(_postfix_str)
 
+            if terminate_fit:
+                break
+
             _average_train_loss = _total_train_loss / _n_train_batches
             if _average_train_loss < best_train_loss:
                 best_train_loss = _average_train_loss
@@ -355,7 +420,11 @@ class BaseFlow(nn.Module):
                 # Compute validation loss
                 val_loss = 0.0
                 for val_batch in val_loader:
-                    val_loss += compute_batch_loss(val_batch, reduction=torch.sum).detach()
+                    val_loss += self._base_batch_loss(
+                        val_batch, 
+                        reduction=torch.sum,
+                        use_regularization=False
+                    ).detach()
                 val_loss /= len(x_val)
 
                 # Check if validation loss is the lowest so far
@@ -383,11 +452,45 @@ class BaseFlow(nn.Module):
         if keep_best_weights:
             self.load_state_dict(best_weights)
 
-        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if hasattr(self, 'bijection') and isinstance(self.bijection, RNODE):
-            self.bijection.f.stored_reg = None
-
         self.eval()
+
+    def _variational_loss(self, 
+                          target_log_prob: callable, 
+                          n_samples: int,
+                          use_regularization: bool = True,
+                          check_for_divergences: bool = False):
+        """Compute loss for stochastic variational inference.
+
+        :param callable target_log_prob: function that receives as input a tensor with shape 
+         `(batch_size, *event_shape)` and returns the target log probability density tensor with shape `(batch_size,)`.
+        :param int n_samples: number of samples for loss computation.
+        :param bool use_regularization: if True, add regularization to the loss.
+        :param bool check_for_divergences: if True, check for divergences. A divergence flag is returned whether this is
+         True or False.
+        :rtype: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, bool].
+        :return: tuple with four elements: loss tensor with shape `()`, NF log probability tensor with shape `()`,
+         target log probability tensor with shape `()`, divergence flag.
+        """
+        flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
+        target_log_prob_value = target_log_prob(flow_x)
+        loss = -torch.mean(target_log_prob_value + flow_log_prob)
+        if use_regularization:
+            loss += self.regularization()
+
+        epoch_diverged = False
+        if check_for_divergences:
+            if not torch.isfinite(loss):
+                epoch_diverged = True
+            if torch.max(torch.abs(flow_x)) > 1e8:
+                epoch_diverged = True
+            elif torch.max(torch.abs(flow_log_prob)) > 1e6:
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_x)):
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_log_prob)):
+                epoch_diverged = True
+            
+        return loss, flow_log_prob, target_log_prob_value, epoch_diverged
 
     def variational_fit(self,
                         target_log_prob: callable,
@@ -447,22 +550,17 @@ class BaseFlow(nn.Module):
             self._optimizer.zero_grad()
 
             try:
-                flow_x, flow_log_prob = self.sample(n_samples, return_log_prob=True)
-                target_log_prob_value = target_log_prob(flow_x)
-                loss = -torch.mean(target_log_prob_value + flow_log_prob)
-                loss += self.regularization()
-
-                if check_for_divergences:
-                    if not torch.isfinite(loss):
-                        epoch_diverged = True
-                    if torch.max(torch.abs(flow_x)) > 1e8:
-                        epoch_diverged = True
-                    elif torch.max(torch.abs(flow_log_prob)) > 1e6:
-                        epoch_diverged = True
-                    elif torch.any(~torch.isfinite(flow_x)):
-                        epoch_diverged = True
-                    elif torch.any(~torch.isfinite(flow_log_prob)):
-                        epoch_diverged = True
+                (
+                    loss, 
+                    flow_log_prob, 
+                    target_log_prob_value, 
+                    epoch_diverged
+                ) = self._variational_loss(
+                    target_log_prob=target_log_prob,
+                    n_samples=n_samples,
+                    use_regularization=True,
+                    check_for_divergences=True
+                )
 
                 if not epoch_diverged:
                     loss.backward()
@@ -501,10 +599,6 @@ class BaseFlow(nn.Module):
             self.load_state_dict(initial_weights)
         elif keep_best_weights:
             self.load_state_dict(best_weights)
-
-        # hacky error handling (Jacobian regularization is a non-leaf node within RNODE's autograd graph)
-        if isinstance(self.bijection, RNODE):
-            self.bijection.f.stored_reg = None
 
         self.eval()
 
@@ -549,7 +643,7 @@ class Flow(BaseFlow):
             _batch_shape_2 = get_batch_shape(context, self.context_shape)
             assert _batch_shape_1 == _batch_shape_2
             context = context.to(self.get_device())
-        z, log_det = self.bijection.forward(x.to(self.get_device()), context=context)
+        z, log_det = self.bijection.forward(x.to(self.get_device()), context=context)[:2]
         log_base = self.base_log_prob(z)
         return z, log_base + log_det
 
@@ -567,7 +661,7 @@ class Flow(BaseFlow):
                sample_shape: Union[int, torch.Size, Tuple[int, ...]],
                context: torch.Tensor = None,
                no_grad: bool = False,
-               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+               return_log_prob: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
         """Sample from the normalizing flow.
 
         If context given, sample n tensors for each context tensor.
@@ -576,9 +670,11 @@ class Flow(BaseFlow):
         :param sample_shape: shape of tensors to sample.
         :param torch.Tensor context: context tensor with shape `c`.
         :param bool no_grad: if True, do not track gradients in the inverse pass.
-        :param return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
-        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or `(*sample_shape, *c, *event_shape)` if context given.
-        :rtype: torch.Tensor
+        :param bool return_log_prob: if True, return log probabilities of sampled points as the second tuple component.
+        :return: samples with shape `(*sample_shape, *event_shape)` if no context given or 
+         `(*sample_shape, *c, *event_shape)` if context given. If `return_log_prob` is True, return the NF log 
+         probability density tensor with shape `sample_shape` as the second tuple item.
+        :rtype: Union[torch.Tensor, Tuple[torch.Tensor, ...]].
         """
         if isinstance(sample_shape, int):
             sample_shape = (sample_shape,)
@@ -600,24 +696,21 @@ class Flow(BaseFlow):
         if no_grad:
             z = z.detach()
             with torch.no_grad():
-                x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.event_shape),
-                                                    context=context)
+                x, log_det = self.bijection.inverse(
+                    z.view(*sample_shape, *self.bijection.event_shape),
+                    context=context
+                )[:2]
         else:
-            x, log_det = self.bijection.inverse(z.view(*sample_shape, *self.bijection.event_shape),
-                                                context=context)
+            x, log_det = self.bijection.inverse(
+                z.view(*sample_shape, *self.bijection.event_shape),
+                context=context
+            )[:2]
         x = x.to(self.get_device())
 
         if return_log_prob:
             log_prob = self.base_log_prob(z) + log_det
             return x, log_prob
         return x
-
-    def regularization(self):
-        if hasattr(self.bijection, 'regularization'):
-            return self.bijection.regularization()
-        else:
-            return 0.0
-
 
 class FlowMixture(BaseFlow):
     """Base class for mixtures of normalizing flows. Inherits from BaseFlow.
@@ -734,3 +827,102 @@ class FlowMixture(BaseFlow):
 
     def regularization(self):
         return sum([flow.regularization() for flow in self.flows])
+
+
+class ContinuousFlow(Flow):
+    def __init__(self, bijection: ContinuousBijection, **kwargs):
+        if not isinstance(bijection, ContinuousBijection):
+            raise ValueError("Can only use continuous bijections in a continuous flow object.")
+        super().__init__(bijection, **kwargs)
+
+    def forward_with_log_prob(self, 
+                              x: torch.Tensor, 
+                              context: torch.Tensor = None,
+                              return_aux: bool = False):
+        if context is not None:
+            if self.context_shape is None:
+                raise ValueError('Context shape must be set.')
+            if self.event_shape is None:
+                raise ValueError('Event shape must be set.')
+            _batch_shape_1 = get_batch_shape(x, self.event_shape)
+            _batch_shape_2 = get_batch_shape(context, self.context_shape)
+            assert _batch_shape_1 == _batch_shape_2
+            context = context.to(self.get_device())
+        z, log_det, *aux = self.bijection.forward(
+            x.to(self.get_device()), 
+            context=context,
+            return_aux=return_aux
+        )
+        log_base = self.base_log_prob(z)
+        if return_aux:
+            return z, log_base + log_det, *aux
+        else:
+            return z, log_base + log_det
+
+    def log_prob(self, x, context = None, **kwargs):
+        return self.forward_with_log_prob(x, context, **kwargs)[1:]
+
+    def _base_batch_loss(self, 
+                         batch, 
+                         reduction = torch.mean, 
+                         use_regularization = True):
+        x, weights = batch[:2]
+        batch_context = batch[2] if len(batch) == 3 else None
+
+        batch_log_prob, *aux = self.log_prob(
+            x.to(self.get_device()), 
+            context=batch_context,
+            return_aux=use_regularization
+        )
+        weights = weights.to(self.get_device())
+        batch_loss = -reduction(batch_log_prob * weights) / self.event_size
+
+        if use_regularization:
+            batch_loss += self.regularization(*aux)
+
+        return batch_loss
+    
+    def _loss_kl_p_to_q(self, 
+                        data, 
+                        log_prob_target_data, 
+                        use_regularization = True):
+        batch_log_prob, *aux = self.log_prob(
+            data.to(self.get_device()), 
+            return_aux=use_regularization
+        )
+
+        loss = torch.mean(log_prob_target_data.to(self.get_device()) - batch_log_prob)
+        if use_regularization:
+            loss += self.regularization(*aux)
+        
+        return loss
+    
+    def _variational_loss(self, 
+                          target_log_prob: callable, 
+                          n_samples: int,
+                          use_regularization: bool = True,
+                          check_for_divergences: bool = False):
+        flow_x, flow_log_prob, *aux = self.sample(
+            n_samples, 
+            return_log_prob=True, 
+            return_aux=use_regularization
+        )
+        target_log_prob_value = target_log_prob(flow_x)
+        loss = -torch.mean(target_log_prob_value + flow_log_prob)
+        if use_regularization:
+            loss += self.regularization(*aux)
+
+        epoch_diverged = False
+        if check_for_divergences:
+            if not torch.isfinite(loss):
+                epoch_diverged = True
+            if torch.max(torch.abs(flow_x)) > 1e8:
+                epoch_diverged = True
+            elif torch.max(torch.abs(flow_log_prob)) > 1e6:
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_x)):
+                epoch_diverged = True
+            elif torch.any(~torch.isfinite(flow_log_prob)):
+                epoch_diverged = True
+            
+        return loss, flow_log_prob, target_log_prob_value, epoch_diverged
