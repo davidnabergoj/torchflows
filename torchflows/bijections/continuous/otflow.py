@@ -293,7 +293,7 @@ class OTFlowTimeDerivative(TimeDerivative):
     
     @property
     def reg_hjb_active(self):
-        self.training and self.reg_hjb and self.reg_hjb_coef > 0
+        return self.training and self.reg_hjb and self.reg_hjb_coef > 0
 
     @torch.no_grad()
     def prepare_initial_state(self, z0: torch.Tensor):
@@ -332,11 +332,9 @@ class OTFlowTimeDerivative(TimeDerivative):
         :return: dx/dt with the same shape as x and divergence tensor with shape 
          `(batch_size, 1)`. If training, also return the delta transport cost and the delta HJB.
         """
-
-        x_flat = flatten_event(x, event_shape=x.shape[1:])
-
         # Work in flattened space
-
+        x_flat = flatten_event(x, event_shape=x.shape[1:])
+        
         self._n_evals += 1
         s = concatenate_x_t(x_flat, t)
 
@@ -354,11 +352,11 @@ class OTFlowTimeDerivative(TimeDerivative):
             return (dxdt, div, d_transport)
         elif self.reg_transport_active and self.reg_hjb_active:
             d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
-            d_hjb = torch.abs(grad_time - d_transport)
+            d_hjb = torch.abs(grad_time.squeeze(-1) - d_transport)
             return (dxdt, div, d_transport, d_hjb)
         elif not self.reg_transport_active and self.reg_hjb_active:
             d_transport = 1/2 * torch.sum(grad_space ** 2, dim=-1)
-            d_hjb = torch.abs(grad_time - d_transport)
+            d_hjb = torch.abs(grad_time.squeeze(-1) - d_transport)
             return (dxdt, div, d_hjb)
         elif not self.reg_transport_active and not self.reg_hjb_active:
             return (dxdt, div)
@@ -413,4 +411,4 @@ class OTFlowBijection(ContinuousBijection):
         else:
             return torch.tensor(0.0)
         
-        return self.f.reg_transport_coef * transport_cost.mean() + self.f.reg_hjb_coef * hjb_cost.mean()
+        return self.f.reg_transport_coef * transport_cost.mean(0) + self.f.reg_hjb_coef * hjb_cost.mean(0)
