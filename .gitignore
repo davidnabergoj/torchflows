@@ -2,4 +2,7 @@
 dist
 docs
 **/*.pyc
+**/__pycache__
 .vscode
+torchflows.egg-info
+uv.lock

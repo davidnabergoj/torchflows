@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Normalizing flows in PyTorch"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -21,6 +21,7 @@ dependencies = [
     'numpy',
     'torchdiffeq>=0.2.3',
     'tqdm>=4.65.0',
+    "pytest>=8.4.2",
 ]
 
 [project.urls]
