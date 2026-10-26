@@ -6,3 +6,4 @@ docs
 .vscode
 torchflows.egg-info
 uv.lock
+torchflows/_version.py
