@@ -4,7 +4,7 @@ import torch
 from torchflows.bijections.finite.autoregressive.transformers.spline.rational_quadratic import RationalQuadratic
 from torchflows.bijections.finite.autoregressive.transformers.spline.linear_rational import LinearRational
 from torchflows.bijections.finite.autoregressive.transformers.spline.linear import Linear
-from test.constants import __test_constants
+from test.constants import __test_constants, local_only_except
 
 
 def test_linear_rational():
@@ -109,10 +109,10 @@ def test_spline_exhaustive(spline_class, boundary: float, batch_shape, event_sha
     assert torch.allclose(log_det, -log_det_inverse, atol=__test_constants['log_det_atol'])
 
 
-@pytest.mark.parametrize('n_data', [1, 2, 5, 100, 500])
-@pytest.mark.parametrize('n_dim', [1, 2, 5, 100, 500])
-@pytest.mark.parametrize('n_bins', [2, 4, 8, 16, 32])
-@pytest.mark.parametrize('scale', [1e-2, 1e-1, 1, 1e+1, 1e+2])
+@pytest.mark.parametrize('n_data', local_only_except([1, 2, 5, 100, 500], keep=[1, 5, 100]))
+@pytest.mark.parametrize('n_dim', local_only_except([1, 2, 5, 100, 500], keep=[1, 5, 100]))
+@pytest.mark.parametrize('n_bins', local_only_except([2, 4, 8, 16, 32], keep=[2, 8, 32]))
+@pytest.mark.parametrize('scale', local_only_except([1e-2, 1e-1, 1, 1e+1, 1e+2], keep=[1e-2, 1, 1e+2]))
 def test_rq_spline(n_data, n_dim, n_bins, scale):
     torch.manual_seed(0)
 

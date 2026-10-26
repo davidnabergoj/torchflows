@@ -22,7 +22,7 @@ from torchflows.bijections.finite.residual.proximal import ProximalResFlowBlock
 from torchflows.bijections.finite.residual.radial import Radial
 from torchflows.bijections.finite.residual.sylvester import Sylvester
 from torchflows.utils import get_batch_shape
-from test.constants import __test_constants
+from test.constants import __test_constants, ci_batch_shape, ci_context_shape
 
 
 def setup_data(bijection_class, batch_shape, event_shape, context_shape):
@@ -153,9 +153,9 @@ def test_linear(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tup
     DeepDenseSigmoidalCoupling,
     DeepSigmoidalCoupling,
 ])
-@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('batch_shape', ci_batch_shape)
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
+@pytest.mark.parametrize('context_shape', ci_context_shape)
 def test_coupling(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(
         bijection_class, batch_shape, event_shape, context_shape)

@@ -18,7 +18,7 @@ from torchflows.bijections.continuous.rnode import RNODE
 from torchflows.bijections.continuous.ffjord import FFJORD
 from torchflows.bijections.continuous.otflow import OTFlowBijection
 from torchflows.utils import get_batch_shape
-from test.constants import __test_constants
+from test.constants import __test_constants, ci_batch_shape, ci_context_shape
 
 
 def setup_data(bijection_class, batch_shape, event_shape, context_shape):
@@ -121,9 +121,9 @@ def test_masked_autoregressive(bijection_class: Bijection, batch_shape: Tuple, e
     ResFlow,
     ProximalResFlow,
 ])
-@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('batch_shape', ci_batch_shape)
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
+@pytest.mark.parametrize('context_shape', ci_context_shape)
 def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: Tuple, context_shape: Tuple):
     bijection, x, context = setup_data(bijection_class, batch_shape, event_shape, context_shape)
     assert_valid_log_probability_gradient(bijection, x, context)
@@ -134,9 +134,9 @@ def test_residual(bijection_class: Bijection, batch_shape: Tuple, event_shape: T
     FFJORD,
     OTFlowBijection,
 ])
-@pytest.mark.parametrize('batch_shape', __test_constants['batch_shape'])
+@pytest.mark.parametrize('batch_shape', ci_batch_shape)
 @pytest.mark.parametrize('event_shape', __test_constants['event_shape'])
-@pytest.mark.parametrize('context_shape', __test_constants['context_shape'])
+@pytest.mark.parametrize('context_shape', ci_context_shape)
 def test_continuous(bijection_class: Bijection, 
                     batch_shape: Tuple, 
                     event_shape: Tuple, 

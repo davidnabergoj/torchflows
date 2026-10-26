@@ -2,6 +2,7 @@ import torch
 import pytest
 
 from torchflows.bijections.continuous.otflow import OTFlowBijection, OTFlowTimeDerivative, OTPotential, OTResNet, concatenate_x_t
+from test.constants import local_only_except
 
 @pytest.mark.parametrize('batch_size', [1, 2, 4])
 @pytest.mark.parametrize('event_shape', [(1,), (2,), (5,)])
@@ -179,10 +180,10 @@ def test_td_forward(batch_size, event_shape, hidden_size, step_size):
         assert element.shape[0] == batch_size
         assert element.isfinite().all()
 
-@pytest.mark.parametrize('batch_size', [1, 2, 4])
-@pytest.mark.parametrize('event_shape', [(1,), (2,), (5,), (2, 3, 5)])
-@pytest.mark.parametrize('hidden_size', [1, 2, 5])
-@pytest.mark.parametrize('step_size', [0.01, 0.1, 1.0])
+@pytest.mark.parametrize('batch_size', local_only_except([1, 2, 4], keep=[1, 4]))
+@pytest.mark.parametrize('event_shape', local_only_except([(1,), (2,), (5,), (2, 3, 5)], keep=[(1,), (2, 3, 5)]))
+@pytest.mark.parametrize('hidden_size', local_only_except([1, 2, 5], keep=[1, 5]))
+@pytest.mark.parametrize('step_size', local_only_except([0.01, 0.1, 1.0], keep=[0.01, 1.0]))
 @pytest.mark.parametrize('training', [False, True])
 def test_odeint(batch_size, event_shape, hidden_size, step_size, training):
     torch.manual_seed(0)

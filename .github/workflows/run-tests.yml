@@ -30,7 +30,7 @@ jobs:
         # CPU-only torch wheels are much smaller than the default CUDA ones
         python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
         python -m pip install -r requirements.txt
-        python -m pip install flake8 pytest
+        python -m pip install flake8 pytest pytest-xdist
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -38,5 +38,9 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      env:
+        # One torch thread per worker, so the workers do not compete for the same cores
+        OMP_NUM_THREADS: 1
+        MKL_NUM_THREADS: 1
       run: |
-        pytest -m "not local_only"
+        pytest -m "not local_only" -n auto
