@@ -21,10 +21,23 @@ jobs:
     - tests
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        # setuptools-scm needs the full history and tags to determine the version
+        fetch-depth: 0
+    - name: Check that the commit has a version tag
+      id: tag
+      if: github.event_name != 'pull_request'
+      run: |
+        tag=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n 1)
+        if [ -z "$tag" ]; then
+          echo "::error::Commit ${{ github.sha }} has no version tag. Tag it (e.g. git tag v1.3.0) and push the tag together with the branch: git push --atomic origin release v1.3.0"
+          exit 1
+        fi
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -33,11 +46,6 @@ jobs:
       run: python3 -m pip install build --user
     - name: Build binary wheel and source tarball
       run: python3 -m build
-    - name: Read package version
-      id: version
-      run: |
-        version=$(python3 -c "exec(open('torchflows/_version.py').read()); print(__version__.lstrip('v'))")
-        echo "version=$version" >> "$GITHUB_OUTPUT"
     - name: Store distribution packages
       uses: actions/upload-artifact@v4
       with:
@@ -46,6 +54,8 @@ jobs:
 
   publish-to-pypi:
     name: Publish Torchflows distribution to PyPI
+    # Pull request builds are untagged dev versions, which PyPI rejects
+    if: github.event_name != 'pull_request'
     needs:
     - build
     runs-on: ubuntu-latest
@@ -73,7 +83,7 @@ jobs:
       contents: write
     env:
       GITHUB_TOKEN: ${{ github.token }}
-      TAG: v${{ needs.build.outputs.version }}
+      TAG: ${{ needs.build.outputs.tag }}
     steps:
     - name: Download all the distributions
       uses: actions/download-artifact@v4
@@ -84,7 +94,6 @@ jobs:
       run: >-
         gh release create "$TAG"
         --repo '${{ github.repository }}'
-        --target '${{ github.sha }}'
         --title "$TAG"
         --generate-notes
     - name: Upload distributions to GitHub release

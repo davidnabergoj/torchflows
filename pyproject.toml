@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77.0"]
+requires = ["setuptools>=77.0", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -41,8 +41,8 @@ dependencies = [
 Homepage = "https://github.com/davidnabergoj/torchflows"
 Issues = "https://github.com/davidnabergoj/torchflows/issues"
 
-[tool.setuptools.dynamic]
-version = { attr = "torchflows._version.__version__" }
+[tool.setuptools_scm]
+version_file = "torchflows/_version.py"
 
 [tool.setuptools.packages.find]
 include = ["torchflows*"]
