@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,11 +10,24 @@ authors = [
 ]
 description = "Normalizing flows in PyTorch"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
+keywords = [
+    "python",
+    "machine-learning",
+    "pytorch",
+    "generative-model",
+    "sampling",
+    "density-estimation",
+    "normalizing-flow",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
     "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     'torch>=2.0.1',
@@ -27,3 +40,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/davidnabergoj/torchflows"
 Issues = "https://github.com/davidnabergoj/torchflows/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "torchflows._version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["torchflows*"]

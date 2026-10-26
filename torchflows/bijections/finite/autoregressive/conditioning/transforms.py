@@ -119,8 +119,7 @@ class ConditionerTransform(nn.Module):
 
 
 class ElementwiseConditionerTransform(ConditionerTransform):
-    """
-    Conditioner transform that predicts a set of parameters for every element of the transformed tensor.
+    """Conditioner transform that predicts a set of parameters for every element of the transformed tensor.
     """
 
     def __init__(self,
@@ -129,6 +128,14 @@ class ElementwiseConditionerTransform(ConditionerTransform):
                  parameter_shape_per_element: Union[torch.Size, Tuple[int, ...]],
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  **kwargs):
+        """ElementwiseConditionerTransform constructor.
+
+        :param input_event_shape:
+        :param transformed_event_shape:
+        :param parameter_shape_per_element:
+        :param context_shape:
+        :param kwargs:
+        """
         super().__init__(
             input_event_shape=input_event_shape,
             parameter_shape=(*transformed_event_shape, *parameter_shape_per_element),
@@ -138,8 +145,7 @@ class ElementwiseConditionerTransform(ConditionerTransform):
 
 
 class TensorConditionerTransform(ConditionerTransform):
-    """
-    Conditioner transform that predicts a set of parameters for the entire transformed tensor.
+    """Conditioner transform that predicts a set of parameters for the entire transformed tensor.
     """
 
     def __init__(self,
@@ -148,6 +154,15 @@ class TensorConditionerTransform(ConditionerTransform):
                  context_shape: Union[torch.Size, Tuple[int, ...]] = None,
                  percentage_global_parameters: float = 0.0,
                  **kwargs):
+        """
+        TensorConditionerTransform constructor.
+
+        :param input_event_shape:
+        :param parameter_shape:
+        :param context_shape:
+        :param float percentage_global_parameters:
+        :param kwargs:
+        """
         if 0.0 < percentage_global_parameters <= 1.0:
             n_parameters = int(torch.prod(torch.as_tensor(parameter_shape)))
             parameter_permutation = torch.randperm(n_parameters)
