@@ -1,6 +1,6 @@
 .idea
 dist
-docs
+docs/build
 **/*.pyc
 **/__pycache__
 .vscode
