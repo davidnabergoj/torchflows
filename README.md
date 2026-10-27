@@ -1,5 +1,12 @@
 # Torchflows: normalizing flows in PyTorch
 
+[![Tests](https://github.com/davidnabergoj/torchflows/actions/workflows/run-tests.yml/badge.svg?branch=dev)](https://github.com/davidnabergoj/torchflows/actions/workflows/run-tests.yml)
+[![Docs build](https://github.com/davidnabergoj/torchflows/actions/workflows/docs.yml/badge.svg?branch=dev)](https://github.com/davidnabergoj/torchflows/actions/workflows/docs.yml)
+[![Documentation](https://readthedocs.org/projects/torchflows/badge/?version=latest)](https://torchflows.readthedocs.io/en/latest/)
+[![PyPI](https://img.shields.io/pypi/v/torchflows)](https://pypi.org/project/torchflows/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/torchflows/)
+[![License](https://img.shields.io/github/license/davidnabergoj/torchflows)](https://github.com/davidnabergoj/torchflows/blob/main/LICENSE)
+
 Torchflows is a library for generative modeling and density estimation using normalizing flows.
 It implements many normalizing flow architectures and their building blocks for:
 
