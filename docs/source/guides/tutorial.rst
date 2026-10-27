@@ -12,3 +12,8 @@ We provide tutorials and notebooks for typical Torchflows use cases.
     choosing_base_distributions
     cuda
     modifying_architectures
+    continuous_flows
+    variational_inference
+    conditional_flows
+    mixtures
+    numerical_stability

@@ -2,23 +2,24 @@ API for multiscale architectures
 ========================================================
 
 Multiscale architectures are suitable for image modeling.
+Import them from :mod:`torchflows.bijections.finite.multiscale`, e.g., ``from torchflows.bijections.finite.multiscale import AffineGlow``.
 
 .. _multiscale_architecture_api:
 
 
 Classic multiscale architectures
-------------------------------
+----------------------------------
 
-.. autoclass:: torchflows.architectures.MultiscaleNICE
+.. autoclass:: torchflows.bijections.finite.multiscale.architectures.MultiscaleNICE
     :members: __init__
 
-.. autoclass:: torchflows.architectures.MultiscaleRealNVP
+.. autoclass:: torchflows.bijections.finite.multiscale.architectures.MultiscaleRealNVP
     :members: __init__
 
-.. autoclass:: torchflows.architectures.MultiscaleRQNSF
+.. autoclass:: torchflows.bijections.finite.multiscale.architectures.MultiscaleRQNSF
     :members: __init__
 
-.. autoclass:: torchflows.architectures.MultiscaleLRSNSF
+.. autoclass:: torchflows.bijections.finite.multiscale.architectures.MultiscaleLRSNSF
     :members: __init__
 
 .. autoclass:: torchflows.bijections.finite.multiscale.architectures.MultiscaleDeepSigmoid
@@ -32,12 +33,12 @@ Classic multiscale architectures
 
 
 Glow-style multiscale architectures
-------------------------------
+-------------------------------------
 
-.. autoclass:: torchflows.architectures.AffineGlow
+.. autoclass:: torchflows.bijections.finite.multiscale.architectures.AffineGlow
     :members: __init__
 
-.. autoclass:: torchflows.architectures.ShiftGlow
+.. autoclass:: torchflows.bijections.finite.multiscale.architectures.ShiftGlow
     :members: __init__
 
 .. autoclass:: torchflows.bijections.finite.multiscale.architectures.RQSGlow
@@ -53,4 +54,27 @@ Glow-style multiscale architectures
     :members: __init__
 
 .. autoclass:: torchflows.bijections.finite.multiscale.architectures.DeepDenseSigmoidGlow
+    :members: __init__
+
+
+Convolutional residual architectures
+---------------------------------------
+
+.. autoclass:: torchflows.bijections.finite.residual.architectures.ConvolutionalInvertibleResNet
+    :members: __init__
+
+.. autoclass:: torchflows.bijections.finite.residual.architectures.ConvolutionalResFlow
+    :members: __init__
+
+
+Convolutional continuous architectures
+---------------------------------------
+
+.. autoclass:: torchflows.bijections.continuous.ddnf.ConvolutionalDDNF
+    :members: __init__
+
+.. autoclass:: torchflows.bijections.continuous.ffjord.ConvolutionalFFJORD
+    :members: __init__
+
+.. autoclass:: torchflows.bijections.continuous.rnode.ConvolutionalRNODE
     :members: __init__

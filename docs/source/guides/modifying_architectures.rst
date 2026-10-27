@@ -16,7 +16,7 @@ Each affine coupling layer should use a feed-forward neural network conditioner 
 
     import torch.nn as nn
     from torchflows.flows import Flow
-    from torchflows.architectures import RealNVP
+    from torchflows.bijections.finite.autoregressive import RealNVP
     from torchflows.bijections.finite.autoregressive.conditioning.transforms import FeedForward
 
     event_shape = (10,)
@@ -32,12 +32,14 @@ Each affine coupling layer should use a feed-forward neural network conditioner 
     bijection = RealNVP(event_shape, **custom_hyperparameters)
     flow = Flow(bijection)
 
-`Autoregressive architectures <autoregressive_architecture_list>`_ can receive hyperparameters through the following keyword arguments:
+:ref:`Autoregressive architectures <autoregressive_architecture_list>` can receive hyperparameters through the following keyword arguments:
 
-* ``n_layers``: the number of affine coupling layer;
+* ``n_layers``: the number of autoregressive layers;
 * ``conditioner_transform_class``: the conditioner type to use in each layer;
 * ``conditioner_kwargs``: conditioner keyword arguments for each layer;
-* ``transformer_kwargs``: transformer keyword arguments for each layer.
+* ``transformer_kwargs``: transformer keyword arguments for each layer;
+* ``l2_regularization``: if True, add an L2 penalty on conditioner parameters to the training loss (enabled by default for coupling and masked autoregressive layers);
+* ``l2_coef``: the L2 penalty coefficient.
 
 The specific keyword arguments depend on which conditioner and transformer we are using.
 Check the list of implemented conditioner transforms and their constructors :doc:`here <../developer_reference/bijections/autoregressive/conditioner_transforms>`.
@@ -46,15 +48,27 @@ See which transformers are used in each architecture :ref:`here <autoregressive_
 Coupling architectures can also receive:
 
 * ``edge_list``: an edge list of conditional dimension interactions;
-* ``coupling_kwargs``: keyword arguments for :func:`make_coupling` in each layer.
+* ``coupling_kwargs``: keyword arguments for :func:`~torchflows.bijections.finite.autoregressive.conditioning.coupling_masks.make_coupling` in each layer.
 
-To see how other architectures use keyword arguments, consider checking the :doc:`list of architectures <../architectures/index>`
+:ref:`Residual architectures <residual_architecture_api>` receive the number of layers through ``n_layers`` and per-layer keyword arguments through ``layer_kwargs``:
+
+.. code-block:: python
+
+    from torchflows.flows import Flow
+    from torchflows.bijections.finite.residual import ResFlow
+
+    event_shape = (10,)
+    bijection = ResFlow(event_shape, n_layers=4, layer_kwargs={'hidden_size': 20})
+    flow = Flow(bijection)
+
+To see how other architectures use keyword arguments, consider checking the :doc:`list of architectures <../architectures/index>`.
 
 Composing existing bijections with custom hyperparameters
 -------------------------------------------------------------
 In the previous section, we learned how to modify a preset architecture by passing some hyperparameters.
 In residual and autoregressive NFs, this approach will use the same hyperparameters for each layer of the NF.
-For more customization, we can create individual layers and compose them into a custom architecture.
+For more customization, we can create individual layers and compose them into a custom architecture with :class:`~torchflows.bijections.base.BijectiveComposition`.
+The composition infers its event shape from the first layer.
 Suppose we wish to create a NF with five layers:
 
 * two affine coupling layers,
@@ -74,16 +88,13 @@ The above model can be coded as follows:
 
     torch.manual_seed(0)
     event_shape = (10,)
-    bijection = BijectiveComposition(
-        event_shape,
-        [
-            AffineCoupling(event_shape),
-            AffineCoupling(event_shape),
-            RQSCoupling(event_shape),
-            InvertibleResNetBlock(event_shape),
-            ElementwiseShift(event_shape),
-        ]
-    )
+    bijection = BijectiveComposition([
+        AffineCoupling(event_shape),
+        AffineCoupling(event_shape),
+        RQSCoupling(event_shape),
+        InvertibleResNetBlock(event_shape),
+        ElementwiseShift(event_shape),
+    ])
     flow = Flow(bijection)
 
     x_new = flow.sample((10,))
@@ -101,20 +112,37 @@ We can also customize each layer with custom hyperparameters, for example:
 
     torch.manual_seed(0)
     event_shape = (10,)
-    bijection = BijectiveComposition(
-        event_shape,
-        [
-            AffineCoupling(event_shape, conditioner_kwargs={'n_hidden': 5, 'n_layers': 10}),
-            AffineCoupling(event_shape),
-            RQSCoupling(event_shape, conditioner_kwargs={'n_layers': 1}),
-            InvertibleResNetBlock(event_shape, hidden_size=4, n_hidden_layers=3),
-            ElementwiseShift(event_shape),
-        ]
-    )
+    bijection = BijectiveComposition([
+        AffineCoupling(event_shape, conditioner_kwargs={'n_hidden': 5, 'n_layers': 10}),
+        AffineCoupling(event_shape),
+        RQSCoupling(event_shape, conditioner_kwargs={'n_layers': 1}, transformer_kwargs={'n_bins': 16}),
+        InvertibleResNetBlock(event_shape, hidden_size=4, n_hidden_layers=3),
+        ElementwiseShift(event_shape),
+    ])
     flow = Flow(bijection)
 
     x_new = flow.sample((10,))
     log_prob = flow.log_prob(x_new)
+
+Permutations between coupling layers ensure that every dimension gets transformed.
+Torchflows provides permutations and other linear bijections in :mod:`torchflows.bijections.finite.matrix`:
+
+.. code-block:: python
+
+    from torchflows.flows import Flow
+    from torchflows.bijections.base import BijectiveComposition
+    from torchflows.bijections.finite.autoregressive.layers import AffineCoupling
+    from torchflows.bijections.finite.matrix import ReversePermutationMatrix, LUMatrix
+
+    event_shape = (10,)
+    bijection = BijectiveComposition([
+        AffineCoupling(event_shape),
+        ReversePermutationMatrix(event_shape),
+        AffineCoupling(event_shape),
+        LUMatrix(event_shape),  # trainable invertible linear map
+        AffineCoupling(event_shape),
+    ])
+    flow = Flow(bijection)
 
 .. note::
 
@@ -126,29 +154,29 @@ Composing NF architectures
 ----------------------------------------
 
 Since each NF transformation is a bijection, we can compose them as any other.
-We give an example below, where we compose RealNVP, coupling RQ-NSF, FFJORD, and ResFlow:
+We give an example below, where we compose RealNVP, coupling RQ-NSF, and ResFlow:
 
 .. code-block:: python
 
     import torch
     from torchflows.flows import Flow
     from torchflows.bijections.base import BijectiveComposition
-    from torchflows.bijections.finite.autoregressive.architectures import RealNVP, CouplingRQNSF
-    from torchflows.bijections.finite.residual.architectures import ResFlow
-    from torchflows.bijections.continuous.ffjord import FFJORD
+    from torchflows.bijections.finite.autoregressive import RealNVP, CouplingRQNSF
+    from torchflows.bijections.finite.residual import ResFlow
 
     torch.manual_seed(0)
     event_shape = (10,)
-    bijection = BijectiveComposition(
-        event_shape,
-        [
-            RealNVP(event_shape),
-            CouplingRQNSF(event_shape),
-            FFJORD(event_shape),
-            ResFlow(event_shape)
-        ]
-    )
+    bijection = BijectiveComposition([
+        RealNVP(event_shape),
+        CouplingRQNSF(event_shape),
+        ResFlow(event_shape)
+    ])
     flow = Flow(bijection)
 
     x_new = flow.sample((10,))
     log_prob = flow.log_prob(x_new)
+
+.. note::
+
+    Continuous bijections (FFJORD, RNODE, OT-Flow, DDNF) should be wrapped with :class:`~torchflows.flows.ContinuousFlow` instead of being composed with finite bijections.
+    See :doc:`continuous_flows`.

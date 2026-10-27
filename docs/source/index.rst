@@ -1,8 +1,3 @@
-.. Torchflows documentation master file, created by
-   sphinx-quickstart on Tue Aug 13 19:59:47 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Torchflows documentation
 ========================
 
@@ -12,7 +7,7 @@ It implements many normalizing flow architectures and their building blocks for:
 * easy use of normalizing flows as trainable distributions;
 * easy implementation of new normalizing flows.
 
-Torchflows is structured according to the review paper `Normalizing Flows for Probabilistic Modeling and Inference <(https://arxiv.org/abs/1912.02762)>`_ by Papamakarios et al. (2021), which classifies flow architectures as autoregressive, residual, or continuous.
+Torchflows is structured according to the review paper `Normalizing Flows for Probabilistic Modeling and Inference <https://arxiv.org/abs/1912.02762>`_ by Papamakarios et al. (2021), which classifies flow architectures as autoregressive, residual, or continuous.
 Visit the `Github page <https://github.com/davidnabergoj/torchflows>`_ to keep up to date and post any questions or issues `here <https://github.com/davidnabergoj/torchflows/issues>`_.
 
 Installing
@@ -24,6 +19,24 @@ Torchflows can be installed easily using pip:
    pip install torchflows
 
 For other install options, see the :ref:`install <installing>` section.
+
+Quick example
+---------------
+
+.. code-block:: python
+
+    import torch
+    from torchflows.flows import Flow
+    from torchflows.bijections.finite.autoregressive import RealNVP
+
+    torch.manual_seed(0)
+    x_train = torch.randn(size=(1000, 3))  # 1000 three-dimensional data points
+
+    flow = Flow(RealNVP(event_shape=(3,)))
+    flow.fit(x_train, show_progress=True)
+
+    x_new = flow.sample(50)  # (50, 3)
+    log_prob = flow.log_prob(x_train)  # (1000,)
 
 Table of contents
 ----------------------------
@@ -37,4 +50,3 @@ Table of contents
     architectures/general_modeling
     architectures/image_modeling
     developer_reference/index
-

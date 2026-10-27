@@ -58,9 +58,9 @@ class HutchinsonTimeDerivative(TimeDerivative):
                  **kwargs):
         """HutchinsonTimeDerivative constructor.
 
-        Note: the attribute _last_used_noise hold the last used noise samples for trace estimation.
-        This can be useful when we want forward and inverse CNF maps to stay identical, e.g., in reconstruction accuracy 
-            testing or exact target-latent transformations.
+        Note: with ``reuse_noise=True``, the same noise samples are used for trace estimation in every call.
+        This keeps forward and inverse CNF maps consistent, e.g., in reconstruction accuracy testing or exact
+        target-latent transformations.
 
         :param TimeDerivativeModule forward_model: module that receives as input a time tensor with shape `()` and space tensor 
             with shape `(batch_size, event_size)`, and outputs a time derivative of the space tensor with shape 

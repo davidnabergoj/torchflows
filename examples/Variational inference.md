@@ -1,3 +1,5 @@
+# Variational inference
+
 We show how to fit normalizing flows using stochastic variational inference (SVI). Whereas traditional maximum
 likelihood estimation requires a fixed dataset of samples, SVI lets us optimize NF parameters with the unnormalized
 target log density function.
@@ -16,14 +18,14 @@ true_variance = torch.full(size=event_shape, fill_value=9.0)
 
 
 def target_log_prob(x: torch.Tensor):
-    return torch.sum(-((x - true_mean) ** 2 / (2 * true_variance)), dim=1)
+    return torch.sum(-((x - true_mean) ** 2 / (2 * true_variance)), dim=-1)
 ```
 
 We define the flow and run the variational fit:
 
 ```python
-from torchflows import Flow
-from torchflows.bijections import RealNVP
+from torchflows.flows import Flow
+from torchflows.bijections.finite.autoregressive import RealNVP
 
 torch.manual_seed(0)
 flow = Flow(RealNVP(event_shape=event_shape))
@@ -35,7 +37,7 @@ We plot samples from the trained flow. We also print estimated marginal means an
 import matplotlib.pyplot as plt
 
 torch.manual_seed(0)
-x_flow = flow.sample(10000).detach()
+x_flow = flow.sample(10000, no_grad=True)
 
 plt.figure()
 plt.scatter(x_flow[:, 0], x_flow[:, 1])

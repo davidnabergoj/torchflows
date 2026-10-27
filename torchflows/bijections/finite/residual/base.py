@@ -33,8 +33,9 @@ class ClassicResidualBijection(Bijection):
             return torch.tensor(0.0)
 
 class IterativeResidualBijection(Bijection):
-    """
-    g maps from (*batch_shape, *event_shape) to (*batch_shape, *event_shape)
+    """Iterative residual bijection ``z = x + g(x)``.
+
+    The function g maps from ``(*batch_shape, *event_shape)`` to ``(*batch_shape, *event_shape)``.
     """
 
     def __init__(self, 
