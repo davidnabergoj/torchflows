@@ -1,9 +1,10 @@
 .idea
 dist
-docs
+docs/build
 **/*.pyc
 **/__pycache__
 .vscode
 torchflows.egg-info
 uv.lock
 torchflows/_version.py
+CLAUDE.md

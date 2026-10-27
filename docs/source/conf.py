@@ -10,13 +10,27 @@ import os
 
 sys.path.insert(0, os.path.abspath('../../'))
 
-with open("../DOCS_VERSION", 'r') as f:
-    version = f.read().strip()
+
+def _get_version():
+    # The package version is derived from git tags by setuptools-scm
+    try:
+        from importlib.metadata import version as package_version
+        return package_version('torchflows')
+    except Exception:
+        pass
+    try:
+        from setuptools_scm import get_version
+        return get_version(root='../..', relative_to=__file__)
+    except Exception:
+        return 'unknown'
+
+
+release = _get_version()
+version = '.'.join(release.split('.')[:2])
 
 project = 'Torchflows'
-copyright = '2024, David Nabergoj'
+copyright = '2024-2026, David Nabergoj'
 author = 'David Nabergoj'
-release = f'{version}'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

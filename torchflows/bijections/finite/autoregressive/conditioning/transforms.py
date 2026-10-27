@@ -11,12 +11,13 @@ from torchflows.utils import get_batch_shape
 class ConditionerTransform(nn.Module):
     """
     Module which predicts transformer parameters for the transformation of a tensor y using an input tensor x and
-     possibly a corresponding context tensor c.
+    possibly a corresponding context tensor c.
 
-    In other words, a conditioner transform f predicts theta = f(x, c) to be used in transformer g with z = g(y; theta).
+    In other words, a conditioner transform f predicts ``theta = f(x, c)`` to be used in transformer g with
+    ``z = g(y; theta)``.
     The transformation g is performed elementwise on tensor y.
-    Since g transforms each element of y with a parameter tensor of shape (n_transformer_parameters,),
-     the shape of theta is (*y.shape, n_transformer_parameters).
+    Since g transforms each element of y with a parameter tensor of shape ``(n_transformer_parameters,)``,
+    the shape of theta is ``(*y.shape, n_transformer_parameters)``.
     """
 
     def __init__(self,

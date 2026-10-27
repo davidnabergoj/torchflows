@@ -2,7 +2,7 @@ Numerical stability
 =============================
 
 We may require a bijection to be very numerically precise when transforming data between original and latent spaces.
-Given data `x`, bijection `b`, and tolerance `epsilon`, we may want:
+Given data ``x``, bijection ``b``, and tolerance ``epsilon``, we may want:
 
 .. code-block:: python
 
@@ -10,7 +10,7 @@ Given data `x`, bijection `b`, and tolerance `epsilon`, we may want:
     x_reconstructed, log_det_inverse = b.inverse(z)
 
     assert torch.all(torch.abs(x_reconstructed - x) < epsilon)
-    assert torch.all(torch.abs(log_det_forward + log_det_inverse)) < epsilon)
+    assert torch.all(torch.abs(log_det_forward + log_det_inverse) < epsilon)
 
 
 All architecture presets in Torchflows (with a defined forward and inverse pass) are tested to reconstruct inputs and log determinants.
@@ -27,7 +27,7 @@ We can start by ensuring the input data is standardized:
 .. code-block:: python
 
     import torch
-    from torchflows.architectures import RealNVP
+    from torchflows.bijections.finite.autoregressive import RealNVP
 
     torch.manual_seed(0)
 
@@ -49,3 +49,38 @@ We can start by ensuring the input data is standardized:
     print_reconstruction_errors(real_nvp, x)
     print('-------------------------------------------------------')
     print_reconstruction_errors(real_nvp, x_standardized)
+
+Bijections are torch modules, so we can also switch to double precision:
+
+.. code-block:: python
+
+    real_nvp = real_nvp.double()
+    print_reconstruction_errors(real_nvp, x_standardized.double())
+
+Continuous normalizing flows
+--------------------------------
+
+For continuous bijections, the reconstruction error depends on the ODE solver and its tolerances ``atol`` and ``rtol``.
+Hutchinson trace estimation uses random noise, so forward and inverse log determinants only cancel exactly when the noise is reused.
+
+.. code-block:: python
+
+    import torch
+    from torchflows.bijections.continuous import FFJORD
+
+    torch.manual_seed(0)
+    x = torch.randn(size=(5, 3))
+
+    bijection = FFJORD(
+        event_shape=(3,),
+        solver='dopri5',
+        atol=1e-7,
+        rtol=1e-7,
+        time_derivative_kwargs={'reuse_noise': True}
+    )
+    bijection.eval()
+    z, log_det_forward = bijection.forward(x)
+    x_reconstructed, log_det_inverse = bijection.inverse(z)
+
+    print(f'Data reconstruction error: {torch.max(torch.abs(x - x_reconstructed)):.8f}')
+    print(f'Log determinant error: {torch.max(torch.abs(log_det_forward + log_det_inverse)):.8f}')

@@ -94,7 +94,7 @@ class TimeDerivative(nn.Module):
              *aux: Tuple[torch.Tensor, ...]) -> Tuple[torch.Tensor, ...]:
         """Perform one ODE step: compute dx/dt and the corresponding divergence.
 
-        TODO double check input and output shapes (event_size vs *event_shape).
+        TODO double check input and output shapes (``event_size`` vs ``*event_shape``).
 
         :param torch.Tensor t: time tensor with shape `()`.
         :param torch.Tensor x: spatial tensor with shape `(batch_size, event_size)`.
