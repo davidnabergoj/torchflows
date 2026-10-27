@@ -7,3 +7,4 @@ docs
 torchflows.egg-info
 uv.lock
 torchflows/_version.py
+CLAUDE.md
