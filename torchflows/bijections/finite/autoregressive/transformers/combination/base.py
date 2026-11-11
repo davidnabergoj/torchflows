@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from typing import Tuple, List, Union
 
 from torchflows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
@@ -6,9 +7,20 @@ from torchflows.utils import get_batch_shape
 
 
 class Combination(ScalarTransformer):
+    """
+    Composition of scalar transformers.
+
+    The forward pass applies components in order. Parameters are concatenated along the last dimension
+    as [c1, c2, ..., ck], one parameter vector per component.
+    """
+
     def __init__(self, event_shape: torch.Size, components: List[ScalarTransformer]):
+        """
+        :param torch.Size event_shape: shape of the event tensor.
+        :param List[ScalarTransformer] components: transformers to compose, in forward order.
+        """
         super().__init__(event_shape)
-        self.components = components
+        self.components = nn.ModuleList(components)
         self.n_components = len(self.components)
 
     @property
@@ -17,7 +29,7 @@ class Combination(ScalarTransformer):
 
     @property
     def default_parameters(self) -> torch.Tensor:
-        return torch.cat([c.default_parameters.ravel() for c in self.components], dim=0)
+        return torch.cat([c.default_parameters for c in self.components], dim=-1)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # h.shape = (*batch_size, *event_shape, n_components * n_output_parameters)

@@ -4,12 +4,83 @@ from typing import Tuple, Union
 import torch
 
 from torchflows.bijections.finite.autoregressive.transformers.base import ScalarTransformer
+from torchflows.bijections.finite.autoregressive.transformers.combination.base import Combination
 from torchflows.utils import get_batch_shape, sum_except_batch
 
 
-class Affine(ScalarTransformer):
+class Shift(ScalarTransformer):
+    def __init__(self, event_shape: torch.Size, **kwargs):
+        super().__init__(event_shape=event_shape)
+
+    @property
+    def parameter_shape_per_element(self):
+        return (1,)
+
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        return torch.zeros(self.parameter_shape)
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        beta = h[..., 0]
+        batch_shape = get_batch_shape(x, self.event_shape)
+        log_det = torch.zeros(batch_shape, device=x.device)
+        return x + beta, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        beta = h[..., 0]
+        batch_shape = get_batch_shape(z, self.event_shape)
+        log_det = torch.zeros(batch_shape, device=z.device)
+        return z - beta, log_det
+
+
+class Scale(ScalarTransformer):
     """
-    Affine transformer.
+    Scaling transformer.
+
+    Computes z = alpha * x, where alpha > 0.
+    We use a minimum permitted scale m, 0 < m < 1, for numerical stability
+    """
+
+    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-10):
+        super().__init__(event_shape=event_shape)
+        self.m = min_scale
+        self.const = 2.0
+        self.u_alpha_1 = math.log(1 - self.m)
+
+    @property
+    def parameter_shape_per_element(self):
+        return (1,)
+
+    @property
+    def default_parameters(self) -> torch.Tensor:
+        return torch.zeros(self.parameter_shape)
+
+    def unconstrain_alpha(self, a):
+        return self.const * (torch.log(a - self.m) - self.u_alpha_1)
+
+    def constrain_alpha(self, u):
+        return torch.exp(self.u_alpha_1 + u / self.const) + self.m
+
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        u_alpha = h[..., 0]
+        alpha = self.constrain_alpha(u_alpha)
+        log_alpha = torch.log(alpha)
+
+        log_det = sum_except_batch(log_alpha, self.event_shape)
+        return alpha * x, log_det
+
+    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        u_alpha = h[..., 0]
+        alpha = self.constrain_alpha(u_alpha)
+        log_alpha = torch.log(alpha)
+
+        log_det = -sum_except_batch(log_alpha, self.event_shape)
+        return z / alpha, log_det
+
+
+class Affine(Combination):
+    """
+    Affine transformer, composed of a scale transformer followed by a shift transformer.
 
     Computes z = alpha * x + beta, where alpha > 0 and -inf < beta < inf.
     Alpha and beta have the same shape as x, i.e. the computation is performed elementwise.
@@ -17,46 +88,29 @@ class Affine(ScalarTransformer):
     """
 
     def __init__(self, event_shape: torch.Size, min_scale: float = 1e-10):
-        super().__init__(event_shape=event_shape)
-        self.m = min_scale
-        self.identity_unconstrained_alpha = math.log(1 - self.m)
-        self.const = 2
+        """
+        :param torch.Size event_shape: shape of the event tensor.
+        :param float min_scale: minimum permitted scale.
+        """
+        super().__init__(event_shape, [Scale(event_shape, min_scale=min_scale), Shift(event_shape)])
 
     @property
-    def parameter_shape_per_element(self):
-        return (2,)
+    def scale(self) -> Scale:
+        return self.components[0]
 
     @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(self.parameter_shape)
+    def shift(self) -> Shift:
+        return self.components[1]
+
+    @property
+    def m(self) -> float:
+        return self.scale.m
 
     def constrain_scale(self, unconstrained_scale: torch.Tensor) -> torch.Tensor:
-        return torch.exp(self.identity_unconstrained_alpha + unconstrained_scale / self.const) + self.m
+        return self.scale.constrain_alpha(unconstrained_scale)
 
     def unconstrain_scale(self, scale: torch.Tensor) -> torch.Tensor:
-        return (torch.log(scale - self.m) - self.identity_unconstrained_alpha) * self.const
-
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        u_alpha = h[..., 0]
-        alpha = self.constrain_scale(u_alpha)
-        log_alpha = torch.log(alpha)
-
-        u_beta = h[..., 1]
-        beta = u_beta
-
-        log_det = sum_except_batch(log_alpha, self.event_shape)
-        return alpha * x + beta, log_det
-
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        u_alpha = h[..., 0]
-        alpha = self.constrain_scale(u_alpha)
-        log_alpha = torch.log(alpha)
-
-        u_beta = h[..., 1]
-        beta = u_beta
-
-        log_det = -sum_except_batch(log_alpha, self.event_shape)
-        return (z - beta) / alpha, log_det
+        return self.scale.unconstrain_alpha(scale)
 
 
 class InverseAffine(Affine):
@@ -132,73 +186,3 @@ class Affine2(ScalarTransformer):
         alpha, beta = self.compute_scale_and_shift(h)
         log_det = -sum_except_batch(torch.log(alpha), self.event_shape)
         return (z - beta) / alpha, log_det
-
-
-class Shift(ScalarTransformer):
-    def __init__(self, event_shape: torch.Size, **kwargs):
-        super().__init__(event_shape=event_shape)
-
-    @property
-    def parameter_shape_per_element(self):
-        return (1,)
-
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(self.parameter_shape)
-
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        beta = h[..., 0]
-        batch_shape = get_batch_shape(x, self.event_shape)
-        log_det = torch.zeros(batch_shape, device=x.device)
-        return x + beta, log_det
-
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        beta = h[..., 0]
-        batch_shape = get_batch_shape(z, self.event_shape)
-        log_det = torch.zeros(batch_shape, device=z.device)
-        return z - beta, log_det
-
-
-class Scale(ScalarTransformer):
-    """
-    Scaling transformer.
-
-    Computes z = alpha * x, where alpha > 0.
-    We use a minimum permitted scale m, 0 < m < 1, for numerical stability
-    """
-
-    def __init__(self, event_shape: torch.Size, min_scale: float = 1e-10):
-        super().__init__(event_shape=event_shape)
-        self.m = min_scale
-        self.const = 2.0
-        self.u_alpha_1 = math.log(1 - self.m)
-
-    @property
-    def parameter_shape_per_element(self):
-        return (1,)
-
-    @property
-    def default_parameters(self) -> torch.Tensor:
-        return torch.zeros(self.parameter_shape)
-
-    def unconstrain_alpha(self, a):
-        return self.const * (torch.log(a - self.m) - self.u_alpha_1)
-
-    def constrain_alpha(self, u):
-        return torch.exp(self.u_alpha_1 + u / self.const) + self.m
-
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        u_alpha = h[..., 0]
-        alpha = self.constrain_alpha(u_alpha)
-        log_alpha = torch.log(alpha)
-
-        log_det = sum_except_batch(log_alpha, self.event_shape)
-        return alpha * x, log_det
-
-    def inverse(self, z: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        u_alpha = h[..., 0]
-        alpha = self.constrain_alpha(u_alpha)
-        log_alpha = torch.log(alpha)
-
-        log_det = -sum_except_batch(log_alpha, self.event_shape)
-        return z / alpha, log_det
