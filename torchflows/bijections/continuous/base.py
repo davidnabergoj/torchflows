@@ -126,11 +126,13 @@ class HutchinsonTimeDerivative(TimeDerivative):
             raise ValueError(f"Expected dxdt and x to have equal shapes, but got {dxdt.shape = }, {x.shape = }")
 
         if self.reuse_noise:
-            if self._reusable_noise is None or self._reusable_noise.shape[1:] != x.shape:
-                self._reusable_noise = torch.randn(size=(self.n_noise_samples, *x.shape))
+            if (self._reusable_noise is None
+                    or self._reusable_noise.shape[1:] != x.shape
+                    or self._reusable_noise.device != x.device):
+                self._reusable_noise = torch.randn(size=(self.n_noise_samples, *x.shape), device=x.device)
             noise = self._reusable_noise
         else:
-            noise = torch.randn(size=(self.n_noise_samples, *x.shape))
+            noise = torch.randn(size=(self.n_noise_samples, *x.shape), device=x.device)
 
         noise_tuple = tuple([e for e in noise])
 
