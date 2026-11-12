@@ -239,5 +239,5 @@ class BijectiveComposition(Bijection):
         """
         total = torch.tensor(0.0)
         for i in range(len(self.layers)):
-            total += self.layers[i].regularization()
+            total = total + self.layers[i].regularization()
         return total
